@@ -105,9 +105,9 @@ The STL from `plan_extrude` is a 3D mesh of the floor plan. Import into Resonite
 | Item | Value |
 |------|-------|
 | **Repo** | `D:\Dev\repos\qcad-mcp` |
-| **Ports** | Backend 10950, Frontend 10951 |
+| **Ports** | Backend 10966, Frontend 10967 |
 | **DXF engine** | `ezdxf` (MIT, free) |
-| **Optional** | QCAD Pro CLI (€50, for DWG/PDF) |
+| **Optional** | QCAD Pro CLI (€50.40, for DWG/PDF) |
 
 ---
 
