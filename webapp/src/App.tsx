@@ -5,7 +5,9 @@ import DepotPage from "./pages/DepotPage";
 import ViewerPage from "./pages/ViewerPage";
 import ExtrudePage from "./pages/ExtrudePage";
 import AnalysePage from "./pages/AnalysePage";
+import BatchPage from "./pages/BatchPage";
 import BlocksPage from "./pages/BlocksPage";
+import LayersPage from "./pages/LayersPage";
 import ModelsPage from "./pages/ModelsPage";
 import LogsPage from "./pages/LogsPage";
 import SettingsPage from "./pages/SettingsPage";
@@ -21,6 +23,8 @@ export default function App() {
         <Route path="/extrude" element={<ExtrudePage />} />
         <Route path="/analyse" element={<AnalysePage />} />
         <Route path="/blocks" element={<BlocksPage />} />
+        <Route path="/layers" element={<LayersPage />} />
+        <Route path="/batch" element={<BatchPage />} />
         <Route path="/models" element={<ModelsPage />} />
         <Route path="/logs" element={<LogsPage />} />
         <Route path="/settings" element={<SettingsPage />} />

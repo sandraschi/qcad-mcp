@@ -1,11 +1,11 @@
 """
-FastMCP 3.2 Unified Gateway for QCAD DXF/DWG operations.
+FastMCP 3.2 Unified Gateway for QCAD DXF/DWG operations with DWG support and plan_modify.
 
 Architecture:
-  DXF/DWG file → ezdxf parser → JSON entities → SVG preview / STL extrusion / room analysis.
+  DXF/DWG file → ezdxf parser → JSON entities → SVG preview / STL extrusion / room analysis / layer modify.
 
 The server uses ezdxf (pure Python, MIT) for DXF parsing. No external CAD binary required.
-QCAD Pro CLI integration (dwg2pdf, dwg2svg) is optional and auto-detected.
+QCAD Pro CLI integration (dwg2pdf, dwg2svg, DWG↔DXF conversion) is optional and auto-detected.
 """
 
 import asyncio
@@ -154,6 +154,15 @@ def _load_dxf(file_name: str):
     if not os.path.isfile(path):
         return None, f"File '{file_name}' not found in depot."
 
+    # Auto-convert DWG to temp DXF
+    if _is_dwg(file_name):
+        if not _qcad_pro_available():
+            return None, "DWG files require QCAD Pro. Set QCAD_PRO_PATH or convert to DXF first."
+        dxf_path = os.path.join(OUTPUT_DIR, Path(file_name).stem + "_converted.dxf")
+        if not _qcad_pro_convert(path, dxf_path, "DXF"):
+            return None, "QCAD Pro DWG→DXF conversion failed."
+        path = dxf_path
+
     try:
         doc = ezdxf.readfile(path)
         return doc, None
@@ -197,6 +206,41 @@ def _doc_to_info(doc) -> dict:
         "bounding_box": bbox,
         "dxf_version": doc.dxfversion,
     }
+
+
+def _is_dwg(file_name: str) -> bool:
+    return Path(file_name).suffix.lower() == ".dwg"
+
+
+def _qcad_pro_available() -> bool:
+    path = os.environ.get("QCAD_PRO_PATH", os.path.join(os.environ.get("PROGRAMFILES", "C:\\Program Files"), "QCAD", "qcad.exe"))
+    return os.path.isfile(path) or os.path.isfile(path + ".exe")
+
+
+def _qcad_pro_convert(input_path: str, output_path: str, fmt: str = "DXF") -> bool:
+    """Convert DWG↔DXF using QCAD Pro CLI. Returns True on success."""
+    import subprocess
+    path = QCAD_PRO_PATH if os.path.isfile(QCAD_PRO_PATH) else QCAD_PRO_PATH + ".exe"
+    try:
+        r = subprocess.run([path, "-no-gui", f"-export-{fmt.lower()}", output_path, input_path],
+                          capture_output=True, text=True, timeout=60)
+        return r.returncode == 0 and os.path.isfile(output_path)
+    except Exception as e:
+        logger.warning("QCAD Pro convert failed: %s", e)
+        return False
+
+
+def _ensure_dxf(file_name: str) -> tuple[str | None, str | None]:
+    """If DWG, convert to temp DXF. Returns (dxf_path_or_original, error)."""
+    if not _is_dwg(file_name):
+        return os.path.join(DEPOT_DIR, file_name), None
+    if not _qcad_pro_available():
+        return None, "DWG files require QCAD Pro. Set QCAD_PRO_PATH or convert to DXF first."
+    dwg_path = os.path.join(DEPOT_DIR, file_name)
+    dxf_path = os.path.join(OUTPUT_DIR, Path(file_name).stem + "_converted.dxf")
+    if _qcad_pro_convert(dwg_path, dxf_path, "DXF"):
+        return dxf_path, None
+    return None, "QCAD Pro conversion failed. Check the file or QCAD installation."
 
 
 # ── MCP Tools ────────────────────────────────────────────────────────────────
@@ -425,7 +469,7 @@ async def plan_export(
         in_path = os.path.join(DEPOT_DIR, file_name)
         if os.path.isfile(in_path):
             try:
-                proc = subprocess.run(  # noqa: S603
+                proc = subprocess.run(
                     [qcad_path, "-no-gui", "-autostart", "scripts/Pro/Tools/Dwg2Pdf/Dwg2Pdf.js",
                      "-o", out_path, in_path],
                     capture_output=True, text=True, timeout=120,
@@ -648,6 +692,180 @@ async def plan_depot() -> dict:
     await plan_depot()
     """
     return {"success": True, "data": {"files": _depot_list()}}
+
+
+@mcp.tool()
+async def plan_convert(
+    file_name: Annotated[str, Field(description="DWG or DXF filename in the depot.")],
+    output_name: Annotated[str, Field(description="Output filename. Must end in .dxf or .dwg.")] = "",
+) -> dict:
+    """Convert a CAD file between DWG and DXF formats using QCAD Pro CLI.
+
+    Requires QCAD Pro installed at QCAD_PRO_PATH. The converted file is saved
+    to the depot and immediately available for other tools.
+
+    ## Return Format
+    {"success": bool, "filename": str, "format": str}
+
+    ## Examples
+    await plan_convert(file_name="floorplan.dwg", output_name="floorplan.dxf")
+    """
+    ext = Path(file_name).suffix.lower()
+    out_ext = Path(output_name).suffix.lower() if output_name else ".dxf"
+    if ext not in (".dxf", ".dwg") or out_ext not in (".dxf", ".dwg"):
+        return {"success": False, "error": "Input and output must be .dxf or .dwg"}
+
+    if not _qcad_pro_available():
+        return {"success": False, "error": "QCAD Pro CLI required for DWG/DXF conversion. Set QCAD_PRO_PATH."}
+
+    src = os.path.join(DEPOT_DIR, file_name)
+    if not os.path.isfile(src):
+        return {"success": False, "error": f"File not found: {file_name}"}
+
+    out_name = output_name or Path(file_name).stem + out_ext
+    dst = os.path.join(DEPOT_DIR, out_name)
+    fmt = "DWG" if out_ext == ".dwg" else "DXF"
+
+    if _qcad_pro_convert(src, dst, fmt):
+        _ensure_meta(out_name)
+        return {"success": True, "filename": out_name, "format": fmt}
+    return {"success": False, "error": f"QCAD Pro conversion to {fmt} failed."}
+
+
+_ENTITY_TYPES_HELP = "line: {'type':'line','layer':'Walls','x1':0,'y1':0,'x2':100,'y2':100}. rect: {'type':'rect','x':0,'y':0,'w':100,'h':80,'layer':'Walls'}. circle: {'type':'circle','cx':50,'cy':50,'r':20,'layer':'Columns'}"
+
+
+@mcp.tool()
+async def plan_modify(
+    file_name: Annotated[str, Field(description="DXF or DWG filename in the depot.")],
+    operations: Annotated[list[dict], Field(description="""List of modification operations. Each operation has:
+- op: "delete" (delete matching entities by layer/type),
+       "offset" (offset lines/polylines by distance),
+       "layer-set-color" (set layer colour),
+       "layer-rename" (rename layer),
+       "layer-freeze" / "layer-thaw",
+       "layer-lock" / "layer-unlock",
+       "merge-layers" (combine two layers: {op:"merge-layers", source:"LayerA", target:"LayerB"})
+- type_filter: optional DXF type filter (e.g. "LINE", "CIRCLE", "TEXT")
+- layer_filter: optional layer name filter
+""")],
+) -> dict:
+    """Modify entities and layers in a DXF/DWG file.
+
+    Operations are applied in order. The file is saved back to the depot.
+
+    ## Return Format
+    {"success": bool, "operations": int, "summary": [str, ...]}
+
+    ## Examples
+    await plan_modify(file_name="plan.dxf", operations=[{"op": "layer-set-color", "layer_filter": "Walls", "color": 7}])
+
+## Examples
+    await plan_modify(file_name="plan.dxf", operations=[{"op": "delete", "type_filter": "TEXT"}])
+    """
+    doc, err = _load_dxf(file_name)
+    if doc is None:
+        return {"success": False, "error": err}
+
+    msp = doc.modelspace()
+    summary = []
+
+    for i, op in enumerate(operations):
+        op_type = op.get("op", "")
+        type_filter = op.get("type_filter", "")
+        layer_filter = op.get("layer_filter", "")
+
+        # Resolve entities to act on
+        if op_type in ("delete", "offset"):
+            targets = list(msp)
+            if type_filter:
+                targets = [e for e in targets if e.dxftype() == type_filter]
+            if layer_filter:
+                targets = [e for e in targets if e.dxf.layer == layer_filter]
+
+        try:
+            if op_type == "delete":
+                for e in targets:
+                    msp.delete_entity(e)
+                summary.append(f"Deleted {len(targets)} entities")
+
+            elif op_type == "offset":
+                dist = op.get("distance", 0)
+                for e in targets:
+                    if hasattr(e, "offset_curve"):
+                        try:
+                            e.offset_curve(dist)
+                        except Exception:
+                            pass
+                summary.append(f"Offset {len(targets)} entities by {dist}")
+
+            elif op_type == "layer-set-color":
+                color = op.get("color", 7)
+                for layer in doc.layers:
+                    if not layer_filter or layer.dxf.name == layer_filter:
+                        layer.dxf.color = color
+                summary.append(f"Set colour to {color}" + (f" on layer '{layer_filter}'" if layer_filter else ""))
+
+            elif op_type == "layer-rename":
+                old = op.get("old_name", "")
+                new = op.get("new_name", "")
+                if old and new:
+                    for layer in doc.layers:
+                        if layer.dxf.name == old:
+                            layer.dxf.name = new
+                            summary.append(f"Renamed layer '{old}' → '{new}'")
+                else:
+                    summary.append("layer-rename requires old_name and new_name")
+
+            elif op_type in ("layer-freeze", "layer-thaw"):
+                freeze = op_type == "layer-freeze"
+                for layer in doc.layers:
+                    if not layer_filter or layer.dxf.name == layer_filter:
+                        try:
+                            if hasattr(layer, "is_frozen"):
+                                layer.is_frozen = freeze
+                        except Exception:
+                            pass
+                summary.append(f"{'Froze' if freeze else 'Thawed'} layer '{layer_filter or 'all'} '")
+
+            elif op_type == "layer-lock" or op_type == "layer-unlock":
+                lock = op_type == "layer-lock"
+                for layer in doc.layers:
+                    if not layer_filter or layer.dxf.name == layer_filter:
+                        try:
+                            if hasattr(layer, "is_locked"):
+                                layer.is_locked = lock
+                        except Exception:
+                            pass
+                summary.append(f"{'Locked' if lock else 'Unlocked'} layer '{layer_filter or 'all'} '")
+
+            elif op_type == "merge-layers":
+                src = op.get("source", "")
+                tgt = op.get("target", "")
+                if src and tgt:
+                    for e in list(msp):
+                        if e.dxf.layer == src:
+                            e.dxf.layer = tgt
+                    try:
+                        doc.layers.remove(src)
+                    except Exception:
+                        pass
+                    summary.append(f"Merged layer '{src}' → '{tgt}'")
+                else:
+                    summary.append("merge-layers requires source and target")
+
+            else:
+                summary.append(f"Unknown operation: {op_type}")
+
+        except Exception as e:
+            summary.append(f"Operation {i} ({op_type}) failed: {e}")
+
+    # Save back
+    try:
+        doc.saveas(os.path.join(DEPOT_DIR, file_name))
+        return {"success": True, "operations": len(operations), "summary": summary}
+    except Exception as e:
+        return {"success": False, "error": f"Failed to save: {e}"}
 
 
 # ── CAD Block Search ──────────────────────────────────────────────────────────
@@ -882,6 +1100,58 @@ async def blocks_download(body: dict):
     return result if result.get("success") else {"success": False, "error": result.get("error", "Download failed")}
 
 
+@app.post("/api/v1/batch")
+async def batch_run(body: dict):
+    """Run an MCP tool on all DXF/DWG files in the depot.
+
+    Body: {"tool": "plan_info", "args": {}}  # args are extended per file
+    Returns: {"results": [{"file": ..., "success": bool, "data": ...}]}
+    """
+    tool_name = body.get("tool", "")
+    args = body.get("args", {})
+    tool_map = {
+        "plan_info": plan_info,
+        "plan_analyse": plan_analyse,
+    }
+    if tool_name not in tool_map:
+        raise HTTPException(400, f"Batch tool must be one of: {list(tool_map.keys())}")
+
+    ext_ok = {".dxf", ".dwg"}
+    files = [f for f in _depot_list() if Path(f["name"]).suffix.lower() in ext_ok]
+    if not files:
+        raise HTTPException(404, "No DXF/DWG files found in depot")
+
+    results = []
+    for f in files:
+        fn = f["name"]
+        try:
+            r = await tool_map[tool_name](file_name=fn, **args)
+            results.append({"file": fn, "success": r.get("success", False), "data": r.get("data", {}), "error": r.get("error")})
+        except Exception as e:
+            results.append({"file": fn, "success": False, "error": str(e)})
+
+    return {"tool": tool_name, "total": len(files), "success_count": sum(1 for r in results if r["success"]), "results": results}
+
+
+@app.get("/api/v1/layers/{filename}")
+async def get_layers(filename: str):
+    """Get layers for a DXF/DWG file."""
+    doc, err = _load_dxf(filename)
+    if doc is None:
+        raise HTTPException(404, err)
+    info = _doc_to_info(doc)
+    return {"success": True, "filename": filename, "layers": info["layers"], "dxf_version": info["dxf_version"]}
+
+
+@app.post("/api/v1/layers/{filename}")
+async def update_layers(filename: str, body: dict):
+    """Modify layers on a file."""
+    result = await plan_modify(file_name=filename, operations=body.get("operations", []))
+    if not result.get("success"):
+        raise HTTPException(500, result.get("error", "Layer operation failed"))
+    return result
+
+
 # ── REST Endpoints — Depot CRUD ─────────────────────────────────────────────
 
 
@@ -1011,7 +1281,7 @@ async def list_files():
 
 
 class ToolRequest(BaseModel):
-    tool: str = Field(description="Tool name: plan_info, plan_to_svg, plan_extrude, plan_export, plan_analyse, plan_create, plan_depot")
+    tool: str = Field(description="Tool name: plan_info, plan_to_svg, plan_extrude, plan_export, plan_analyse, plan_create, plan_depot, plan_convert, plan_modify")
     arguments: dict = Field(default_factory=dict, description="Tool arguments as a dict")
 
 
@@ -1034,6 +1304,10 @@ async def execute_tool(req: ToolRequest):
         return await plan_create(filename=args.get("filename", ""), entities=args.get("entities", []), layers=args.get("layers"), description=args.get("description", ""))
     elif t == "plan_depot":
         return await plan_depot()
+    elif t == "plan_convert":
+        return await plan_convert(file_name=args.get("file_name", ""), output_name=args.get("output_name", ""))
+    elif t == "plan_modify":
+        return await plan_modify(file_name=args.get("file_name", ""), operations=args.get("operations", []))
     else:
         raise HTTPException(400, f"Unknown tool: {t}")
 

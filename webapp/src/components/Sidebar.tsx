@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Box, Layers, Ruler, FileText, BarChart3, Logs, Settings, HelpCircle, LayoutDashboard, Database, Grid3X3 } from "lucide-react";
+import { Box, Layers, Ruler, FileText, BarChart3, Logs, Settings, HelpCircle, LayoutDashboard, Database, Grid3X3, SlidersHorizontal, Play } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 const navItems = [
@@ -8,7 +8,9 @@ const navItems = [
   { path: "/viewer", label: "Viewer", icon: Layers },
   { path: "/extrude", label: "Extrude", icon: Box },
   { path: "/analyse", label: "Analyse", icon: BarChart3 },
+  { path: "/layers", label: "Layers", icon: SlidersHorizontal },
   { path: "/blocks", label: "Blocks", icon: Grid3X3 },
+  { path: "/batch", label: "Batch", icon: Play },
   { path: "/models", label: "Models", icon: FileText },
   { path: "/logs", label: "Logs", icon: Logs },
   { path: "/settings", label: "Settings", icon: Settings },
