@@ -21,6 +21,7 @@ from typing import Annotated
 
 import httpx
 import uvicorn
+from bs4 import BeautifulSoup
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
@@ -689,7 +690,6 @@ async def _search_cadblocksfree(query: str, category: str, limit: int) -> list[d
     try:
         async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
             r = await client.get(url, headers=_BLOCK_HEADERS)
-            from bs4 import BeautifulSoup
             soup = BeautifulSoup(r.text, "html.parser")
             for article in soup.select("article.grid-item, div.portfolio-item, div.cad-item, li.grid-item")[:limit]:
                 title_el = article.select_one("h3 a, h2 a, .title a, a")
@@ -719,7 +719,6 @@ async def _search_biblocad(query: str, category: str, limit: int) -> list[dict]:
     try:
         async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
             r = await client.get(f"https://biblocad.com/search?q={query}", headers=_BLOCK_HEADERS)
-            from bs4 import BeautifulSoup
             soup = BeautifulSoup(r.text, "html.parser")
             for item in soup.select(".item, .result-item, .search-item, .block-item, tr")[:limit]:
                 title_el = item.select_one("a.title, a.name, h3 a, h2 a, td a")
@@ -857,9 +856,6 @@ async def plan_blocks_download(
     except Exception as e:
         logger.error("Block download error: %s", e)
         return {"success": False, "error": f"Download failed: {e}"}
-
-
-_BLOCK_SEARCH_CATEGORIES = [{"id": "", "label": "All"}] + [c for c in _BLOCK_CATEGORIES if c["id"]]
 
 
 @app.get("/api/v1/blocks/categories")

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Download, ExternalLink, Loader2, Grid3X3, Image, ChevronLeft, ChevronRight, Upload, CheckCircle } from "lucide-react";
+import { Search, Download, ExternalLink, Loader2, Grid3X3, Image, CheckCircle } from "lucide-react";
 
 interface BlockResult {
   title: string; source: string; url: string; image_url: string; category: string;
@@ -48,7 +48,10 @@ export default function BlocksPage() {
   useEffect(() => { search(); }, [source]);
 
   const downloadBlock = async (item: BlockResult) => {
-    if (!item.url) { window.open(item.url, "_blank"); return; }
+    if (!item.url) {
+      window.open("https://www.cadblocksfree.com/en/cad-blocks/", "_blank", "noopener");
+      return;
+    }
     setDownloading(item.title);
     try {
       const r = await fetch("/api/v1/blocks/download", {
@@ -62,8 +65,6 @@ export default function BlocksPage() {
     finally { setDownloading(null); }
   };
 
-  const sourceLabel = () => SOURCES.find(s => s.key === source)?.label || "";
-
   return (
     <div className="max-w-6xl space-y-6">
       <h1 className="text-2xl font-bold text-white flex items-center gap-3"><Grid3X3 className="text-amber-400" /> CAD Blocks</h1>
@@ -76,19 +77,21 @@ export default function BlocksPage() {
             >{s.label}</button>
           ))}
         </div>
+
         <div className="flex gap-2">
           <div className="flex-1 relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
             <input type="text" value={query} onChange={e => setQuery(e.target.value)}
               onKeyDown={e => e.key === "Enter" && search()}
-              placeholder={`Search ${sourceLabel()} for CAD blocks...`}
+              placeholder="Search CAD blocks..."
               className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
             />
           </div>
-          <button onClick={search} disabled={loading} className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-xl text-sm font-bold flex items-center gap-2">
-            {loading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />} Search
-          </button>
+          <button onClick={search} disabled={loading}
+            className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-xl text-sm font-bold flex items-center gap-2"
+          >{loading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />} Search</button>
         </div>
+
         {categories.length > 0 && (
           <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto">
             {categories.map(c => (
@@ -98,6 +101,7 @@ export default function BlocksPage() {
             ))}
           </div>
         )}
+
         {error && <p className="text-red-400 text-sm">{error}</p>}
       </div>
 

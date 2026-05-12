@@ -1198,7 +1198,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "beautifulsoup4", specifier = ">=4.14.3" },
+    { name = "beautifulsoup4", specifier = ">=4.14" },
     { name = "ezdxf", specifier = ">=1.0" },
     { name = "fastapi", specifier = ">=0.104" },
     { name = "fastmcp", specifier = ">=3.2.0" },
