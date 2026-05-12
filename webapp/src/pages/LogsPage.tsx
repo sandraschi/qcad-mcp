@@ -30,22 +30,22 @@ export default function LogsPage() {
     <div className="space-y-4 max-w-6xl mx-auto">
       <h1 className="text-2xl font-bold text-white flex items-center gap-3"><Activity className="text-emerald-500" /> Server Logs</h1>
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/10 bg-[#0f0f12] flex-1 min-w-[200px] max-w-sm">
-          <Filter size={14} className="text-slate-500 shrink-0" />
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/10 bg-[#1e1e26] flex-1 min-w-[200px] max-w-sm">
+          <Filter size={14} className="text-slate-300 shrink-0" />
           <input type="text" placeholder="Filter..." value={filter} onChange={(e) => setFilter(e.target.value)} className="bg-transparent text-sm text-slate-200 placeholder-slate-600 outline-none w-full" />
         </div>
-        <span className={`text-xs font-mono px-2.5 py-1.5 rounded-lg border ${sseState === "open" ? "border-emerald-500/30 text-emerald-400" : "border-red-500/30 text-red-400"}`}>SSE {sseState}</span>
-        <button onClick={() => setPaused((p) => !p)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/10 text-xs text-slate-300 hover:bg-white/5">{paused ? <Play size={12} /> : <Pause size={12} />} {paused ? "Tail" : "Pause"}</button>
-        <button onClick={() => { const b = new Blob([lines.join("\n")], { type: "text/plain" }); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "qcad-mcp.log"; a.click(); }} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-500/20 text-xs text-emerald-300 hover:bg-emerald-500/10"><Download size={12} /> Export</button>
-        <button onClick={() => setLines([])} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-red-500/20 text-xs text-red-300 hover:bg-red-500/10"><Trash2 size={12} /> Clear</button>
+        <span className={`text-sm font-mono px-2.5 py-1.5 rounded-lg border ${sseState === "open" ? "border-emerald-500/30 text-emerald-400" : "border-red-500/30 text-red-400"}`}>SSE {sseState}</span>
+        <button onClick={() => setPaused((p) => !p)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/10 text-sm text-slate-300 hover:bg-white/10">{paused ? <Play size={12} /> : <Pause size={12} />} {paused ? "Tail" : "Pause"}</button>
+        <button onClick={() => { const b = new Blob([lines.join("\n")], { type: "text/plain" }); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "qcad-mcp.log"; a.click(); }} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-500/20 text-sm text-emerald-300 hover:bg-emerald-500/10"><Download size={12} /> Export</button>
+        <button onClick={() => setLines([])} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-red-500/20 text-sm text-red-300 hover:bg-red-500/10"><Trash2 size={12} /> Clear</button>
       </div>
-      <div className="bg-[#0a0a0c] border border-white/5 rounded-xl overflow-hidden">
-        <div className="px-4 py-2 border-b border-white/5 flex items-center justify-between text-xs text-slate-500">
+      <div className="bg-[#0a0a0c] border border-white/10 rounded-xl overflow-hidden">
+        <div className="px-4 py-2 border-b border-white/10 flex items-center justify-between text-sm text-slate-300">
           <span className="flex items-center gap-2"><Circle size={6} className="fill-emerald-500 text-emerald-500" /> /api/v1/logs/stream</span>
           <span>{display.length} lines</span>
         </div>
         <div className="h-[60vh] overflow-y-auto p-4 font-mono text-sm text-slate-300 whitespace-pre-wrap break-all">
-          {display.length === 0 ? <span className="text-slate-600 italic">No log lines.</span> : display.map((l, i) => <div key={i} className="hover:bg-white/[0.02] py-px">{l}</div>)}
+          {display.length === 0 ? <span className="text-slate-400 italic">No log lines.</span> : display.map((l, i) => <div key={i} className="hover:bg-white/[0.02] py-px">{l}</div>)}
           <div ref={bottomRef} />
         </div>
       </div>

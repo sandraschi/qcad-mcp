@@ -40,39 +40,39 @@ export default function ModelsPage() {
         </button>
       </div>
       <div className="grid grid-cols-2 gap-6">
-        <div className="bg-[#0f0f12] border border-white/5 rounded-2xl p-4 space-y-2">
+        <div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-2">
           <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Uploads</h2>
           {loading ? (
             <Loader2 className="animate-spin" />
           ) : uploads.length === 0 ? (
-            <p className="text-slate-600 text-sm">No DXF files uploaded</p>
+            <p className="text-slate-400 text-sm">No DXF files uploaded</p>
           ) : (
             uploads.map((f) => (
-              <div key={f.name} className="flex items-center justify-between p-3 rounded-xl bg-white/5 text-sm">
+              <div key={f.name} className="flex items-center justify-between p-3 rounded-xl bg-white/10 text-sm">
                 <span className="flex items-center gap-2">
                   <FileText size={14} className="text-amber-400" /> {f.name}
                 </span>
-                <span className="text-slate-500">{f.size_kb} KB</span>
+                <span className="text-slate-300">{f.size_kb} KB</span>
               </div>
             ))
           )}
         </div>
-        <div className="bg-[#0f0f12] border border-white/5 rounded-2xl p-4 space-y-2">
+        <div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-2">
           <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Outputs</h2>
           {outputs.length === 0 ? (
-            <p className="text-slate-600 text-sm">No outputs yet — upload a DXF and use the tools</p>
+            <p className="text-slate-400 text-sm">No outputs yet — upload a DXF and use the tools</p>
           ) : (
             outputs.map((f) => (
-              <div key={f.name} className="flex items-center justify-between p-3 rounded-xl bg-white/5 text-sm">
+              <div key={f.name} className="flex items-center justify-between p-3 rounded-xl bg-white/10 text-sm">
                 <span className="flex items-center gap-2">
                   {fileIcon(f.name)} {f.name}
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="text-slate-500">{f.size_kb} KB</span>
+                  <span className="text-slate-300">{f.size_kb} KB</span>
                   <a
                     href={`/api/v1/download/${f.name}`}
                     download
-                    className="text-emerald-400 hover:text-emerald-300 text-xs font-bold"
+                    className="text-emerald-400 hover:text-emerald-300 text-sm font-bold"
                   >
                     <Download size={14} />
                   </a>

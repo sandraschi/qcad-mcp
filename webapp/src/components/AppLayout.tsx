@@ -23,11 +23,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="flex h-full">
       <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-12 flex items-center justify-end px-6 border-b border-white/5 bg-[#0a0a0c] shrink-0">
-          <div className="flex items-center gap-2 text-xs">
-            {connected === null ? <Loader2 size={12} className="animate-spin text-slate-500" />
+        <header className="h-12 flex items-center justify-end px-6 border-b border-white/10 bg-[#0a0a0c] shrink-0">
+          <div className="flex items-center gap-2 text-sm">
+            {connected === null ? <Loader2 size={12} className="animate-spin text-slate-300" />
               : connected ? <Wifi size={12} className="text-emerald-400" /> : <WifiOff size={12} className="text-red-400" />}
-            <span className={connected === true ? "text-emerald-400" : "text-slate-500"}>
+            <span className={connected === true ? "text-emerald-400" : "text-slate-300"}>
               {connected === null ? "Connecting..." : connected ? "Server Ready" : "Server Offline"}
             </span>
           </div>

@@ -19,9 +19,9 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
   return (
     <motion.aside
       animate={{ width: collapsed ? 72 : 240 }}
-      className="flex flex-col bg-[#0f0f12] border-r border-white/5 h-full shrink-0 overflow-hidden"
+      className="flex flex-col bg-[#1e1e26] border-r border-white/10 h-full shrink-0 overflow-hidden"
     >
-      <div className="h-14 flex items-center gap-3 px-4 border-b border-white/5">
+      <div className="h-14 flex items-center gap-3 px-4 border-b border-white/10">
         <Ruler className="text-amber-400 shrink-0" size={22} />
         {!collapsed && <span className="text-sm font-bold text-white whitespace-nowrap">QCAD MCP</span>}
       </div>
@@ -33,7 +33,7 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
             end={item.path === "/"}
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                isActive ? "bg-amber-600 text-white shadow-lg shadow-amber-600/20" : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                isActive ? "bg-amber-600 text-white shadow-lg shadow-amber-600/20" : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.12]"
               }`
             }
           >
@@ -42,7 +42,7 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
           </NavLink>
         ))}
       </nav>
-      <button onClick={onToggle} className="p-3 text-xs text-slate-600 hover:text-slate-400 border-t border-white/5">
+      <button onClick={onToggle} className="p-3 text-sm text-slate-400 hover:text-slate-400 border-t border-white/10">
         {collapsed ? ">>" : "Collapse"}
       </button>
     </motion.aside>

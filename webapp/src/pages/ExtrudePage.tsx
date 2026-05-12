@@ -60,31 +60,31 @@ export default function ExtrudePage() {
   return (
     <div className="max-w-3xl space-y-6">
       <h1 className="text-2xl font-bold text-white flex items-center gap-3"><Box className="text-amber-400" /> Wall Extrusion</h1>
-      <p className="text-sm text-slate-500">Upload a DXF floor plan, configure wall parameters, and generate a 3D STL mesh.</p>
+      <p className="text-sm text-slate-300">Upload a DXF floor plan, configure wall parameters, and generate a 3D STL mesh.</p>
 
-      <div className="bg-[#0f0f12] border border-white/5 rounded-2xl p-6 space-y-4">
+      <div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 space-y-4">
         <div className="flex items-center gap-2 mb-2"><Settings2 size={16} className="text-amber-400" /><h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Parameters</h3></div>
 
         <div className="grid grid-cols-2 gap-4">
           <label className="block space-y-1">
-            <span className="text-xs text-slate-500">Wall Height (m)</span>
-            <input type="number" step="0.1" min="0.5" max="20" value={wallHeight} onChange={(e) => setWallHeight(parseFloat(e.target.value) || 3)} className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500/30" />
+            <span className="text-sm text-slate-300">Wall Height (m)</span>
+            <input type="number" step="0.1" min="0.5" max="20" value={wallHeight} onChange={(e) => setWallHeight(parseFloat(e.target.value) || 3)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500/30" />
           </label>
           <label className="block space-y-1">
-            <span className="text-xs text-slate-500">Wall Thickness (m)</span>
-            <input type="number" step="0.05" min="0.05" max="2" value={wallThickness} onChange={(e) => setWallThickness(parseFloat(e.target.value) || 0.3)} className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500/30" />
+            <span className="text-sm text-slate-300">Wall Thickness (m)</span>
+            <input type="number" step="0.05" min="0.05" max="2" value={wallThickness} onChange={(e) => setWallThickness(parseFloat(e.target.value) || 0.3)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500/30" />
           </label>
         </div>
 
         <label className="block space-y-1">
-          <span className="text-xs text-slate-500">Wall Layers (comma-separated, auto-detect if empty)</span>
-          <input type="text" value={wallLayers} onChange={(e) => setWallLayers(e.target.value)} placeholder="e.g. walls, WALL-LINE, mauer" className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500/30" />
+          <span className="text-sm text-slate-300">Wall Layers (comma-separated, auto-detect if empty)</span>
+          <input type="text" value={wallLayers} onChange={(e) => setWallLayers(e.target.value)} placeholder="e.g. walls, WALL-LINE, mauer" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500/30" />
         </label>
       </div>
 
-      <div className="bg-[#0f0f12] border border-white/5 rounded-2xl p-6 space-y-4">
+      <div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 space-y-4">
         <label className="block border-2 border-dashed border-white/10 rounded-xl p-6 text-center cursor-pointer hover:border-amber-500/40 transition-all">
-          <Upload className="mx-auto mb-2 text-slate-500" size={28} />
+          <Upload className="mx-auto mb-2 text-slate-300" size={28} />
           <p className="text-slate-400 text-sm">{file ? file.name : "Drop a DXF floor plan here"}</p>
           <input type="file" accept=".dxf,.dwg" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
         </label>
@@ -105,7 +105,7 @@ export default function ExtrudePage() {
           <p className="text-sm text-slate-400">{result.output} — {result.data?.size_kb} KB</p>
           <p className="text-sm text-slate-400">{result.data?.wall_count} wall segments — {result.data?.vertices}+ vertices, {result.data?.faces} faces</p>
           <a href={`/api/v1/download/${result.output}`} download className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold">
-            <Download size={14} /> Download STL
+            <Download size={14} /> Download STL from Depot
           </a>
         </div>
       )}

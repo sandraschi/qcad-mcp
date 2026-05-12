@@ -256,14 +256,14 @@ export default function DepotPage() {
           <FileText className="text-amber-400" /> CAD Depot
         </h1>
         <div className="flex items-center gap-2">
-          <button onClick={loadFiles} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/10 text-xs text-slate-400 hover:text-white hover:bg-white/5">
+          <button onClick={loadFiles} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/10 text-sm text-slate-400 hover:text-white hover:bg-white/10">
             <RefreshCw size={14} /> Refresh
           </button>
-          <label className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer">
-            <Upload size={14} /> {uploading ? "Uploading..." : "Upload DXF"}
+          <label className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold cursor-pointer">
+            <Upload size={14} /> {uploading ? "Uploading..." : "Upload to Depot"}
             <input type="file" accept=".dxf,.dwg" className="hidden" onChange={handleUpload} disabled={uploading} />
           </label>
-          <button onClick={() => setShowCreate(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold">
+          <button onClick={() => setShowCreate(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold">
             <Plus size={14} /> New DXF
           </button>
         </div>
@@ -278,22 +278,22 @@ export default function DepotPage() {
 
       {/* Search + view toggle */}
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-[#0f0f12] flex-1 max-w-md">
-          <Search size={14} className="text-slate-500 shrink-0" />
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-[#1e1e26] flex-1 max-w-md">
+          <Search size={14} className="text-slate-300 shrink-0" />
           <input type="text" placeholder="Search files..." value={search} onChange={e => setSearch(e.target.value)} className="bg-transparent text-sm text-slate-200 placeholder-slate-600 outline-none w-full" />
         </div>
-        <div className="flex gap-1 p-1 bg-white/5 rounded-xl">
-          <button onClick={() => setViewMode("grid")} className={`p-1.5 rounded-lg ${viewMode === "grid" ? "bg-amber-600 text-white" : "text-slate-500 hover:text-slate-300"}`}><Grid3X3 size={14} /></button>
-          <button onClick={() => setViewMode("list")} className={`p-1.5 rounded-lg ${viewMode === "list" ? "bg-amber-600 text-white" : "text-slate-500 hover:text-slate-300"}`}><List size={14} /></button>
+        <div className="flex gap-1 p-1 bg-white/10 rounded-xl">
+          <button onClick={() => setViewMode("grid")} className={`p-1.5 rounded-lg ${viewMode === "grid" ? "bg-amber-600 text-white" : "text-slate-300 hover:text-slate-300"}`}><Grid3X3 size={14} /></button>
+          <button onClick={() => setViewMode("list")} className={`p-1.5 rounded-lg ${viewMode === "list" ? "bg-amber-600 text-white" : "text-slate-300 hover:text-slate-300"}`}><List size={14} /></button>
         </div>
-        <span className="text-xs text-slate-600">{files.length} file{files.length !== 1 ? "s" : ""}</span>
+        <span className="text-sm text-slate-400">{files.length} file{files.length !== 1 ? "s" : ""}</span>
       </div>
 
       {/* File grid/list */}
       {loading ? (
         <div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-amber-400" size={32} /></div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-20 text-slate-600 space-y-3">
+        <div className="text-center py-20 text-slate-400 space-y-3">
           <FileText size={48} className="mx-auto opacity-30" />
           <p className="text-lg">{files.length === 0 ? "Depot is empty" : "No files match your search"}</p>
           <p className="text-sm">
@@ -303,11 +303,11 @@ export default function DepotPage() {
           </p>
           {files.length === 0 && (
             <div className="flex gap-3 justify-center mt-4">
-              <label className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer">
-                <Upload size={14} /> Upload DXF
+              <label className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold cursor-pointer">
+                <Upload size={14} /> Upload to Depot
                 <input type="file" accept=".dxf,.dwg" className="hidden" onChange={handleUpload} />
               </label>
-              <button onClick={() => setShowCreate(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold">
+              <button onClick={() => setShowCreate(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold">
                 <Plus size={14} /> Create New
               </button>
             </div>
@@ -319,24 +319,24 @@ export default function DepotPage() {
             <div
               key={f.name}
               onClick={() => selectFile(f.name)}
-              className={`bg-[#0f0f12] border rounded-2xl p-4 cursor-pointer transition-all hover:border-amber-500/30 space-y-2 ${
-                selectedFile === f.name ? "border-amber-500/50 bg-amber-500/5" : "border-white/5"
+              className={`bg-[#1e1e26] border rounded-2xl p-4 cursor-pointer transition-all hover:border-amber-500/30 space-y-2 ${
+                selectedFile === f.name ? "border-amber-500/50 bg-amber-500/5" : "border-white/10"
               }`}
             >
               <div className="flex items-start justify-between">
                 {fileTypeIcon(f.name)}
                 <div className="flex gap-1">
-                  <button onClick={e => { e.stopPropagation(); setRenameTarget(f.name); setRenameValue(f.name.replace(/\.dxf$/i, "")); }} className="text-slate-600 hover:text-slate-300 p-0.5"><Pencil size={12} /></button>
-                  <button onClick={e => { e.stopPropagation(); setDeleteTarget(f.name); }} className="text-slate-600 hover:text-red-400 p-0.5"><Trash2 size={12} /></button>
+                  <button onClick={e => { e.stopPropagation(); setRenameTarget(f.name); setRenameValue(f.name.replace(/\.dxf$/i, "")); }} className="text-slate-400 hover:text-slate-300 p-0.5"><Pencil size={12} /></button>
+                  <button onClick={e => { e.stopPropagation(); setDeleteTarget(f.name); }} className="text-slate-400 hover:text-red-400 p-0.5"><Trash2 size={12} /></button>
                 </div>
               </div>
               <p className="text-sm font-medium text-slate-200 truncate">{f.name}</p>
-              <div className="flex items-center justify-between text-xs text-slate-600">
+              <div className="flex items-center justify-between text-sm text-slate-400">
                 <span>{f.size_kb} KB</span>
                 <span>{timeAgo(f.modified)}</span>
               </div>
               {f.meta.entity_count !== undefined && (
-                <div className="flex items-center gap-1 text-xs text-slate-500">
+                <div className="flex items-center gap-1 text-sm text-slate-300">
                   <Layers size={10} /> {f.meta.entity_count} entities
                 </div>
               )}
@@ -344,10 +344,10 @@ export default function DepotPage() {
           ))}
         </div>
       ) : (
-        <div className="bg-[#0f0f12] border border-white/5 rounded-2xl overflow-hidden">
+        <div className="bg-[#1e1e26] border border-white/10 rounded-2xl overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-slate-500 border-b border-white/5">
+              <tr className="text-left text-slate-300 border-b border-white/10">
                 <th className="py-3 px-4 font-medium">Name</th>
                 <th className="py-3 px-4 font-medium">Size</th>
                 <th className="py-3 px-4 font-medium">Modified</th>
@@ -369,14 +369,14 @@ export default function DepotPage() {
                       {fileTypeIcon(f.name)} {f.name}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-slate-500">{f.size_kb} KB</td>
-                  <td className="py-3 px-4 text-slate-500">{formatDate(f.modified)}</td>
-                  <td className="py-3 px-4 text-slate-500">{f.meta.entity_count ?? "—"}</td>
+                  <td className="py-3 px-4 text-slate-300">{f.size_kb} KB</td>
+                  <td className="py-3 px-4 text-slate-300">{formatDate(f.modified)}</td>
+                  <td className="py-3 px-4 text-slate-300">{f.meta.entity_count ?? "—"}</td>
                   <td className="py-3 px-4">
                     <div className="flex gap-1" onClick={e => e.stopPropagation()}>
-                      <button onClick={() => { setRenameTarget(f.name); setRenameValue(f.name.replace(/\.dxf$/i, "")); }} className="p-1 text-slate-600 hover:text-slate-300 rounded"><Pencil size={13} /></button>
-                      <button onClick={() => setDeleteTarget(f.name)} className="p-1 text-slate-600 hover:text-red-400 rounded"><Trash2 size={13} /></button>
-                      <a href={`/api/v1/depot/${encodeURIComponent(f.name)}`} download className="p-1 text-slate-600 hover:text-emerald-400 rounded"><Download size={13} /></a>
+                      <button onClick={() => { setRenameTarget(f.name); setRenameValue(f.name.replace(/\.dxf$/i, "")); }} className="p-1 text-slate-400 hover:text-slate-300 rounded"><Pencil size={13} /></button>
+                      <button onClick={() => setDeleteTarget(f.name)} className="p-1 text-slate-400 hover:text-red-400 rounded"><Trash2 size={13} /></button>
+                      <a href={`/api/v1/depot/${encodeURIComponent(f.name)}`} download className="p-1 text-slate-400 hover:text-emerald-400 rounded"><Download size={13} /></a>
                     </div>
                   </td>
                 </tr>
@@ -388,47 +388,47 @@ export default function DepotPage() {
 
       {/* Detail panel */}
       {selectedFile && (
-        <div className="bg-[#0f0f12] border border-white/5 rounded-2xl overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+        <div className="bg-[#1e1e26] border border-white/10 rounded-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
             <h3 className="text-sm font-bold text-slate-300 flex items-center gap-2">
               <FileText size={16} className="text-amber-400" /> {selectedFile}
             </h3>
             <div className="flex items-center gap-2">
-              <button onClick={() => handleExport("svg")} className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-white/10 text-xs text-slate-400 hover:text-white">Export SVG</button>
-              <button onClick={() => handleExport("pdf")} className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-white/10 text-xs text-slate-400 hover:text-white">Export PDF</button>
-              <a href={`/api/v1/depot/${encodeURIComponent(selectedFile)}`} download className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold">
-                <Download size={12} /> Download DXF
+              <button onClick={() => handleExport("svg")} className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-white/10 text-sm text-slate-400 hover:text-white">Export SVG</button>
+              <button onClick={() => handleExport("pdf")} className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-white/10 text-sm text-slate-400 hover:text-white">Export PDF</button>
+              <a href={`/api/v1/depot/${encodeURIComponent(selectedFile)}`} download className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold">
+                <Download size={12} /> Download from Depot
               </a>
-              <button onClick={() => setSelectedFile(null)} className="text-slate-600 hover:text-slate-300 p-1"><X size={14} /></button>
+              <button onClick={() => setSelectedFile(null)} className="text-slate-400 hover:text-slate-300 p-1"><X size={14} /></button>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4">
             {/* Preview */}
-            <div className="lg:col-span-2 bg-[#0a0a0c] border border-white/5 rounded-xl overflow-auto" style={{ maxHeight: "50vh" }}>
+            <div className="lg:col-span-2 bg-[#0a0a0c] border border-white/10 rounded-xl overflow-auto" style={{ maxHeight: "50vh" }}>
               {generatingPreview === selectedFile ? (
-                <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-slate-500" size={24} /></div>
+                <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-slate-300" size={24} /></div>
               ) : previewUrl ? (
                 <img src={previewUrl} alt="Preview" className="w-full" />
               ) : (
-                <div className="flex items-center justify-center h-64 text-slate-600 text-sm">Preview not available</div>
+                <div className="flex items-center justify-center h-64 text-slate-400 text-sm">Preview not available</div>
               )}
             </div>
 
             {/* Metadata */}
             <div className="space-y-3">
-              <div className="bg-[#0a0a0c] border border-white/5 rounded-xl p-3 space-y-2">
-                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Info</h4>
+              <div className="bg-[#0a0a0c] border border-white/10 rounded-xl p-3 space-y-2">
+                <h4 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Info</h4>
                 {(() => {
                   const f = files.find(x => x.name === selectedFile);
                   if (!f) return null;
                   return (
                     <>
-                      <div className="flex justify-between text-xs"><span className="text-slate-500">Size</span><span className="text-slate-300">{f.size_kb} KB</span></div>
-                      <div className="flex justify-between text-xs"><span className="text-slate-500">Created</span><span className="text-slate-300">{f.meta.created ? formatDate(f.meta.created) : "—"}</span></div>
-                      <div className="flex justify-between text-xs"><span className="text-slate-500">Modified</span><span className="text-slate-300">{formatDate(f.modified)}</span></div>
+                      <div className="flex justify-between text-sm"><span className="text-slate-300">Size</span><span className="text-slate-300">{f.size_kb} KB</span></div>
+                      <div className="flex justify-between text-sm"><span className="text-slate-300">Created</span><span className="text-slate-300">{f.meta.created ? formatDate(f.meta.created) : "—"}</span></div>
+                      <div className="flex justify-between text-sm"><span className="text-slate-300">Modified</span><span className="text-slate-300">{formatDate(f.modified)}</span></div>
                       {f.meta.description && (
-                        <div className="text-xs text-slate-400 pt-1 border-t border-white/5">{f.meta.description}</div>
+                        <div className="text-sm text-slate-400 pt-1 border-t border-white/10">{f.meta.description}</div>
                       )}
                     </>
                   );
@@ -436,39 +436,39 @@ export default function DepotPage() {
               </div>
 
               {fileInfo && (
-                <div className="bg-[#0a0a0c] border border-white/5 rounded-xl p-3 space-y-2">
-                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Entities</h4>
+                <div className="bg-[#0a0a0c] border border-white/10 rounded-xl p-3 space-y-2">
+                  <h4 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Entities</h4>
                   {Object.entries(fileInfo.entity_counts || {}).map(([type, count]) => (
-                    <div key={type} className="flex justify-between text-xs">
-                      <span className="text-slate-500">{type}</span>
+                    <div key={type} className="flex justify-between text-sm">
+                      <span className="text-slate-300">{type}</span>
                       <span className="text-slate-300">{String(count)}</span>
                     </div>
                   ))}
-                  <div className="flex justify-between text-xs font-bold pt-1 border-t border-white/5">
-                    <span className="text-slate-500">Total</span>
+                  <div className="flex justify-between text-sm font-bold pt-1 border-t border-white/10">
+                    <span className="text-slate-300">Total</span>
                     <span className="text-slate-200">{fileInfo.entity_total}</span>
                   </div>
                 </div>
               )}
 
               {fileInfo?.layers && (
-                <div className="bg-[#0a0a0c] border border-white/5 rounded-xl p-3 space-y-2">
-                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Layers</h4>
+                <div className="bg-[#0a0a0c] border border-white/10 rounded-xl p-3 space-y-2">
+                  <h4 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Layers</h4>
                   {fileInfo.layers.map((l: any) => (
-                    <div key={l.name} className="flex items-center gap-2 text-xs">
+                    <div key={l.name} className="flex items-center gap-2 text-sm">
                       <span className="w-3 h-3 rounded-full" style={{ backgroundColor: l.color === 7 ? "#ccc" : l.color === 1 ? "#f00" : l.color === 2 ? "#ff0" : l.color === 3 ? "#0f0" : l.color === 4 ? "#0ff" : l.color === 5 ? "#00f" : l.color === 6 ? "#f0f" : "#888" }} />
                       <span className="text-slate-400">{l.name}</span>
-                      {l.frozen && <EyeOff size={10} className="text-slate-600" />}
+                      {l.frozen && <EyeOff size={10} className="text-slate-400" />}
                     </div>
                   ))}
                 </div>
               )}
 
               <div className="flex gap-2">
-                <button onClick={() => { setRenameTarget(selectedFile); setRenameValue(selectedFile.replace(/\.dxf$/i, "")); }} className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-xl border border-white/10 text-xs text-slate-400 hover:text-white">
+                <button onClick={() => { setRenameTarget(selectedFile); setRenameValue(selectedFile.replace(/\.dxf$/i, "")); }} className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-xl border border-white/10 text-sm text-slate-400 hover:text-white">
                   <Pencil size={12} /> Rename
                 </button>
-                <button onClick={() => setDeleteTarget(selectedFile)} className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-xl border border-red-500/20 text-xs text-red-400 hover:bg-red-500/10">
+                <button onClick={() => setDeleteTarget(selectedFile)} className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-xl border border-red-500/20 text-sm text-red-400 hover:bg-red-500/10">
                   <Trash2 size={12} /> Delete
                 </button>
               </div>
@@ -480,27 +480,27 @@ export default function DepotPage() {
       {/* Create DXF Dialog */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowCreate(false)}>
-          <div className="bg-[#0f0f12] border border-white/10 rounded-2xl p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-white flex items-center gap-2"><Plus size={18} className="text-amber-400" /> Create DXF</h2>
-              <button onClick={() => setShowCreate(false)} className="text-slate-600 hover:text-slate-300"><X size={18} /></button>
+              <button onClick={() => setShowCreate(false)} className="text-slate-400 hover:text-slate-300"><X size={18} /></button>
             </div>
 
             <div className="space-y-3">
-              <label className="block text-xs text-slate-500">Filename</label>
-              <input value={createName} onChange={e => setCreateName(e.target.value)} placeholder="my_floorplan.dxf" className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500/30" />
+              <label className="block text-sm text-slate-300">Filename</label>
+              <input value={createName} onChange={e => setCreateName(e.target.value)} placeholder="my_floorplan.dxf" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500/30" />
 
-              <label className="block text-xs text-slate-500">Description (optional)</label>
-              <input value={createDesc} onChange={e => setCreateDesc(e.target.value)} placeholder="A simple floor plan" className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500/30" />
+              <label className="block text-sm text-slate-300">Description (optional)</label>
+              <input value={createDesc} onChange={e => setCreateDesc(e.target.value)} placeholder="A simple floor plan" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500/30" />
 
-              <label className="block text-xs text-slate-500">Default Layer(s) (comma-separated)</label>
-              <input value={createLayers} onChange={e => setCreateLayers(e.target.value)} placeholder="walls, doors, labels" className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500/30" />
+              <label className="block text-sm text-slate-300">Default Layer(s) (comma-separated)</label>
+              <input value={createLayers} onChange={e => setCreateLayers(e.target.value)} placeholder="walls, doors, labels" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500/30" />
 
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Entities</label>
+                <label className="text-sm font-bold text-slate-300 uppercase tracking-wider">Entities</label>
                 <div className="flex gap-1">
                   {(Object.keys(DEFAULT_ENTITIES) as EntityType[]).map(et => (
-                    <button key={et} onClick={() => addEntity(et)} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 text-xs text-slate-400 hover:text-white" title={`Add ${et}`}>
+                    <button key={et} onClick={() => addEntity(et)} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/10 text-sm text-slate-400 hover:text-white" title={`Add ${et}`}>
                       {(() => {
                         const Icon = ENTITY_ICONS[et];
                         return <Icon size={12} />;
@@ -512,56 +512,56 @@ export default function DepotPage() {
               </div>
 
               {createEntities.map((ent, idx) => (
-                <div key={idx} className="bg-black/30 border border-white/5 rounded-xl p-3 space-y-2">
+                <div key={idx} className="bg-black/30 border border-white/10 rounded-xl p-3 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className={`text-xs font-bold uppercase ${ENTITY_COLORS[ent.type]}`}>
+                    <span className={`text-sm font-bold uppercase ${ENTITY_COLORS[ent.type]}`}>
                       {(() => {
                         const Icon = ENTITY_ICONS[ent.type];
                         return <Icon size={12} className="inline mr-1" />;
                       })()} {ent.type}
                     </span>
-                    <button onClick={() => removeEntity(idx)} className="text-slate-600 hover:text-red-400"><X size={12} /></button>
+                    <button onClick={() => removeEntity(idx)} className="text-slate-400 hover:text-red-400"><X size={12} /></button>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="grid grid-cols-2 gap-2 text-sm">
                     {ent.type === "line" && (
                       <>
-                        <input type="number" placeholder="x1" value={ent.x1 ?? 0} onChange={e => updateEntity(idx, { x1: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/5 rounded-lg px-2 py-1 text-slate-200 outline-none" />
-                        <input type="number" placeholder="y1" value={ent.y1 ?? 0} onChange={e => updateEntity(idx, { y1: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/5 rounded-lg px-2 py-1 text-slate-200 outline-none" />
-                        <input type="number" placeholder="x2" value={ent.x2 ?? 100} onChange={e => updateEntity(idx, { x2: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/5 rounded-lg px-2 py-1 text-slate-200 outline-none" />
-                        <input type="number" placeholder="y2" value={ent.y2 ?? 0} onChange={e => updateEntity(idx, { y2: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/5 rounded-lg px-2 py-1 text-slate-200 outline-none" />
+                        <input type="number" placeholder="x1" value={ent.x1 ?? 0} onChange={e => updateEntity(idx, { x1: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none" />
+                        <input type="number" placeholder="y1" value={ent.y1 ?? 0} onChange={e => updateEntity(idx, { y1: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none" />
+                        <input type="number" placeholder="x2" value={ent.x2 ?? 100} onChange={e => updateEntity(idx, { x2: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none" />
+                        <input type="number" placeholder="y2" value={ent.y2 ?? 0} onChange={e => updateEntity(idx, { y2: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none" />
                       </>
                     )}
                     {ent.type === "rect" && (
                       <>
-                        <input type="number" placeholder="x" value={ent.x ?? 0} onChange={e => updateEntity(idx, { x: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/5 rounded-lg px-2 py-1 text-slate-200 outline-none" />
-                        <input type="number" placeholder="y" value={ent.y ?? 0} onChange={e => updateEntity(idx, { y: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/5 rounded-lg px-2 py-1 text-slate-200 outline-none" />
-                        <input type="number" placeholder="width" value={ent.w ?? 100} onChange={e => updateEntity(idx, { w: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/5 rounded-lg px-2 py-1 text-slate-200 outline-none" />
-                        <input type="number" placeholder="height" value={ent.h ?? 80} onChange={e => updateEntity(idx, { h: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/5 rounded-lg px-2 py-1 text-slate-200 outline-none" />
+                        <input type="number" placeholder="x" value={ent.x ?? 0} onChange={e => updateEntity(idx, { x: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none" />
+                        <input type="number" placeholder="y" value={ent.y ?? 0} onChange={e => updateEntity(idx, { y: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none" />
+                        <input type="number" placeholder="width" value={ent.w ?? 100} onChange={e => updateEntity(idx, { w: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none" />
+                        <input type="number" placeholder="height" value={ent.h ?? 80} onChange={e => updateEntity(idx, { h: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none" />
                       </>
                     )}
                     {ent.type === "circle" && (
                       <>
-                        <input type="number" placeholder="cx" value={ent.cx ?? 50} onChange={e => updateEntity(idx, { cx: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/5 rounded-lg px-2 py-1 text-slate-200 outline-none" />
-                        <input type="number" placeholder="cy" value={ent.cy ?? 50} onChange={e => updateEntity(idx, { cy: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/5 rounded-lg px-2 py-1 text-slate-200 outline-none" />
-                        <input type="number" placeholder="radius" value={ent.r ?? 30} onChange={e => updateEntity(idx, { r: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/5 rounded-lg px-2 py-1 text-slate-200 outline-none" />
+                        <input type="number" placeholder="cx" value={ent.cx ?? 50} onChange={e => updateEntity(idx, { cx: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none" />
+                        <input type="number" placeholder="cy" value={ent.cy ?? 50} onChange={e => updateEntity(idx, { cy: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none" />
+                        <input type="number" placeholder="radius" value={ent.r ?? 30} onChange={e => updateEntity(idx, { r: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none" />
                         <div />
                       </>
                     )}
                     {ent.type === "text" && (
                       <>
-                        <input type="number" placeholder="x" value={ent.x ?? 10} onChange={e => updateEntity(idx, { x: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/5 rounded-lg px-2 py-1 text-slate-200 outline-none" />
-                        <input type="number" placeholder="y" value={ent.y ?? 10} onChange={e => updateEntity(idx, { y: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/5 rounded-lg px-2 py-1 text-slate-200 outline-none" />
-                        <input type="text" placeholder="Text content" value={ent.content ?? "Label"} onChange={e => updateEntity(idx, { content: e.target.value })} className="col-span-2 bg-black/40 border border-white/5 rounded-lg px-2 py-1 text-slate-200 outline-none" />
+                        <input type="number" placeholder="x" value={ent.x ?? 10} onChange={e => updateEntity(idx, { x: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none" />
+                        <input type="number" placeholder="y" value={ent.y ?? 10} onChange={e => updateEntity(idx, { y: parseFloat(e.target.value) || 0 })} className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none" />
+                        <input type="text" placeholder="Text content" value={ent.content ?? "Label"} onChange={e => updateEntity(idx, { content: e.target.value })} className="col-span-2 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none" />
                       </>
                     )}
                     {ent.type === "polyline" && (
-                      <div className="col-span-2 text-xs text-slate-500">
+                      <div className="col-span-2 text-sm text-slate-300">
                         {ent.points?.length} points
                         <button onClick={() => updateEntity(idx, { points: [...(ent.points || []), [0, 0]] })} className="ml-2 text-amber-400 hover:underline">+ Add point</button>
                       </div>
                     )}
                   </div>
-                  <input type="text" placeholder="layer" value={ent.layer || ""} onChange={e => updateEntity(idx, { layer: e.target.value })} className="w-full bg-black/40 border border-white/5 rounded-lg px-2 py-1 text-xs text-slate-400 outline-none" />
+                  <input type="text" placeholder="layer" value={ent.layer || ""} onChange={e => updateEntity(idx, { layer: e.target.value })} className="w-full bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-sm text-slate-400 outline-none" />
                 </div>
               ))}
             </div>
@@ -580,10 +580,10 @@ export default function DepotPage() {
       {/* Rename Dialog */}
       {renameTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setRenameTarget(null)}>
-          <div className="bg-[#0f0f12] border border-white/10 rounded-2xl p-6 max-w-sm w-full mx-4" onClick={e => e.stopPropagation()}>
+          <div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 max-w-sm w-full mx-4" onClick={e => e.stopPropagation()}>
             <h2 className="text-lg font-bold text-white mb-4">Rename File</h2>
-            <input value={renameValue} onChange={e => setRenameValue(e.target.value)} placeholder="New filename" className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500/30 mb-4" />
-            <p className="text-xs text-slate-600 mb-4">.dxf extension will be added automatically if omitted.</p>
+            <input value={renameValue} onChange={e => setRenameValue(e.target.value)} placeholder="New filename" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500/30 mb-4" />
+            <p className="text-sm text-slate-400 mb-4">.dxf extension will be added automatically if omitted.</p>
             <div className="flex gap-3">
               <button onClick={() => setRenameTarget(null)} className="flex-1 py-2.5 rounded-xl border border-white/10 text-sm text-slate-400 hover:text-white">Cancel</button>
               <button onClick={handleRename} disabled={!renameValue} className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white text-sm font-bold">Rename</button>
@@ -595,7 +595,7 @@ export default function DepotPage() {
       {/* Delete Confirmation */}
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setDeleteTarget(null)}>
-          <div className="bg-[#0f0f12] border border-white/10 rounded-2xl p-6 max-w-sm w-full mx-4" onClick={e => e.stopPropagation()}>
+          <div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 max-w-sm w-full mx-4" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center"><AlertTriangle size={20} className="text-red-400" /></div>
               <div>

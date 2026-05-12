@@ -69,22 +69,22 @@ export default function BlocksPage() {
     <div className="max-w-6xl space-y-6">
       <h1 className="text-2xl font-bold text-white flex items-center gap-3"><Grid3X3 className="text-amber-400" /> CAD Blocks</h1>
 
-      <div className="bg-[#0f0f12] border border-white/5 rounded-2xl p-4 space-y-4">
+      <div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-4">
         <div className="flex flex-wrap gap-2">
           {SOURCES.map(s => (
             <button key={s.key} onClick={() => setSource(s.key)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${source === s.key ? `${s.color} text-white shadow-lg` : "bg-white/5 text-slate-400 hover:bg-white/10"}`}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${source === s.key ? `${s.color} text-white shadow-lg` : "bg-white/10 text-slate-400 hover:bg-white/10"}`}
             >{s.label}</button>
           ))}
         </div>
 
         <div className="flex gap-2">
           <div className="flex-1 relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
             <input type="text" value={query} onChange={e => setQuery(e.target.value)}
               onKeyDown={e => e.key === "Enter" && search()}
               placeholder="Search CAD blocks..."
-              className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+              className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/10 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
             />
           </div>
           <button onClick={search} disabled={loading}
@@ -96,7 +96,7 @@ export default function BlocksPage() {
           <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto">
             {categories.map(c => (
               <button key={c.id} onClick={() => setCategory(c.id === category ? "" : c.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${category === c.id ? "bg-amber-600 text-white shadow-lg" : c.id === "" ? "bg-white/5 text-slate-400 hover:bg-white/10" : "bg-white/5 text-slate-500 hover:text-slate-300 hover:bg-white/10"}`}
+                className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${category === c.id ? "bg-amber-600 text-white shadow-lg" : c.id === "" ? "bg-white/10 text-slate-400 hover:bg-white/10" : "bg-white/10 text-slate-300 hover:text-slate-300 hover:bg-white/10"}`}
               >{c.label}</button>
             ))}
           </div>
@@ -105,26 +105,26 @@ export default function BlocksPage() {
         {error && <p className="text-red-400 text-sm">{error}</p>}
       </div>
 
-      {results.length > 0 && <p className="text-slate-500 text-sm">{results.length} blocks found</p>}
+      {results.length > 0 && <p className="text-slate-300 text-sm">{results.length} blocks found</p>}
 
       <div className="grid grid-cols-3 gap-4">
         {results.map((item, i) => (
-          <div key={`${item.title}-${i}`} className="bg-[#0f0f12] border border-white/5 rounded-2xl overflow-hidden hover:border-amber-500/30 transition-all">
+          <div key={`${item.title}-${i}`} className="bg-[#1e1e26] border border-white/10 rounded-2xl overflow-hidden hover:border-amber-500/30 transition-all">
             <div className="h-32 bg-[#1a1a1f] flex items-center justify-center overflow-hidden">
               {item.image_url ? <img src={item.image_url} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
                 : <Grid3X3 size={36} className="text-slate-700" />}
             </div>
             <div className="p-3 space-y-1.5">
               <h3 className="text-sm font-bold text-white line-clamp-2 leading-tight">{item.title}</h3>
-              <div className="flex items-center gap-2 text-[10px]">
-                {item.source !== "gallery" && <span className="px-2 py-0.5 rounded bg-white/5 text-slate-500 uppercase">{item.source}</span>}
-                {item.category && <span className="text-slate-600">{item.category}</span>}
+              <div className="flex items-center gap-2 text-sm">
+                {item.source !== "gallery" && <span className="px-2 py-0.5 rounded bg-white/10 text-slate-300 uppercase">{item.source}</span>}
+                {item.category && <span className="text-slate-400">{item.category}</span>}
               </div>
               <div className="flex items-center gap-2 pt-1">
                 <button onClick={() => downloadBlock(item)} disabled={downloading === item.title}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-amber-600/20 hover:bg-amber-600/40 disabled:opacity-30 text-amber-400 rounded-lg text-xs font-bold transition-all"
+                  className="flex items-center gap-1 px-3 py-1.5 bg-amber-600/20 hover:bg-amber-600/40 disabled:opacity-30 text-amber-400 rounded-lg text-sm font-bold transition-all"
                 >{downloading === item.title ? <Loader2 size={12} className="animate-spin" /> : item.url ? <><Download size={12} /> Add to Depot</> : "Browse ↗"}</button>
-                {item.url && <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-slate-600 hover:text-slate-400"><ExternalLink size={14} /></a>}
+                {item.url && <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-slate-400"><ExternalLink size={14} /></a>}
               </div>
             </div>
           </div>
@@ -132,20 +132,20 @@ export default function BlocksPage() {
       </div>
 
       {!loading && results.length === 0 && !error && (
-        <div className="text-center py-12 text-slate-600">
+        <div className="text-center py-12 text-slate-400">
           <Grid3X3 size={48} className="mx-auto mb-4 opacity-30" />
           <p>Search for architectural blocks, furniture, doors, or sample floor plans.</p>
         </div>
       )}
 
       {recent.length > 0 && (
-        <div className="bg-[#0f0f12] border border-white/5 rounded-2xl p-4 space-y-2">
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><CheckCircle size={12} className="text-emerald-400" /> Added to Depot</h3>
+        <div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-2">
+          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><CheckCircle size={12} className="text-emerald-400" /> Added to Depot</h3>
           {recent.map(f => (
-            <div key={f} className="flex items-center gap-2 p-2 rounded-xl bg-white/5 text-sm text-slate-300">
+            <div key={f} className="flex items-center gap-2 p-2 rounded-xl bg-white/10 text-sm text-slate-300">
               <Download size={14} className="text-emerald-400 shrink-0" />
               <span className="truncate">{f}</span>
-              <a href={`/api/v1/depot/${f}`} className="text-xs text-amber-400 ml-auto shrink-0">View in Depot →</a>
+              <a href={`/api/v1/depot/${f}`} className="text-sm text-amber-400 ml-auto shrink-0">View in Depot →</a>
             </div>
           ))}
         </div>
