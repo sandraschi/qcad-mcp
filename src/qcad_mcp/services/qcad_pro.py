@@ -320,11 +320,9 @@ def run_script(
             pass
 
 
-def _parse_script_output(stdout: str) -> dict | None:
-    marker = "__QCAD_MCP_RESULT__"
+def _parse_marker(stdout: str, marker: str = "__QCAD_MCP_RESULT__") -> dict | None:
     if marker not in stdout:
         return None
-
     lines = stdout.split("\n")
     for i, line in enumerate(lines):
         if marker in line and i + 1 < len(lines):
@@ -333,6 +331,10 @@ def _parse_script_output(stdout: str) -> dict | None:
             except json.JSONDecodeError:
                 return None
     return None
+
+
+def _parse_script_output(stdout: str) -> dict | None:
+    return _parse_marker(stdout)
 
 
 EXEC_TEMPLATE = r"""
@@ -427,7 +429,7 @@ def exec_in_live(
                     "error": "Exec produced no valid output.",
                     "stderr": stderr_tail}
 
-        return {"success": True, "data": data}
+        return {"success": True, "data": data, "stdout": result.stdout}
 
     except subprocess.TimeoutExpired:
         return {"success": False, "error": f"Exec timed out after {timeout}s."}

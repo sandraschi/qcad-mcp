@@ -1,6 +1,6 @@
 # Status — qcad-mcp
 
-**Status**: v0.2.0 — QCAD Pro bridge operational.
+**Status**: v0.3.0 — Annotation + measurement layer complete.
 
 **Repo**: `D:\Dev\repos\qcad-mcp`
 **Ports**: Backend 10966, Frontend 10967
@@ -15,7 +15,7 @@ See `ARCHITECTURE.md` for full design.
 
 ## Implemented
 
-- FastMCP 3.2 server with 17 tools: plan_info, plan_to_svg, plan_extrude, plan_export, plan_analyse, plan_create, plan_depot, plan_convert, plan_modify, plan_blocks, plan_blocks_download, qcad_status, plan_script, plan_render, plan_exec, plan_dimension, plan_agentic
+- FastMCP 3.2 server with 20 tools: plan_info, plan_to_svg, plan_extrude, plan_export, plan_analyse, plan_create, plan_depot, plan_convert, plan_modify, plan_blocks, plan_blocks_download, qcad_status, plan_script, plan_render, plan_exec, plan_dimension, plan_agentic, plan_measure, plan_text, plan_hatch
 - QCAD Pro ECMAScript bridge: execute arbitrary scripts against DXF documents headlessly
 - QCAD Pro high-fidelity rendering: native SVG/PDF/BMP via dwg2* tools
 - Live instance control: push ECMAScript to running QCAD Pro GUI
