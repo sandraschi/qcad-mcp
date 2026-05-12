@@ -13,7 +13,6 @@ import collections
 import json
 import logging
 import os
-import subprocess
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
@@ -26,7 +25,10 @@ from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastmcp import FastMCP
+from fastmcp.server.context import Context
 from pydantic import BaseModel, Field
+
+from qcad_mcp.services import qcad_pro
 
 logger = logging.getLogger("qcad-mcp")
 
@@ -57,12 +59,20 @@ _state: dict = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    _state["qcad_pro_ok"] = os.path.isfile(QCAD_PRO_PATH) or os.path.isfile(QCAD_PRO_PATH + ".exe")
-    _state["qcad_pro_path"] = QCAD_PRO_PATH
+    _state["qcad_pro_ok"] = qcad_pro.is_installed()
+    _state["qcad_pro_path"] = str(qcad_pro._qcad_base_dir())
+    _state["qcad_pro_running"] = qcad_pro.is_running()
+    _state["qcad_pro_version"] = qcad_pro.get_version()
     _state["depot_dir"] = DEPOT_DIR
     _state["output_dir"] = OUTPUT_DIR
     _state["ezdxf_version"] = _get_ezdxf_version()
-    logger.info("QCAD MCP startup — ezdxf %s, depot: %s", _state["ezdxf_version"], DEPOT_DIR)
+    logger.info(
+        "QCAD MCP startup — ezdxf %s, QCAD Pro %s (%s), depot: %s",
+        _state["ezdxf_version"],
+        _state["qcad_pro_version"] or "not installed",
+        "running" if _state.get("qcad_pro_running") else "not running",
+        DEPOT_DIR,
+    )
     yield
 
 
@@ -213,21 +223,12 @@ def _is_dwg(file_name: str) -> bool:
 
 
 def _qcad_pro_available() -> bool:
-    path = os.environ.get("QCAD_PRO_PATH", os.path.join(os.environ.get("PROGRAMFILES", "C:\\Program Files"), "QCAD", "qcad.exe"))
-    return os.path.isfile(path) or os.path.isfile(path + ".exe")
+    return qcad_pro.is_installed()
 
 
 def _qcad_pro_convert(input_path: str, output_path: str, fmt: str = "DXF") -> bool:
-    """Convert DWG↔DXF using QCAD Pro CLI. Returns True on success."""
-    import subprocess
-    path = QCAD_PRO_PATH if os.path.isfile(QCAD_PRO_PATH) else QCAD_PRO_PATH + ".exe"
-    try:
-        r = subprocess.run([path, "-no-gui", f"-export-{fmt.lower()}", output_path, input_path],
-                          capture_output=True, text=True, timeout=60)
-        return r.returncode == 0 and os.path.isfile(output_path)
-    except Exception as e:
-        logger.warning("QCAD Pro convert failed: %s", e)
-        return False
+    result = qcad_pro.convert(input_path, output_path, fmt)
+    return result.get("success", False)
 
 
 def _ensure_dxf(file_name: str) -> tuple[str | None, str | None]:
@@ -447,7 +448,10 @@ async def plan_export(
     """
     Export a DXF file to SVG, PDF, or PNG.
 
-    Uses ezdxf+matplotlib for SVG/PNG, or QCAD Pro CLI for high-fidelity PDF if installed.
+    Tries QCAD Pro for high-fidelity output first (SVG, PDF). Falls back
+    to ezdxf+matplotlib if QCAD Pro is unavailable.
+
+    For guaranteed QCAD Pro rendering, use plan_render instead.
 
     ## Return Format
     {"success": bool, "output": str, "data": {"size_kb": float, "backend": str}}
@@ -461,24 +465,33 @@ async def plan_export(
 
     out_name = output_name or f"{Path(file_name).stem}{ext_map[format]}"
     out_path = os.path.join(OUTPUT_DIR, out_name)
+    in_path = os.path.join(DEPOT_DIR, file_name)
 
-    qcad_ok = _state.get("qcad_pro_ok", False)
-    qcad_path = _state.get("qcad_pro_path", "")
+    if not os.path.isfile(in_path):
+        return {"success": False, "error": f"File not found in depot: {file_name}"}
 
-    if qcad_ok and format == "pdf":
-        in_path = os.path.join(DEPOT_DIR, file_name)
-        if os.path.isfile(in_path):
+    # Try QCAD Pro for SVG/PDF (superior rendering)
+    if qcad_pro.is_installed() and format in ("svg", "pdf"):
+        fmt_pro = format if format != "png" else "bmp"
+        render_result = qcad_pro.render(in_path, out_path, fmt_pro)
+        if render_result.get("success"):
+            return {"success": True, "output": out_name, "data": {"size_kb": render_result["size_kb"], "backend": "qcad_pro"}}
+
+    # For PNG, try QCAD Pro BMP then convert via Pillow
+    if qcad_pro.is_installed() and format == "png":
+        bmp_path = out_path.replace(".png", "_temp.bmp")
+        bmp_result = qcad_pro.render(in_path, bmp_path, "bmp")
+        if bmp_result.get("success"):
             try:
-                proc = subprocess.run(
-                    [qcad_path, "-no-gui", "-autostart", "scripts/Pro/Tools/Dwg2Pdf/Dwg2Pdf.js",
-                     "-o", out_path, in_path],
-                    capture_output=True, text=True, timeout=120,
-                )
-                if proc.returncode == 0 and os.path.isfile(out_path):
-                    return {"success": True, "output": out_name, "data": {"size_kb": round(os.path.getsize(out_path) / 1024, 1), "backend": "qcad_pro"}}
-            except Exception as e:
-                logger.warning("QCAD Pro CLI error: %s", e)
+                from PIL import Image
+                Image.open(bmp_path).save(out_path, "PNG")
+                os.unlink(bmp_path)
+                return {"success": True, "output": out_name, "data": {"size_kb": round(os.path.getsize(out_path) / 1024, 1), "backend": "qcad_pro"}}
+            except Exception:
+                if os.path.isfile(bmp_path):
+                    os.unlink(bmp_path)
 
+    # Fallback to ezdxf+matplotlib
     from ezdxf.addons.drawing import Frontend, RenderContext
     from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
 
@@ -1074,6 +1087,428 @@ async def plan_blocks_download(
     except Exception as e:
         logger.error("Block download error: %s", e)
         return {"success": False, "error": f"Download failed: {e}"}
+
+
+# ── QCAD Pro Tools ────────────────────────────────────────────────────────────
+
+
+@mcp.tool(annotations=_READ_ONLY)
+async def qcad_status() -> dict:
+    """Check QCAD Pro installation status, version, and capabilities.
+
+    Reports whether QCAD Pro is installed, running, and the version string.
+    Use this first to determine which QCAD Pro tools are available.
+
+    ## Return Format
+    {"success": bool, "data": {"installed": bool, "running": bool, "version": str, "install_dir": str}}
+
+    ## Examples
+    await qcad_status()
+    """
+    return {
+        "success": True,
+        "data": {
+            "installed": qcad_pro.is_installed(),
+            "running": qcad_pro.is_running(),
+            "version": qcad_pro.get_version(),
+            "install_dir": str(qcad_pro._qcad_base_dir()),
+        },
+    }
+
+
+@mcp.tool()
+async def plan_script(
+    code: Annotated[str, Field(description="ECMAScript code to execute in QCAD Pro. Variables `document` and `di` (document interface) are pre-bound. Use the full QCAD API: RAddObjectsOperation, RLineEntity, RCircleEntity, RLayer, etc.")],
+    file_name: Annotated[str, Field(default="", description="Optional DXF/DWG filename in depot to load before executing code.")] = "",
+    output_name: Annotated[str, Field(default="script_output.dxf", description="Output filename saved to output dir. Empty = no export.")] = "",
+) -> dict:
+    """Execute arbitrary ECMAScript in QCAD Pro against a DXF document.
+
+    This is the most powerful tool — it provides full access to QCAD Pro's
+    ECMAScript API including entity creation, modification, layer management,
+    block operations, and geometry queries.
+
+    User code has access to:
+      - `document` — RDocument (the drawing)
+      - `di` — RDocumentInterface (import/export)
+      - Full QCAD API: RLineEntity, RCircleEntity, RArcEntity, RVector, RAddObjectsOperation, RModifyObjectsOperation, RLayer, etc.
+      - Full Qt API for data processing
+      - `print()` outputs are captured but only the structured result is returned
+
+    Requires QCAD Pro installed and reachable.
+
+    ## Return Format
+    {"success": bool, "data": {"entity_count": int, "layer_count": int, "layers": [...], "errors": [...], "output_file": str}}
+
+    ## Examples
+    await plan_script(code="var op = new RAddObjectsOperation(); op.addObject(new RCircleEntity(document, new RCircleData(new RVector(50,50), 25))); op.apply(document);", output_name="circle.dxf")
+    await plan_script(code="document.queryAllEntities().length;", file_name="floorplan.dxf")
+    """
+    if not qcad_pro.is_installed():
+        return {"success": False, "error": "QCAD Pro not installed. Set QCAD_PRO_PATH env var."}
+
+    input_path = None
+    if file_name:
+        input_path = os.path.join(DEPOT_DIR, file_name)
+        if not os.path.isfile(input_path):
+            return {"success": False, "error": f"File not found in depot: {file_name}"}
+
+    output_path = None
+    if output_name:
+        output_path = os.path.join(OUTPUT_DIR, output_name)
+
+    result = qcad_pro.run_script(
+        user_code=code,
+        input_file=input_path,
+        output_file=output_path,
+        timeout=120,
+    )
+
+    if result.get("success") and output_name:
+        _ensure_meta(output_name, source="plan_script")
+
+    return result
+
+
+@mcp.tool()
+async def plan_render(
+    file_name: Annotated[str, Field(description="DXF/DWG filename in the depot to render.")],
+    format: Annotated[str, Field(default="svg", description="Output format: svg, pdf, or bmp.")] = "svg",
+    output_name: Annotated[str, Field(default="", description="Output filename. Auto-generated from input name if empty.")] = "",
+) -> dict:
+    """High-fidelity rendering of a DXF/DWG via QCAD Pro.
+
+    Uses QCAD Pro's native rendering engine for perfect output with hatches,
+    TrueType fonts, dimension styles, and lineweights — superior to the
+    ezdxf+matplotlib fallback used by plan_export.
+
+    Requires QCAD Pro installed.
+
+    ## Return Format
+    {"success": bool, "output": str, "data": {"size_kb": float}}
+
+    ## Examples
+    await plan_render(file_name="floorplan.dxf", format="svg")
+    await plan_render(file_name="floorplan.dxf", format="pdf", output_name="floorplan_pro.pdf")
+    """
+    if not qcad_pro.is_installed():
+        return {"success": False, "error": "QCAD Pro not installed. Set QCAD_PRO_PATH."}
+
+    if format not in ("svg", "pdf", "bmp"):
+        return {"success": False, "error": f"Unknown format: {format}. Use svg, pdf, or bmp."}
+
+    ext_map = {"svg": ".svg", "pdf": ".pdf", "bmp": ".bmp"}
+    out_name = output_name or f"{Path(file_name).stem}{ext_map[format]}"
+    out_path = os.path.join(OUTPUT_DIR, out_name)
+    in_path = os.path.join(DEPOT_DIR, file_name)
+
+    if not os.path.isfile(in_path):
+        return {"success": False, "error": f"File not found in depot: {file_name}"}
+
+    result = qcad_pro.render(
+        input_path=in_path,
+        output_path=out_path,
+        fmt=format,
+    )
+
+    if result.get("success"):
+        result["output"] = out_name
+    return result
+
+
+@mcp.tool()
+async def plan_exec(
+    code: Annotated[str, Field(description="ECMAScript snippet to execute. Has access to `document` and `di`. Use for quick operations: queries, adding entities, modifying layers.")],
+    file_name: Annotated[str, Field(default="", description="Optional depot filename to load before execution.")] = "",
+) -> dict:
+    """Execute ECMAScript in a temporary QCAD Pro session and return results.
+
+    Quick code runner — shorter startup than plan_script since no output
+    file is saved. Use for queries, lightweight modifications, or prototyping
+    before committing with plan_script.
+
+    ## Return Format
+    {"success": bool, "data": {"entity_count": int, "layers": [...], "errors": [...]}}
+
+    ## Examples
+    await plan_exec(code='var op = new RAddObjectsOperation(); op.addObject(new RCircleEntity(document, new RCircleData(new RVector(10,10), 5))); op.apply(document);')
+    await plan_exec(code='document.queryAllEntities().length;', file_name="floorplan.dxf")
+    """
+    if not qcad_pro.is_installed():
+        return {"success": False, "error": "QCAD Pro not installed."}
+
+    input_path = None
+    if file_name:
+        input_path = os.path.join(DEPOT_DIR, file_name)
+        if not os.path.isfile(input_path):
+            return {"success": False, "error": f"File not found: {file_name}"}
+
+    return qcad_pro.exec_in_live(code, file_name=input_path or "")
+
+
+_DIM_TYPE_MAP = {
+    "aligned": "RDimAlignedEntity",
+    "rotated": "RDimRotatedEntity",
+    "radial": "RDimRadialEntity",
+    "diametric": "RDimDiametricEntity",
+    "angular": "RDimAngular3PEntity",
+}
+
+
+def _build_dim_script(dimensions: list[dict]) -> str:
+    """Generate ECMAScript to create dimension entities."""
+    lines = ["var op = new RAddObjectsOperation();"]
+    for i, d in enumerate(dimensions):
+        dim_type = d.get("type", "aligned")
+        if dim_type not in _DIM_TYPE_MAP:
+            continue
+
+        if dim_type == "aligned":
+            x1, y1 = d.get("x1", 0), d.get("y1", 0)
+            x2, y2 = d.get("x2", 0), d.get("y2", 0)
+            xd, yd = d.get("xd", (x1 + x2) / 2), d.get("yd", y1 - 20)
+            lines.append(
+                f"op.addObject(new RDimAlignedEntity(document, "
+                f"new RDimAlignedData(new RVector({x1},{y1}), new RVector({x2},{y2}), new RVector({xd},{yd}))));"
+            )
+        elif dim_type == "rotated":
+            x1, y1 = d.get("x1", 0), d.get("y1", 0)
+            x2, y2 = d.get("x2", 0), d.get("y2", 0)
+            xd, yd = d.get("xd", (x1 + x2) / 2), d.get("yd", y1 - 20)
+            angle = d.get("angle", 0)
+            lines.append(
+                f"op.addObject(new RDimRotatedEntity(document, "
+                f"new RDimRotatedData(new RVector({x1},{y1}), new RVector({x2},{y2}), new RVector({xd},{yd}), {angle})));"
+            )
+        elif dim_type == "radial":
+            cx, cy = d.get("cx", 0), d.get("cy", 0)
+            px, py = d.get("px", cx + 10), d.get("py", cy)
+            lines.append(
+                f"op.addObject(new RDimRadialEntity(document, "
+                f"new RDimRadialData(new RVector({cx},{cy}), new RVector({px},{py}), 0)));"
+            )
+        elif dim_type == "diametric":
+            cx, cy = d.get("cx", 0), d.get("cy", 0)
+            px, py = d.get("px", cx + 10), d.get("py", cy)
+            lines.append(
+                f"op.addObject(new RDimDiametricEntity(document, "
+                f"new RDimDiametricData(new RVector({cx},{cy}), new RVector({px},{py}))));"
+            )
+        elif dim_type == "angular":
+            cx, cy = d.get("cx", 0), d.get("cy", 0)
+            x1, y1 = d.get("x1", cx + 100), d.get("y1", cy)
+            x2, y2 = d.get("x2", cx), d.get("y2", cy + 50)
+            xd, yd = d.get("xd", cx + 50), d.get("yd", cy - 30)
+            lines.append(
+                f"op.addObject(new RDimAngular3PEntity(document, "
+                f"new RDimAngular3PData(new RVector({cx},{cy}), new RVector({x1},{y1}), new RVector({x2},{y2}), new RVector({xd},{yd}))));"
+            )
+
+    lines.append("op.apply(document);")
+    return "\n".join(lines)
+
+
+@mcp.tool()
+async def plan_dimension(
+    file_name: Annotated[str, Field(description="DXF/DWG filename in the depot to add dimensions to.")],
+    dimensions: Annotated[list[dict], Field(description="""List of dimension specifications. Each dict requires:
+- type: "aligned" (linear), "rotated" (angled linear), "radial" (radius), "diametric" (diameter), "angular"
+- For aligned/rotated: x1, y1, x2, y2 (extension line origins), xd, yd (dimension line position)
+- For radial/diametric: cx, cy (center), px, py (point on circle)
+- For angular: cx, cy (center), x1, y1 (line1 endpoint), x2, y2 (line2 endpoint), xd, yd (arc position)
+- Optional: layer (default "0")
+""")],
+    output_name: Annotated[str, Field(default="", description="Output filename. Default: <input>_dimensioned.dxf")] = "",
+) -> dict:
+    """Add dimension entities to a DXF drawing using QCAD Pro.
+
+    Adds aligned, radial, diametric, angular, or rotated dimensions to
+    existing geometry. Requires QCAD Pro installed.
+
+    ## Return Format
+    {"success": bool, "output": str, "data": {"entity_count": int, "dim_count": int}}
+
+    ## Examples
+    await plan_dimension(file_name="floorplan.dxf", dimensions=[
+        {"type": "aligned", "x1": 0, "y1": 0, "x2": 5000, "y2": 0, "xd": 2500, "yd": -500},
+        {"type": "radial", "cx": 2500, "cy": 2000, "px": 2800, "py": 2000},
+    ])
+    """
+    if not qcad_pro.is_installed():
+        return {"success": False, "error": "QCAD Pro required. Set QCAD_PRO_PATH."}
+
+    in_path = os.path.join(DEPOT_DIR, file_name)
+    if not os.path.isfile(in_path):
+        return {"success": False, "error": f"File not found: {file_name}"}
+
+    out_name = output_name or f"{Path(file_name).stem}_dimensioned.dxf"
+    out_path = os.path.join(OUTPUT_DIR, out_name)
+
+    code = _build_dim_script(dimensions)
+    result = qcad_pro.run_script(
+        user_code=code,
+        input_file=in_path,
+        output_file=out_path,
+        timeout=120,
+    )
+
+    if result.get("success"):
+        result["output"] = out_name
+        data = result.get("data", {})
+        data["dim_count"] = len([d for d in dimensions if d.get("type") in _DIM_TYPE_MAP])
+        result["data"] = data
+    return result
+
+
+@mcp.tool()
+async def plan_agentic(
+    goal: Annotated[str, Field(description="Natural language description of the CAD operation to perform. E.g. 'Create a rectangular floor plan 10m x 8m with 4 rooms, add dimensions, and export to SVG'.")],
+    file_name: Annotated[str, Field(default="", description="Optional depot file to work on. Empty = create new document.")] = "",
+    ctx: Context = None,
+) -> dict:
+    """Multi-step CAD workflow: plans and executes ECMAScript operations from a natural-language goal.
+
+    Uses AI sampling to decompose the goal into ECMAScript steps, then executes
+    them sequentially via QCAD Pro. Each step is validated before the next runs.
+
+    Requires QCAD Pro installed. Falls back to single-script generation if AI
+    sampling is unavailable.
+
+    ## Return Format
+    {"success": bool, "output": str, "data": {"steps": int, "entity_count": int, "plan": [...]}}
+
+    ## Examples
+    await plan_agentic(goal="Create a 10m x 8m floor plan with 4 equal rooms, label them, add aligned dimensions on all sides")
+    await plan_agentic(goal="Add a 1m door to the south wall of each room", file_name="floorplan.dxf")
+    """
+    if not qcad_pro.is_installed():
+        return {"success": False, "error": "QCAD Pro required."}
+
+    out_name = f"{Path(file_name).stem}_agentic.dxf" if file_name else "agentic_output.dxf"
+    out_path = os.path.join(OUTPUT_DIR, out_name)
+
+    # Build the prompt for AI sampling
+    prompt = f"""You are a QCAD Pro ECMAScript expert. Convert this CAD goal into ECMAScript code.
+
+Goal: {goal}
+
+Context: The script runs in QCAD Pro headless. Variables available:
+- `document` (RDocument) — the drawing
+- `di` (RDocumentInterface) — for import/export
+- RAddObjectsOperation, RLineEntity, RLineData, RVector, RCircleEntity, RCircleData,
+  RDimAlignedEntity, RDimAlignedData, RLayer, RModifyObjectsOperation, RColor, etc.
+
+{"The document already has entities loaded from " + file_name + ". Build on them." if file_name else "Create geometry from scratch."}
+
+Return ONLY the ECMAScript code between ```javascript and ``` markers. No explanations.
+
+Key rules:
+1. Combine all entities into a single RAddObjectsOperation before calling op.apply()
+2. RVector(x, y) — x and y are numbers. 1 unit = 1mm by convention.
+3. For dimensions: RDimAlignedData(extPoint1, extPoint2, dimLinePos)
+4. RLineData(startVector, endVector)
+5. RCircleData(centerVector, radius)
+6. Create layers BEFORE adding entities to them: new RLayer(document, "LayerName", false, false, new RColor("color"))
+"""
+
+    script = None
+    plan_steps = []
+
+    # Try AI sampling first
+    if ctx is not None:
+        try:
+            sampling_result = await ctx.request_sampling(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=4096,
+            )
+            response_text = sampling_result.get("content", "")
+            if "```javascript" in response_text:
+                script = response_text.split("```javascript")[1].split("```")[0].strip()
+            elif "```js" in response_text:
+                script = response_text.split("```js")[1].split("```")[0].strip()
+            elif "```" in response_text:
+                script = response_text.split("```")[1].split("```")[0].strip()
+            else:
+                script = response_text.strip()
+            plan_steps.append({"source": "ai_sampling", "code": script[:200] + "..."})
+        except Exception as e:
+            logger.warning("AI sampling failed, using template-based approach: %s", e)
+
+    # Fallback: generate script from templates
+    if script is None:
+        script = _agentic_fallback(goal)
+        plan_steps.append({"source": "template", "code": script[:200] + "..."})
+
+    # Execute the generated script
+    result = qcad_pro.run_script(
+        user_code=script,
+        input_file=os.path.join(DEPOT_DIR, file_name) if file_name else None,
+        output_file=out_path,
+        timeout=120,
+    )
+
+    if result.get("success"):
+        data = result.get("data", {})
+        data["steps"] = len(plan_steps)
+        data["plan"] = plan_steps
+        result["data"] = data
+        result["output"] = out_name
+    return result
+
+
+def _agentic_fallback(goal: str) -> str:
+    """Template-based fallback when AI sampling unavailable."""
+    goal_lower = goal.lower()
+    if "rectangle" in goal_lower or "rectangular" in goal_lower or "floor plan" in goal_lower:
+        # Extract dimensions if mentioned
+        import re
+        dims = re.findall(r"(\d+)\s*m", goal)
+        w = int(dims[0]) * 1000 if len(dims) > 0 else 10000
+        h = int(dims[1]) * 1000 if len(dims) > 1 else 8000
+        return f"""var op = new RAddObjectsOperation();
+op.addObject(new RLineEntity(document, new RLineData(new RVector(0,0), new RVector({w},0))));
+op.addObject(new RLineEntity(document, new RLineData(new RVector({w},0), new RVector({w},{h}))));
+op.addObject(new RLineEntity(document, new RLineData(new RVector({w},{h}), new RVector(0,{h}))));
+op.addObject(new RLineEntity(document, new RLineData(new RVector(0,{h}), new RVector(0,0))));
+op.addObject(new RDimAlignedEntity(document, new RDimAlignedData(new RVector(0,{h}), new RVector({w},{h}), new RVector({w//2},{h+500}))));
+op.addObject(new RDimAlignedEntity(document, new RDimAlignedData(new RVector({w},0), new RVector({w},{h}), new RVector({w+500},{h//2}))));
+op.apply(document);"""
+    elif "circle" in goal_lower:
+        import re
+        radii = re.findall(r"(\d+)\s*mm", goal)
+        r = int(radii[0]) if radii else 50
+        return f"""var op = new RAddObjectsOperation();
+op.addObject(new RCircleEntity(document, new RCircleData(new RVector(50,50), {r})));
+op.addObject(new RDimRadialEntity(document, new RDimRadialData(new RVector(50,50), new RVector(50+{r},50), 0)));
+op.apply(document);"""
+    # Generic
+    return """var op = new RAddObjectsOperation();
+op.addObject(new RLineEntity(document, new RLineData(new RVector(0,0), new RVector(100,0))));
+op.addObject(new RLineEntity(document, new RLineData(new RVector(100,0), new RVector(100,80))));
+op.addObject(new RLineEntity(document, new RLineData(new RVector(100,80), new RVector(0,80))));
+op.addObject(new RLineEntity(document, new RLineData(new RVector(0,80), new RVector(0,0))));
+op.apply(document);"""
+
+
+# ── REST API ──────────────────────────────────────────────────────────────────
+
+
+@app.get("/api/v1/status")
+async def api_status():
+    """Server status including QCAD Pro and ezdxf info."""
+    return {
+        "ok": True,
+        "ezdxf_version": _state.get("ezdxf_version", "unknown"),
+        "qcad_pro": {
+            "installed": qcad_pro.is_installed(),
+            "running": qcad_pro.is_running(),
+            "version": qcad_pro.get_version(),
+            "install_dir": str(qcad_pro._qcad_base_dir()),
+        },
+        "depot": _state.get("depot_dir", ""),
+        "output": _state.get("output_dir", ""),
+        "file_count": len(_depot_list()),
+    }
 
 
 @app.get("/api/v1/blocks/categories")

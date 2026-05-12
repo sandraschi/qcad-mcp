@@ -2,6 +2,24 @@
 
 All notable changes to the QCAD MCP server and webapp.
 
+## [0.2.0] - 2026-05-12
+
+### Added
+
+- **QCAD Pro ECMAScript bridge** (`plan_script`): execute arbitrary ECMAScript against DXF documents via QCAD Pro headless mode. Full access to QCAD API (entities, layers, blocks, geometry).
+- **High-fidelity rendering** (`plan_render`): SVG/PDF/BMP output via QCAD Pro's native engine (hatches, TrueType fonts, lineweights, dimensions correctly rendered).
+- **QCAD Pro status** (`qcad_status`): detect installation, running state, version.
+- **Live instance control** (`plan_exec`): execute ECMAScript in running QCAD Pro GUI for instant visual feedback.
+- **Service layer**: `src/qcad_mcp/services/qcad_pro.py` — detection, script execution, rendering, conversion.
+- `plan_export` now tries QCAD Pro first for SVG/PDF, falling back to ezdxf+matplotlib.
+- REST endpoint `GET /api/v1/status` returns QCAD Pro info.
+- Lifespan startup now logs QCAD Pro version and running state.
+
+### Changed
+
+- `_qcad_pro_available()` and `_qcad_pro_convert()` now delegate to the service module.
+- Total registered MCP tools: 11 → 15.
+
 ## [0.1.0] - 2026-05-12
 
 ### Added

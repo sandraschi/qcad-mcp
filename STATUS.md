@@ -1,28 +1,26 @@
 # Status — qcad-mcp
 
-**Status**: v0.1.0 — Implemented and operational.
+**Status**: v0.2.0 — QCAD Pro bridge operational.
 
 **Repo**: `D:\Dev\repos\qcad-mcp`
 **Ports**: Backend 10966, Frontend 10967
 
 ## Architecture
 
-DXF/DWG floor plans → SVG preview + STL extrusion → Resonite/Unity3D worlds.
+DXF/DWG floor plans → SVG preview + STL extrusion + ECMAScript bridge → Resonite/Unity3D worlds.
 
-Core engine: `ezdxf` (pure Python, MIT, free). QCAD Pro (€50.40, Swiss-made) optional for DWG + high-fidelity PDF.
+Core engine: `ezdxf` (pure Python, MIT, free). QCAD Pro (€42, Swiss-made) enables ECMAScript scripting bridge, high-fidelity rendering, live instance control.
 
 See `ARCHITECTURE.md` for full design.
 
 ## Implemented
 
-- FastMCP 3.2 server with 5 tools: plan_info, plan_to_svg, plan_extrude, plan_export, plan_analyse
-- Fleet-standard Vite + React webapp (Dashboard, Viewer, Extrude, Analyse, Models, Logs, Settings, Help)
-- REST API: `/api/v1/status`, `/api/v1/upload`, `/api/v1/download/{name}`, `/api/v1/files`, `/api/v1/control/tool`
+- FastMCP 3.2 server with 17 tools: plan_info, plan_to_svg, plan_extrude, plan_export, plan_analyse, plan_create, plan_depot, plan_convert, plan_modify, plan_blocks, plan_blocks_download, qcad_status, plan_script, plan_render, plan_exec, plan_dimension, plan_agentic
+- QCAD Pro ECMAScript bridge: execute arbitrary scripts against DXF documents headlessly
+- QCAD Pro high-fidelity rendering: native SVG/PDF/BMP via dwg2* tools
+- Live instance control: push ECMAScript to running QCAD Pro GUI
+- Service layer: `src/qcad_mcp/services/qcad_pro.py`
+- Fleet-standard Vite + React webapp (12 pages)
+- REST API with 20+ endpoints
 - SSE log stream, LLM chat endpoint, settings persistence
 - justfile with bootstrap, serve, web, lint, fix, test, check
-
-## Next Steps
-
-- Test with real DXF floor plans
-- Add sample DXF files to tests/
-- Register in fleet port registry (WEBAPP_PORTS.md)

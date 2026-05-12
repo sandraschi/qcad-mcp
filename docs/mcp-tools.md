@@ -1,16 +1,24 @@
 # MCP Tools
 
-All 7 tools registered via `@mcp.tool()` in `src/qcad_mcp/server.py`.
+All 15 tools registered via `@mcp.tool()` in `src/qcad_mcp/server.py`.
 
 | Tool | Annotation | Description |
 |:---|:---|:---|
 | `plan_info` | READ_ONLY | DXF metadata: layers, entity counts, bounding box |
-| `plan_to_svg` | MUTATING | DXF → SVG preview with layer filtering |
+| `plan_to_svg` | MUTATING | DXF → SVG preview with layer filtering (ezdxf) |
 | `plan_extrude` | MUTATING | DXF walls → 3D STL mesh |
-| `plan_export` | MUTATING | DXF → SVG/PNG/PDF |
+| `plan_export` | MUTATING | DXF → SVG/PNG/PDF (QCAD Pro preferred, ezdxf fallback) |
 | `plan_analyse` | READ_ONLY | Room detection, area, door/window identification |
 | `plan_create` | MUTATING | Create DXF from primitives |
 | `plan_depot` | READ_ONLY | List files in the depot |
+| `plan_convert` | MUTATING | DWG↔DXF conversion via QCAD Pro |
+| `plan_modify` | MUTATING | Modify entities/layers (delete, offset, rename, freeze, etc.) |
+| `plan_blocks` | READ_ONLY | Search CAD block libraries |
+| `plan_blocks_download` | MUTATING | Download CAD blocks to depot |
+| **`qcad_status`** | READ_ONLY | QCAD Pro install/version/running status |
+| **`plan_script`** | MUTATING | Execute ECMAScript against DXF via QCAD Pro |
+| **`plan_render`** | MUTATING | High-fidelity SVG/PDF/BMP via QCAD Pro engine |
+| **`plan_exec`** | MUTATING | Execute ECMAScript in running QCAD Pro GUI |
 
 ---
 
@@ -142,3 +150,83 @@ await plan_depot()
 ```
 
 Each file may have a JSON metadata sidecar (`.meta.json`) created or updated via the depot REST API.
+
+---
+
+## QCAD Pro Tools (requires QCAD Pro)
+
+These tools require QCAD Pro 3.x installed and reachable. Check availability with `qcad_status` first.
+
+### qcad_status
+
+Check QCAD Pro installation and running state.
+
+```python
+await qcad_status()
+# {"success": true, "data": {
+#   "installed": true,
+#   "running": true,
+#   "version": "3.32.9",
+#   "install_dir": "C:\\Program Files\\QCAD"
+# }}
+```
+
+### plan_script
+
+Execute arbitrary ECMAScript against a DXF document. Full access to QCAD API.
+
+```python
+# Create a circle in a new document
+await plan_script(
+    code='''
+var op = new RAddObjectsOperation();
+op.addObject(new RCircleEntity(document, new RCircleData(new RVector(50, 50), 25)));
+op.apply(document);
+''',
+    output_name="circle.dxf"
+)
+# {"success": true, "data": {"entity_count": 1, "layers": ["0"], "errors": []}}
+
+# Modify an existing file
+await plan_script(
+    code='''
+var op = new RModifyObjectsOperation();
+var layer = new RLayer(document, "Annotations", false, false, new RColor("blue"));
+op.addObject(layer);
+op.apply(document);
+''',
+    file_name="floorplan.dxf",
+    output_name="floorplan_annotated.dxf"
+)
+```
+
+User code has access to `document` (RDocument), `di` (RDocumentInterface), and the full QCAD + Qt ECMAScript API.
+
+### plan_render
+
+High-fidelity DXF/DWG rendering via QCAD Pro's native engine.
+
+```python
+await plan_render(file_name="floorplan.dxf", format="svg")
+# {"success": true, "output": "floorplan.svg", "data": {"size_kb": 45.2}}
+
+await plan_render(file_name="floorplan.dxf", format="pdf", output_name="A1_export.pdf")
+# {"success": true, "output": "A1_export.pdf", "data": {"size_kb": 128.7}}
+```
+
+Supports SVG, PDF, and BMP. Renders hatches, TrueType fonts, lineweights, and dimensions correctly — superior to the ezdxf+matplotlib fallback.
+
+### plan_exec
+
+Execute ECMAScript in the running QCAD Pro GUI for live visual feedback.
+
+```python
+await plan_exec(code='''
+var di = EAction.getDocumentInterface();
+var doc = di.getDocument();
+print("Current document has " + doc.queryAllEntities().length + " entities");
+''')
+# {"success": true, "data": {"stdout": "...", "stderr": "..."}}
+```
+
+Requires QCAD Pro GUI to be open with a document loaded. Changes affect the live document.

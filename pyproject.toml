@@ -1,6 +1,6 @@
 [project]
 name = "qcad-mcp"
-version = "0.1.0"
+version = "0.2.0"
 description = "QCAD MCP server — DXF/DWG floor plans to SVG preview + STL extrusion via MCP tools and REST API"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -50,6 +50,7 @@ ignore = ["S101"]
 [tool.ruff.lint.per-file-ignores]
 "src/**/*.py" = ["E501"]
 "src/qcad_mcp/server.py" = ["E501", "S110", "S603"]
+"src/qcad_mcp/services/*.py" = ["S603", "S607"]
 "tests/**/*.py" = ["E501", "S101"]
 
 [dependency-groups]
