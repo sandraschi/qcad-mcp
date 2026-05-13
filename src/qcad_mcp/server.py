@@ -32,7 +32,6 @@ from qcad_mcp.tools import register_all
 from qcad_mcp.tools.block_tools import plan_blocks, plan_blocks_download
 from qcad_mcp.tools.core_tools import (
     plan_analyse,
-    plan_convert,
     plan_create,
     plan_depot,
     plan_export,
@@ -40,7 +39,7 @@ from qcad_mcp.tools.core_tools import (
     plan_info,
     plan_to_svg,
 )
-from qcad_mcp.tools.modify_tools import plan_modify
+from qcad_mcp.tools.modify_tools import plan_convert, plan_modify
 from qcad_mcp.tools.script_tools import _SCRIPT_CATEGORIES, plan_scripts_download, plan_scripts_search
 
 logger = logging.getLogger("qcad-mcp")

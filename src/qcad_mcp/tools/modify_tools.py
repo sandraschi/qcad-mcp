@@ -4,7 +4,6 @@ import os
 from pathlib import Path
 from typing import Annotated
 
-from fastmcp import FastMCP
 from pydantic import Field
 
 from qcad_mcp.config import DEPOT_DIR
@@ -187,7 +186,7 @@ async def plan_modify(
         return {"success": False, "error": f"Failed to save: {e}"}
 
 
-def register(mcp: FastMCP):
+def register(mcp):
     """Register modify tools on the given FastMCP instance."""
     mcp.tool()(plan_convert)
     mcp.tool()(plan_modify)

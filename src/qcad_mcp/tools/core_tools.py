@@ -6,7 +6,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 
-from fastmcp import FastMCP
 from pydantic import Field
 
 from qcad_mcp.config import DEPOT_DIR, OUTPUT_DIR
@@ -473,7 +472,7 @@ async def plan_depot() -> dict:
     return {"success": True, "data": {"files": _depot_list()}}
 
 
-def register(mcp: FastMCP):
+def register(mcp):
     """Register all core plan tools on the given FastMCP instance."""
     mcp.tool(annotations=_READ_ONLY)(plan_info)
     mcp.tool()(plan_to_svg)

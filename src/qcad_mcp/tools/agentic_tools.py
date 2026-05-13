@@ -1,33 +1,27 @@
-"""Agentic multi-step CAD workflows and AutoLISP transpilation for QCAD MCP.
+"""Agentic multi-step CAD workflows and AutoLISP transpilation for QCAD MCP."""
 
-Provides AI-powered natural-language CAD operations via plan_agentic and
-AutoLISP-to-ECMAScript translation via plan_transpile. Both tools use
-AI sampling when available, falling back to template/heuristic approaches.
-"""
+import logging
+import os
+import re
+from pathlib import Path
+from typing import Annotated
 
-def register(mcp):
-    import logging
-    import os
-    import re
-    from pathlib import Path
-    from typing import Annotated
+from pydantic import Field
 
-    from fastmcp import Context
-    from pydantic import Field
+from qcad_mcp.config import DEPOT_DIR, OUTPUT_DIR
+from qcad_mcp.services import qcad_pro
 
-    from qcad_mcp.config import DEPOT_DIR, OUTPUT_DIR
-    from qcad_mcp.services import qcad_pro
+logger = logging.getLogger("qcad-mcp")
 
-    logger = logging.getLogger("qcad-mcp")
 
-    def _agentic_fallback(goal: str) -> str:
-        goal_lower = goal.lower()
-        if "rectangle" in goal_lower or "rectangular" in goal_lower or "floor plan" in goal_lower:
-            import re as _re
-            dims = _re.findall(r"(\d+)\s*m", goal)
-            w = int(dims[0]) * 1000 if len(dims) > 0 else 10000
-            h = int(dims[1]) * 1000 if len(dims) > 1 else 8000
-            return f"""var op = new RAddObjectsOperation();
+def _agentic_fallback(goal: str) -> str:
+    """Template-based fallback when AI sampling unavailable."""
+    goal_lower = goal.lower()
+    if "rectangle" in goal_lower or "rectangular" in goal_lower or "floor plan" in goal_lower:
+        dims = re.findall(r"(\d+)\s*m", goal)
+        w = int(dims[0]) * 1000 if len(dims) > 0 else 10000
+        h = int(dims[1]) * 1000 if len(dims) > 1 else 8000
+        return f"""var op = new RAddObjectsOperation();
 op.addObject(new RLineEntity(document, new RLineData(new RVector(0,0), new RVector({w},0))));
 op.addObject(new RLineEntity(document, new RLineData(new RVector({w},0), new RVector({w},{h}))));
 op.addObject(new RLineEntity(document, new RLineData(new RVector({w},{h}), new RVector(0,{h}))));
@@ -35,113 +29,22 @@ op.addObject(new RLineEntity(document, new RLineData(new RVector(0,{h}), new RVe
 op.addObject(new RDimAlignedEntity(document, new RDimAlignedData(new RVector(0,{h}), new RVector({w},{h}), new RVector({w//2},{h+500}))));
 op.addObject(new RDimAlignedEntity(document, new RDimAlignedData(new RVector({w},0), new RVector({w},{h}), new RVector({w+500},{h//2}))));
 op.apply(document);"""
-        elif "circle" in goal_lower:
-            import re as _re
-            radii = _re.findall(r"(\d+)\s*mm", goal)
-            r = int(radii[0]) if radii else 50
-            return f"""var op = new RAddObjectsOperation();
+    elif "circle" in goal_lower:
+        radii = re.findall(r"(\d+)\s*mm", goal)
+        r = int(radii[0]) if radii else 50
+        return f"""var op = new RAddObjectsOperation();
 op.addObject(new RCircleEntity(document, new RCircleData(new RVector(50,50), {r})));
 op.addObject(new RDimRadialEntity(document, new RDimRadialData(new RVector(50,50), new RVector(50+{r},50), 0)));
 op.apply(document);"""
-        return """var op = new RAddObjectsOperation();
+    return """var op = new RAddObjectsOperation();
 op.addObject(new RLineEntity(document, new RLineData(new RVector(0,0), new RVector(100,0))));
 op.addObject(new RLineEntity(document, new RLineData(new RVector(100,0), new RVector(100,80))));
 op.addObject(new RLineEntity(document, new RLineData(new RVector(100,80), new RVector(0,80))));
 op.addObject(new RLineEntity(document, new RLineData(new RVector(0,80), new RVector(0,0))));
 op.apply(document);"""
 
-    @mcp.tool()
-    async def plan_agentic(
-        goal: Annotated[str, Field(description="Natural language description of the CAD operation to perform. E.g. 'Create a rectangular floor plan 10m x 8m with 4 rooms, add dimensions, and export to SVG'.")],
-        file_name: Annotated[str, Field(default="", description="Optional depot file to work on. Empty = create new document.")] = "",
-        ctx: Context = None,
-    ) -> dict:
-        """Multi-step CAD workflow: plans and executes ECMAScript operations from a natural-language goal.
 
-        Uses AI sampling to decompose the goal into ECMAScript steps, then executes
-        them sequentially via QCAD Pro. Each step is validated before the next runs.
-
-        Requires QCAD Pro installed. Falls back to single-script generation if AI
-        sampling is unavailable.
-
-        ## Return Format
-        {"success": bool, "output": str, "data": {"steps": int, "entity_count": int, "plan": [...]}}
-
-        ## Examples
-        await plan_agentic(goal="Create a 10m x 8m floor plan with 4 equal rooms, label them, add aligned dimensions on all sides")
-        await plan_agentic(goal="Add a 1m door to the south wall of each room", file_name="floorplan.dxf")
-        """
-        if not qcad_pro.is_installed():
-            return {"success": False, "error": "QCAD Pro required."}
-
-        out_name = f"{Path(file_name).stem}_agentic.dxf" if file_name else "agentic_output.dxf"
-        out_path = os.path.join(OUTPUT_DIR, out_name)
-
-        prompt = f"""You are a QCAD Pro ECMAScript expert. Convert this CAD goal into ECMAScript code.
-
-Goal: {goal}
-
-Context: The script runs in QCAD Pro headless. Variables available:
-- `document` (RDocument) — the drawing
-- `di` (RDocumentInterface) — for import/export
-- RAddObjectsOperation, RLineEntity, RLineData, RVector, RCircleEntity, RCircleData,
-  RDimAlignedEntity, RDimAlignedData, RLayer, RModifyObjectsOperation, RColor, etc.
-
-{"The document already has entities loaded from " + file_name + ". Build on them." if file_name else "Create geometry from scratch."}
-
-Return ONLY the ECMAScript code between ```javascript and ``` markers. No explanations.
-
-Key rules:
-1. Combine all entities into a single RAddObjectsOperation before calling op.apply()
-2. RVector(x, y) — x and y are numbers. 1 unit = 1mm by convention.
-3. For dimensions: RDimAlignedData(extPoint1, extPoint2, dimLinePos)
-4. RLineData(startVector, endVector)
-5. RCircleData(centerVector, radius)
-6. Create layers BEFORE adding entities to them: new RLayer(document, "LayerName", false, false, new RColor("color"))
-"""
-
-        script = None
-        plan_steps = []
-
-        if ctx is not None:
-            try:
-                sampling_result = await ctx.request_sampling(
-                    messages=[{"role": "user", "content": prompt}],
-                    max_tokens=4096,
-                )
-                response_text = sampling_result.get("content", "")
-                if "```javascript" in response_text:
-                    script = response_text.split("```javascript")[1].split("```")[0].strip()
-                elif "```js" in response_text:
-                    script = response_text.split("```js")[1].split("```")[0].strip()
-                elif "```" in response_text:
-                    script = response_text.split("```")[1].split("```")[0].strip()
-                else:
-                    script = response_text.strip()
-                plan_steps.append({"source": "ai_sampling", "code": script[:200] + "..."})
-            except Exception as e:
-                logger.warning("AI sampling failed, using template-based approach: %s", e)
-
-        if script is None:
-            script = _agentic_fallback(goal)
-            plan_steps.append({"source": "template", "code": script[:200] + "..."})
-
-        result = qcad_pro.run_script(
-            user_code=script,
-            input_file=os.path.join(DEPOT_DIR, file_name) if file_name else None,
-            output_file=out_path,
-            timeout=120,
-        )
-
-        if result.get("success"):
-            data = result.get("data", {})
-            data["steps"] = len(plan_steps)
-            data["plan"] = plan_steps
-            result["data"] = data
-            result["output"] = out_name
-        return result
-
-    _AUTOLISP_TO_ECMASCRIPT_REFERENCE = """## AutoLISP → QCAD ECMAScript Mapping Reference
+_AUTOLISP_TO_ECMASCRIPT_REFERENCE = """## AutoLISP → QCAD ECMAScript Mapping Reference
 
 ### Drawing Primitives
 | AutoLISP | QCAD ECMAScript |
@@ -210,46 +113,51 @@ Key rules:
 - All angles in QCAD ECMAScript are in radians, not degrees (use Math.PI/180 for conversion).
 """
 
-    def _heuristic_transpile(lisp: str) -> str:
-        if not lisp or not lisp.strip():
-            return ""
 
-        line_pattern = re.findall(
-            r'\(command\s+"_LINE"\s+\(list\s+([\d.]+)\s+([\d.]+)\)\s+\(list\s+([\d.]+)\s+([\d.]+)\)\s*""?\s*\)',
-            lisp, re.IGNORECASE,
-        )
-        if line_pattern:
-            lines = []
-            for m in line_pattern:
-                x1, y1, x2, y2 = m
-                lines.append(
-                    f"op.addObject(new RLineEntity(document, "
-                    f"new RLineData(new RVector({x1},{y1}), new RVector({x2},{y2}))));"
-                )
-            return "var op = new RAddObjectsOperation();\n" + "\n".join(lines) + "\nop.apply(document);"
+def _heuristic_transpile(lisp: str) -> str:
+    """Heuristic AutoLISP→ECMAScript translator for common patterns."""
+    if not lisp or not lisp.strip():
+        return ""
 
-        circle_pattern = re.findall(
-            r'\(command\s+"_CIRCLE"\s+\(list\s+([\d.]+)\s+([\d.]+)\)\s+([\d.]+)\s*\)',
-            lisp, re.IGNORECASE,
-        )
-        if circle_pattern:
-            circles = []
-            for m in circle_pattern:
-                cx, cy, r = m
-                circles.append(
-                    f"op.addObject(new RCircleEntity(document, "
-                    f"new RCircleData(new RVector({cx},{cy}), {r})));"
-                )
-            return "var op = new RAddObjectsOperation();\n" + "\n".join(circles) + "\nop.apply(document);"
+    # Pattern: (command "_LINE" (list x1 y1) (list x2 y2) "")
+    line_pattern = re.findall(
+        r'\(command\s+"_LINE"\s+\(list\s+([\d.]+)\s+([\d.]+)\)\s+\(list\s+([\d.]+)\s+([\d.]+)\)\s*""?\s*\)',
+        lisp, re.IGNORECASE,
+    )
+    if line_pattern:
+        lines = []
+        for m in line_pattern:
+            x1, y1, x2, y2 = m
+            lines.append(
+                f"op.addObject(new RLineEntity(document, "
+                f"new RLineData(new RVector({x1},{y1}), new RVector({x2},{y2}))));"
+            )
+        return "var op = new RAddObjectsOperation();\n" + "\n".join(lines) + "\nop.apply(document);"
 
-        rect_pattern = re.findall(
-            r'\(defun\s+\S+\s*\((\S+)\s+(\S+)\).*?\(command\s+"_RECTANG".*?\).*?\)',
-            lisp, re.IGNORECASE | re.DOTALL,
-        )
-        vals = re.findall(r'\((\S+)\s+([\d.]+)\s+([\d.]+)\)', lisp)
-        if rect_pattern and vals:
-            w, h = vals[0][1], vals[0][2]
-            return f"""var op = new RAddObjectsOperation();
+    # Pattern: (command "_CIRCLE" (list cx cy) radius)
+    circle_pattern = re.findall(
+        r'\(command\s+"_CIRCLE"\s+\(list\s+([\d.]+)\s+([\d.]+)\)\s+([\d.]+)\s*\)',
+        lisp, re.IGNORECASE,
+    )
+    if circle_pattern:
+        circles = []
+        for m in circle_pattern:
+            cx, cy, r = m
+            circles.append(
+                f"op.addObject(new RCircleEntity(document, "
+                f"new RCircleData(new RVector({cx},{cy}), {r})));"
+            )
+        return "var op = new RAddObjectsOperation();\n" + "\n".join(circles) + "\nop.apply(document);"
+
+    # Pattern: (defun draw-rect (w h) ... (command "_RECTANG" ...) ...) (draw-rect w h)
+    rect_pattern = re.findall(
+        r'\(defun\s+\S+\s*\((\S+)\s+(\S+)\).*?\(command\s+"_RECTANG".*?\).*?\)',
+        lisp, re.IGNORECASE | re.DOTALL,
+    )
+    vals = re.findall(r'\(draw-rect\s+([\d.]+)\s+([\d.]+)\)', lisp, re.IGNORECASE)
+    if rect_pattern and vals:
+        w, h = vals[0]
+        return f"""var op = new RAddObjectsOperation();
 var w = {w}; var h = {h};
 op.addObject(new RLineEntity(document, new RLineData(new RVector(0,0), new RVector(w,0))));
 op.addObject(new RLineEntity(document, new RLineData(new RVector(w,0), new RVector(w,h))));
@@ -257,23 +165,24 @@ op.addObject(new RLineEntity(document, new RLineData(new RVector(w,h), new RVect
 op.addObject(new RLineEntity(document, new RLineData(new RVector(0,h), new RVector(0,0))));
 op.apply(document);"""
 
-        text_pattern = re.findall(
-            r'\(command\s+"_TEXT"\s+\(list\s+([\d.]+)\s+([\d.]+)\)\s+([\d.]+)\s+([\d.]+)\s+"([^"]+)"\s*\)',
-            lisp, re.IGNORECASE,
-        )
-        if text_pattern:
-            texts = []
-            for m in text_pattern:
-                x, y, hgt, rot, txt = m
-                texts.append(
-                    f"op.addObject(new RTextEntity(document, "
-                    f"new RTextData(new RVector({x},{y}), {hgt}, 0, '{txt}', "
-                    f"'Standard', RS.HAlignLeft, RS.VAlignBase, RS.UnknownUnit, 0, 0, 0, false, false, {rot}*Math.PI/180, false, false)));"
-                )
-            return "var op = new RAddObjectsOperation();\n" + "\n".join(texts) + "\nop.apply(document);"
+    # Pattern: (command "_TEXT" (list x y) hgt rot "text")
+    text_pattern = re.findall(
+        r'\(command\s+"_TEXT"\s+\(list\s+([\d.]+)\s+([\d.]+)\)\s+([\d.]+)\s+([\d.]+)\s+"([^"]+)"\s*\)',
+        lisp, re.IGNORECASE,
+    )
+    if text_pattern:
+        texts = []
+        for m in text_pattern:
+            x, y, hgt, rot, txt = m
+            texts.append(
+                f"op.addObject(new RTextEntity(document, "
+                f"new RTextData(new RVector({x},{y}), {hgt}, 0, '{txt}', "
+                f"'Standard', RS.HAlignLeft, RS.VAlignBase, RS.UnknownUnit, 0, 0, 0, false, false, {rot}*Math.PI/180, false, false)));"
+            )
+        return "var op = new RAddObjectsOperation();\n" + "\n".join(texts) + "\nop.apply(document);"
 
-        safe_lisp = lisp.replace("\\", "\\\\").replace("`", "\\`")[:300]
-        return f"""// ═══ AutoLISP → ECMAScript (heuristic fallback) ═══
+    safe_lisp = lisp.replace("\\", "\\\\").replace("`", "\\`")[:300]
+    return f"""// ═══ AutoLISP → ECMAScript (heuristic fallback) ═══
 // Original AutoLISP:
 // {safe_lisp}
 //
@@ -285,43 +194,134 @@ var op = new RAddObjectsOperation();
 // Placeholder: add entities matching the LISP intent
 op.apply(document);"""
 
-    @mcp.tool()
-    async def plan_transpile(
-        lisp_code: Annotated[str, Field(description="AutoLISP code to translate to QCAD ECMAScript.")],
-        output_name: Annotated[str, Field(default="transpiled_output.dxf", description="Output filename for the executed result.")] = "",
-        ctx: Context = None,
-    ) -> dict:
-        """Translate AutoLISP to QCAD ECMAScript and execute the result.
 
-        AI-powered transpiler that maps legacy AutoCAD AutoLISP routines to
-        equivalent QCAD Pro ECMAScript. Handles entity creation, layer
-        operations, selection sets, math functions, and control flow.
+async def plan_agentic(
+    goal: Annotated[str, Field(description="Natural language description of the CAD operation to perform. E.g. 'Create a rectangular floor plan 10m x 8m with 4 rooms, add dimensions, and export to SVG'.")],
+    file_name: Annotated[str, Field(default="", description="Optional depot file to work on. Empty = create new document.")] = "",
+    ctx: None = None,
+) -> dict:
+    """Multi-step CAD workflow: plans and executes ECMAScript operations from a natural-language goal.
 
-        The translated script is executed via QCAD Pro and the output DXF
-        is saved to the output directory.
+    Uses AI sampling to decompose the goal into ECMAScript steps, then executes
+    them sequentially via QCAD Pro. Each step is validated before the next runs.
 
-        Requires QCAD Pro installed. AI sampling recommended for best results;
-        falls back to heuristic translation without it.
+    Requires QCAD Pro installed. Falls back to single-script generation if AI
+    sampling is unavailable.
 
-        ## Return Format
-        {"success": bool, "output": str, "data": {"entity_count": int, "original_lisp": str, "transpiled_js": str, "source": str}}
+    ## Return Format
+    {"success": bool, "output": str, "data": {"steps": int, "entity_count": int, "plan": [...]}}
 
-        ## Examples
-        await plan_transpile(lisp_code='(command "_LINE" (list 0 0) (list 100 0) "")')
-        await plan_transpile(lisp_code='''
-        (defun draw-rect (w h)
-          (command "_RECTANG" (list 0 0) (list w h))
-        )
-        (draw-rect 100 80)
-        ''')
-        """
-        if not qcad_pro.is_installed():
-            return {"success": False, "error": "QCAD Pro required."}
+    ## Examples
+    await plan_agentic(goal="Create a 10m x 8m floor plan with 4 equal rooms, label them, add aligned dimensions on all sides")
+    await plan_agentic(goal="Add a 1m door to the south wall of each room", file_name="floorplan.dxf")
+    """
+    if not qcad_pro.is_installed():
+        return {"success": False, "error": "QCAD Pro required."}
 
-        out_name = output_name or "transpiled_output.dxf"
-        out_path = os.path.join(OUTPUT_DIR, out_name)
+    out_name = f"{Path(file_name).stem}_agentic.dxf" if file_name else "agentic_output.dxf"
+    out_path = os.path.join(OUTPUT_DIR, out_name)
 
-        transpile_prompt = f"""You are an expert in both AutoLISP and QCAD Pro ECMAScript (QtScript). Translate the following AutoLISP code to QCAD ECMAScript.
+    prompt = f"""You are a QCAD Pro ECMAScript expert. Convert this CAD goal into ECMAScript code.
+
+Goal: {goal}
+
+Context: The script runs in QCAD Pro headless. Variables available:
+- `document` (RDocument) — the drawing
+- `di` (RDocumentInterface) — for import/export
+- RAddObjectsOperation, RLineEntity, RLineData, RVector, RCircleEntity, RCircleData,
+  RDimAlignedEntity, RDimAlignedData, RLayer, RModifyObjectsOperation, RColor, etc.
+
+{"The document already has entities loaded from " + file_name + ". Build on them." if file_name else "Create geometry from scratch."}
+
+Return ONLY the ECMAScript code between ```javascript and ``` markers. No explanations.
+
+Key rules:
+1. Combine all entities into a single RAddObjectsOperation before calling op.apply()
+2. RVector(x, y) — x and y are numbers. 1 unit = 1mm by convention.
+3. For dimensions: RDimAlignedData(extPoint1, extPoint2, dimLinePos)
+4. RLineData(startVector, endVector)
+5. RCircleData(centerVector, radius)
+6. Create layers BEFORE adding entities to them: new RLayer(document, "LayerName", false, false, new RColor("color"))
+"""
+
+    script = None
+    plan_steps = []
+
+    if ctx is not None:
+        try:
+            sampling_result = await ctx.request_sampling(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=4096,
+            )
+            response_text = sampling_result.get("content", "")
+            if "```javascript" in response_text:
+                script = response_text.split("```javascript")[1].split("```")[0].strip()
+            elif "```js" in response_text:
+                script = response_text.split("```js")[1].split("```")[0].strip()
+            elif "```" in response_text:
+                script = response_text.split("```")[1].split("```")[0].strip()
+            else:
+                script = response_text.strip()
+            plan_steps.append({"source": "ai_sampling", "code": script[:200] + "..."})
+        except Exception as e:
+            logger.warning("AI sampling failed, using template-based approach: %s", e)
+
+    if script is None:
+        script = _agentic_fallback(goal)
+        plan_steps.append({"source": "template", "code": script[:200] + "..."})
+
+    result = qcad_pro.run_script(
+        user_code=script,
+        input_file=os.path.join(DEPOT_DIR, file_name) if file_name else None,
+        output_file=out_path,
+        timeout=120,
+    )
+
+    if result.get("success"):
+        data = result.get("data", {})
+        data["steps"] = len(plan_steps)
+        data["plan"] = plan_steps
+        result["data"] = data
+        result["output"] = out_name
+    return result
+
+
+async def plan_transpile(
+    lisp_code: Annotated[str, Field(description="AutoLISP code to translate to QCAD ECMAScript.")],
+    output_name: Annotated[str, Field(default="transpiled_output.dxf", description="Output filename for the executed result.")] = "",
+    ctx: None = None,
+) -> dict:
+    """Translate AutoLISP to QCAD ECMAScript and execute the result.
+
+    AI-powered transpiler that maps legacy AutoCAD AutoLISP routines to
+    equivalent QCAD Pro ECMAScript. Handles entity creation, layer
+    operations, selection sets, math functions, and control flow.
+
+    The translated script is executed via QCAD Pro and the output DXF
+    is saved to the output directory.
+
+    Requires QCAD Pro installed. AI sampling recommended for best results;
+    falls back to heuristic translation without it.
+
+    ## Return Format
+    {"success": bool, "output": str, "data": {"entity_count": int, "original_lisp": str, "transpiled_js": str, "source": str}}
+
+    ## Examples
+    await plan_transpile(lisp_code='(command "_LINE" (list 0 0) (list 100 0) "")')
+    await plan_transpile(lisp_code='''
+    (defun draw-rect (w h)
+      (command "_RECTANG" (list 0 0) (list w h))
+    )
+    (draw-rect 100 80)
+    ''')
+    """
+    if not qcad_pro.is_installed():
+        return {"success": False, "error": "QCAD Pro required."}
+
+    out_name = output_name or "transpiled_output.dxf"
+    out_path = os.path.join(OUTPUT_DIR, out_name)
+
+    transpile_prompt = f"""You are an expert in both AutoLISP and QCAD Pro ECMAScript (QtScript). Translate the following AutoLISP code to QCAD ECMAScript.
 
 {_AUTOLISP_TO_ECMASCRIPT_REFERENCE}
 
@@ -344,46 +344,51 @@ Rules:
 9. Angles in radians: multiply degrees by Math.PI/180
 """
 
-        transpiled_js = None
-        source = "heuristic"
+    transpiled_js = None
+    source = "heuristic"
 
-        if ctx is not None:
-            try:
-                sampling_result = await ctx.request_sampling(
-                    messages=[{"role": "user", "content": transpile_prompt}],
-                    max_tokens=4096,
-                )
-                response_text = sampling_result.get("content", "")
-                if "```javascript" in response_text:
-                    transpiled_js = response_text.split("```javascript")[1].split("```")[0].strip()
-                elif "```js" in response_text:
-                    transpiled_js = response_text.split("```js")[1].split("```")[0].strip()
-                elif "```" in response_text:
-                    transpiled_js = response_text.split("```")[1].split("```")[0].strip()
-                else:
-                    transpiled_js = response_text.strip()
-                if transpiled_js:
-                    source = "ai_transpiler"
-            except Exception as e:
-                logger.warning("AI transpilation failed, using heuristic: %s", e)
+    if ctx is not None:
+        try:
+            sampling_result = await ctx.request_sampling(
+                messages=[{"role": "user", "content": transpile_prompt}],
+                max_tokens=4096,
+            )
+            response_text = sampling_result.get("content", "")
+            if "```javascript" in response_text:
+                transpiled_js = response_text.split("```javascript")[1].split("```")[0].strip()
+            elif "```js" in response_text:
+                transpiled_js = response_text.split("```js")[1].split("```")[0].strip()
+            elif "```" in response_text:
+                transpiled_js = response_text.split("```")[1].split("```")[0].strip()
+            else:
+                transpiled_js = response_text.strip()
+            if transpiled_js:
+                source = "ai_transpiler"
+        except Exception as e:
+            logger.warning("AI transpilation failed, using heuristic: %s", e)
 
-        if transpiled_js is None:
-            transpiled_js = _heuristic_transpile(lisp_code)
+    if transpiled_js is None:
+        transpiled_js = _heuristic_transpile(lisp_code)
 
-        if not transpiled_js or transpiled_js == lisp_code:
-            return {"success": False, "error": "Transpilation produced no output. The AutoLISP may be too complex for heuristic fallback. Try with AI sampling enabled."}
+    if not transpiled_js or transpiled_js == lisp_code:
+        return {"success": False, "error": "Transpilation produced no output. The AutoLISP may be too complex for heuristic fallback. Try with AI sampling enabled."}
 
-        result = qcad_pro.run_script(
-            user_code=transpiled_js,
-            output_file=out_path,
-            timeout=120,
-        )
+    result = qcad_pro.run_script(
+        user_code=transpiled_js,
+        output_file=out_path,
+        timeout=120,
+    )
 
-        if result.get("success"):
-            data = result.get("data", {})
-            data["original_lisp"] = lisp_code[:500] + ("..." if len(lisp_code) > 500 else "")
-            data["transpiled_js"] = transpiled_js[:500] + ("..." if len(transpiled_js) > 500 else "")
-            data["source"] = source
-            result["data"] = data
-            result["output"] = out_name
-        return result
+    if result.get("success"):
+        data = result.get("data", {})
+        data["original_lisp"] = lisp_code[:500] + ("..." if len(lisp_code) > 500 else "")
+        data["transpiled_js"] = transpiled_js[:500] + ("..." if len(transpiled_js) > 500 else "")
+        data["source"] = source
+        result["data"] = data
+        result["output"] = out_name
+    return result
+
+
+def register(mcp):
+    mcp.tool()(plan_agentic)
+    mcp.tool()(plan_transpile)

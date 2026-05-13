@@ -8,10 +8,14 @@ import httpx
 from bs4 import BeautifulSoup
 from pydantic import Field
 
+from qcad_mcp.config import DEPOT_DIR
+
 logger = logging.getLogger("qcad-mcp")
 
 _SCRIPT_SOURCES: dict = {}
 _SCRIPT_CATEGORIES = ["drawing", "modify", "dimension", "export", "utility", "block", "layer", "geometry"]
+
+_READ_ONLY = {"readonly": True}
 
 
 def _script_source(name: str):
@@ -482,85 +486,85 @@ print("Rotated " + ents.length + " entities by " + angleDeg + "°");
     return scripts.get(script_id, "")
 
 
-def register(mcp):
-    from qcad_mcp.config import DEPOT_DIR
+async def plan_scripts_search(
+    query: Annotated[str, Field(default="", description="Search term for script title or description.")] = "",
+    category: Annotated[str, Field(default="", description="Filter by category: drawing, modify, dimension, export, utility, block, layer, geometry.")] = "",
+    source: Annotated[str, Field(default="all", description="Source: gallery, gist, examples, or all.")] = "all",
+    limit: Annotated[int, Field(default=20, description="Max results.")] = 20,
+) -> dict:
+    """Search QCAD ECMAScript libraries for reusable CAD scripts.
 
-    _READ_ONLY = {"readonly": True}
+    Searches curated gallery, GitHub Gist, and QCAD bundled examples.
 
-    @mcp.tool(annotations=_READ_ONLY)
-    async def plan_scripts_search(
-        query: Annotated[str, Field(default="", description="Search term for script title or description.")] = "",
-        category: Annotated[str, Field(default="", description="Filter by category: drawing, modify, dimension, export, utility, block, layer, geometry.")] = "",
-        source: Annotated[str, Field(default="all", description="Source: gallery, gist, examples, or all.")] = "all",
-        limit: Annotated[int, Field(default=20, description="Max results.")] = 20,
-    ) -> dict:
-        """Search QCAD ECMAScript libraries for reusable CAD scripts.
+    ## Return Format
+    {"success": bool, "source": str, "results": [{"title": str, "description": str, "source": str, "url": str, ...}]}
 
-        Searches curated gallery, GitHub Gist, and QCAD bundled examples.
-
-        ## Return Format
-        {"success": bool, "source": str, "results": [{"title": str, "description": str, "source": str, "url": str, ...}]}
-
-        ## Examples
-        await plan_scripts_search(query="dimension")
-        await plan_scripts_search(category="drawing", source="gallery")
-        """
-        all_results = []
-        sources = [source] if source != "all" else list(_SCRIPT_SOURCES.keys())
-        for s in sources:
-            if s in _SCRIPT_SOURCES:
-                try:
-                    results = await _SCRIPT_SOURCES[s](query, category, limit)
-                    all_results.extend(results)
-                except Exception as e:
-                    logger.warning("Script source %s error: %s", s, e)
-        all_results.sort(key=lambda x: x.get("title", ""))
-        return {"success": True, "source": source, "results": all_results[:limit]}
-
-    @mcp.tool()
-    async def plan_scripts_download(
-        title: Annotated[str, Field(description="Script title, used as filename.")],
-        source: Annotated[str, Field(description="Source from search results.")],
-        url: Annotated[str, Field(default="", description="Download URL or gallery://id for local scripts.")] = "",
-    ) -> dict:
-        """Download an ECMAScript from a library to the local depot.
-
-        Gallery scripts (gallery://id) are pre-curated and served from the local bundle.
-        Downloaded .js files go to the depot and can be viewed, edited, or
-        used with plan_script.
-
-        ## Return Format
-        {"success": bool, "filename": str, "size_kb": float, "content": str}
-
-        ## Examples
-        await plan_scripts_download(title="Door Swing Arc", source="gallery", url="gallery://door_swing.js")
-        """
-        safe = "".join(c if c.isalnum() or c in " -_" else "_" for c in title).strip()[:60]
-        filename = f"{safe}.js" if not safe.endswith(".js") else safe
-        path = os.path.join(DEPOT_DIR, filename)
-
-        if url.startswith("gallery://"):
-            script_id = url.replace("gallery://", "")
-            content = _get_gallery_script(script_id)
-            if content:
-                with open(path, "w", encoding="utf-8") as f:
-                    f.write(content)
-                size_kb = round(len(content.encode("utf-8")) / 1024, 1)
-                return {"success": True, "filename": filename, "size_kb": size_kb, "path": path,
-                        "content": content[:500] + ("..." if len(content) > 500 else "")}
-            return {"success": False, "error": f"Gallery script not found: {script_id}"}
-
-        if url:
+    ## Examples
+    await plan_scripts_search(query="dimension")
+    await plan_scripts_search(category="drawing", source="gallery")
+    """
+    all_results = []
+    sources = [source] if source != "all" else list(_SCRIPT_SOURCES.keys())
+    for s in sources:
+        if s in _SCRIPT_SOURCES:
             try:
-                async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-                    r = await client.get(url)
-                    r.raise_for_status()
-                content = r.text
-                with open(path, "w", encoding="utf-8") as f:
-                    f.write(content)
-                return {"success": True, "filename": filename, "size_kb": round(len(content.encode("utf-8")) / 1024, 1),
-                        "path": path, "content": content[:500] + ("..." if len(content) > 500 else "")}
+                results = await _SCRIPT_SOURCES[s](query, category, limit)
+                all_results.extend(results)
             except Exception as e:
-                logger.error("Script download error: %s", e)
-                return {"success": False, "error": f"Download failed: {e}"}
-        return {"success": False, "error": "No URL or gallery reference provided."}
+                logger.warning("Script source %s error: %s", s, e)
+    all_results.sort(key=lambda x: x.get("title", ""))
+    return {"success": True, "source": source, "results": all_results[:limit]}
+
+
+async def plan_scripts_download(
+    title: Annotated[str, Field(description="Script title, used as filename.")],
+    source: Annotated[str, Field(description="Source from search results.")],
+    url: Annotated[str, Field(default="", description="Download URL or gallery://id for local scripts.")] = "",
+) -> dict:
+    """Download an ECMAScript from a library to the local depot.
+
+    Gallery scripts (gallery://id) are pre-curated and served from the local bundle.
+    Downloaded .js files go to the depot and can be viewed, edited, or
+    used with plan_script.
+
+    ## Return Format
+    {"success": bool, "filename": str, "size_kb": float, "content": str}
+
+    ## Examples
+    await plan_scripts_download(title="Door Swing Arc", source="gallery", url="gallery://door_swing.js")
+    """
+    safe = "".join(c if c.isalnum() or c in " -_" else "_" for c in title).strip()[:60]
+    filename = f"{safe}.js" if not safe.endswith(".js") else safe
+    path = os.path.join(DEPOT_DIR, filename)
+
+    if url.startswith("gallery://"):
+        script_id = url.replace("gallery://", "")
+        content = _get_gallery_script(script_id)
+        if content:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(content)
+            size_kb = round(len(content.encode("utf-8")) / 1024, 1)
+            return {"success": True, "filename": filename, "size_kb": size_kb, "path": path,
+                    "content": content[:500] + ("..." if len(content) > 500 else "")}
+        return {"success": False, "error": f"Gallery script not found: {script_id}"}
+
+    if url:
+        try:
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                r = await client.get(url)
+                r.raise_for_status()
+            content = r.text
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(content)
+            return {"success": True, "filename": filename, "size_kb": round(len(content.encode("utf-8")) / 1024, 1),
+                    "path": path, "content": content[:500] + ("..." if len(content) > 500 else "")}
+        except Exception as e:
+            logger.error("Script download error: %s", e)
+            return {"success": False, "error": f"Download failed: {e}"}
+    return {"success": False, "error": "No URL or gallery reference provided."}
+
+
+def register(mcp):
+    mcp.tool(annotations=_READ_ONLY)(plan_scripts_search)
+    mcp.tool()(plan_scripts_download)
+
