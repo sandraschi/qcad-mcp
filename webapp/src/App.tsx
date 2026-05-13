@@ -1,36 +1,40 @@
-import { Route, Routes, Navigate } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import AppLayout from "./components/AppLayout";
-import Dashboard from "./pages/Dashboard";
-import DepotPage from "./pages/DepotPage";
-import ViewerPage from "./pages/ViewerPage";
-import ExtrudePage from "./pages/ExtrudePage";
+import AgenticPage from "./pages/AgenticPage";
 import AnalysePage from "./pages/AnalysePage";
 import BatchPage from "./pages/BatchPage";
 import BlocksPage from "./pages/BlocksPage";
-import LayersPage from "./pages/LayersPage";
-import ModelsPage from "./pages/ModelsPage";
-import LogsPage from "./pages/LogsPage";
-import SettingsPage from "./pages/SettingsPage";
+import Dashboard from "./pages/Dashboard";
+import DepotPage from "./pages/DepotPage";
+import ExtrudePage from "./pages/ExtrudePage";
 import HelpPage from "./pages/HelpPage";
+import LayersPage from "./pages/LayersPage";
+import LogsPage from "./pages/LogsPage";
+import ModelsPage from "./pages/ModelsPage";
+import ScriptsPage from "./pages/ScriptsPage";
+import SettingsPage from "./pages/SettingsPage";
+import ViewerPage from "./pages/ViewerPage";
 
 export default function App() {
-  return (
-    <AppLayout>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/depot" element={<DepotPage />} />
-        <Route path="/viewer" element={<ViewerPage />} />
-        <Route path="/extrude" element={<ExtrudePage />} />
-        <Route path="/analyse" element={<AnalysePage />} />
-        <Route path="/blocks" element={<BlocksPage />} />
-        <Route path="/layers" element={<LayersPage />} />
-        <Route path="/batch" element={<BatchPage />} />
-        <Route path="/models" element={<ModelsPage />} />
-        <Route path="/logs" element={<LogsPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/help" element={<HelpPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </AppLayout>
-  );
+	return (
+		<AppLayout>
+			<Routes>
+				<Route path="/" element={<Dashboard />} />
+				<Route path="/agentic" element={<AgenticPage />} />
+				<Route path="/depot" element={<DepotPage />} />
+				<Route path="/viewer" element={<ViewerPage />} />
+				<Route path="/extrude" element={<ExtrudePage />} />
+				<Route path="/analyse" element={<AnalysePage />} />
+				<Route path="/blocks" element={<BlocksPage />} />
+				<Route path="/scripts" element={<ScriptsPage />} />
+				<Route path="/layers" element={<LayersPage />} />
+				<Route path="/batch" element={<BatchPage />} />
+				<Route path="/models" element={<ModelsPage />} />
+				<Route path="/logs" element={<LogsPage />} />
+				<Route path="/settings" element={<SettingsPage />} />
+				<Route path="/help" element={<HelpPage />} />
+				<Route path="*" element={<Navigate to="/" replace />} />
+			</Routes>
+		</AppLayout>
+	);
 }

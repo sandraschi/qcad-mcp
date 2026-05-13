@@ -9,7 +9,7 @@ Two editions:
 | Edition | License | Price | DWG Support | PDF Export | CLI Tools |
 |:---|:---|:---|:---|:---|:---|
 | **Community** | GPLv2 | Free | No | Basic | No |
-| **Professional** | Proprietary | ~€50.40 | Yes | High-fidelity | Yes (dwg2pdf, dwg2svg) |
+| **Professional** | Proprietary | ~€42 | Yes | High-fidelity | Yes (dwg2pdf, dwg2svg, ECMAScript bridge) |
 
 ## History
 
@@ -42,35 +42,35 @@ This MCP server uses **ezdxf** (by Manfred Moitzi) rather than QCAD itself. ezdx
 **Why still have QCAD Pro as an option?**
 - DWG file reading (ezdxf has limited DWG support)
 - Higher quality PDF rendering (fonts, line weights)
+- **ECMAScript bridge**: AI writes QCAD scripts on-demand — no pre-existing script library needed
 - Better compatibility with complex AutoCAD files
 
 ## Comparison: QCAD vs AutoCAD
 
 | Aspect | QCAD | AutoCAD |
 |:---|:---|:---|
-| **License** | GPLv2 / €50.40 | $2,000+/year |
+| **License** | GPLv2 / ~€42 | $2,000+/year |
 | **File Format** | DXF (native), DWG (Pro) | DWG (native) |
 | **2D Drafting** | Full | Full |
 | **3D** | No | Yes |
-| **Scripting** | ECMAScript (QtScript) | AutoLISP, .NET, VBA |
-| **Python API** | Via ezdxf (separate) | Via pyautocad (limited) |
-| **BIM** | No | Yes (Revit integration) |
-| **Platform** | Windows, macOS, Linux | Windows, Mac |
-| **Learning Curve** | Gentle | Steep |
-| **LISP Support** | Partial | Full |
-| **DWG Write** | Pro only | Yes |
+| **Scripting** | ECMAScript (LLM-friendly, headless) | AutoLISP (1986 Lisp dialect), .NET, VBA |
+| **AI Automation** | `plan_script` / `plan_agentic` — LLM writes scripts on-demand | No native MCP integration |
+| **Headless CLI** | Yes (`-no-gui -autostart`) | No |
 
 ## QCAD Scripting
 
-QCAD uses **ECMAScript** (QtScript, similar to JavaScript) for scripting and automation. Scripts can:
-- Create and modify entities
-- Read/write files
-- Access the drawing database
-- Add custom tools to the UI
+QCAD Pro uses **ECMAScript** (QtScript, similar to JavaScript) for scripting and automation. Unlike AutoCAD's AutoLISP — a 40-year-old Lisp dialect with a massive library ecosystem built over decades — QCAD's ECMAScript is a modern, LLM-friendly language that AI models generate reliably from first principles.
 
-The Community Edition includes the Script Editor (ECMAScript IDE) for writing and running scripts. QCAD Pro adds additional scripting capabilities for DWG operations.
+**The key insight**: you don't need a library ecosystem when the AI is the library. `plan_script` and `plan_agentic` let an LLM write CAD scripts on-demand — room labelers, wall calculators, dimensioning macros, batch exporters — generated fresh for each task instead of hunting for a pre-written LISP routine on a 20-year-old forum thread.
 
-However, for programmatic access, **ezdxf** (Python) is the better choice — it's what this MCP server uses internally.
+Scripts can:
+- Create and modify entities (lines, circles, polylines, text, hatches, dimensions)
+- Read/write DXF and DWG files
+- Access the full drawing database (layers, blocks, entities)
+- Export to PDF, SVG, BMP via QCAD Pro CLI tools
+- Run headlessly via `qcad.exe -no-gui -autostart` — no GUI needed
+
+For pure Python programmatic access without QCAD Pro, **ezdxf** handles parsing, SVG rendering, STL extrusion, and entity analysis — all from Python, no external process.
 
 ## QCAD in the Fleet
 

@@ -1,2 +1,13 @@
-@tailwind base; @tailwind components; @tailwind utilities;
-html, body, #root { width: 100%; height: 100%; margin: 0; font-family: system-ui, sans-serif; background: #18181c; color: #f1f5f9; }
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+html,
+body,
+#root {
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	font-family: system-ui, sans-serif;
+	background: #18181c;
+	color: #f1f5f9;
+}

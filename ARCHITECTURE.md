@@ -1,8 +1,8 @@
-# qcad-mcp — 2D CAD MCP Server (DXF/DWG → SVG/STL)
+# qcad-mcp — 2D CAD MCP Server (DXF/DWG → SVG/STL + ECMAScript bridge)
 
-**Vision**: Upload a floor plan DXF, preview it in the browser, extrude walls to 3D, import into Resonite/Unity3D. All through MCP tools.
+**Vision**: Upload a floor plan DXF, preview it in the browser, extrude walls to 3D, annotate and dimension, import into Resonite/Unity3D. All through MCP tools. With QCAD Pro, the AI agent writes ECMAScript to automate any CAD operation — no pre-existing script library required, the LLM generates code on-demand.
 
-**Price of entry**: €0 (Community Edition + `ezdxf`) or €50.40 (QCAD Pro for DWG + CLI tools).
+**Price of entry**: €0 (Community Edition + `ezdxf`) or ~€42 (QCAD Pro for DWG + ECMAScript bridge + native rendering).
 
 ---
 
@@ -15,72 +15,99 @@ DXF/DWG file
     │   ├── → SVG preview (webapp)
     │   └── → STL extrusion (walls → 3D)
     │
-    └── QCAD CLI (Pro, €50) ──→ dwg2pdf, dwg2svg, dwg2bmp
-        └── → high-fidelity rendering (text, hatches, dimensions)
-
-MCP tools:
-  plan_info       — layers, entities, block count, bounding box
-  plan_to_svg     — DXF/DWG → preview SVG
-  plan_extrude    — DXF/DWG → STL (walls extruded to height)
-  plan_export     — DXF/DWG → PDF (via QCAD CLI, Pro only)
-  plan_analyse    — room detection, area calculation, wall length
+    └── QCAD Pro (€42, Swiss-made) ──→ ECMAScript bridge + native rendering
+        ├── → plan_script / plan_exec (arbitrary ECMAScript execution)
+        ├── → plan_render (high-fidelity SVG/PDF/BMP)
+        ├── → plan_dimension (aligned/radial/angular dimensions)
+        ├── → plan_measure (per-entity distance/angle/area)
+        ├── → plan_text / plan_hatch (annotations + fill patterns)
+        ├── → plan_agentic (NL goal → ECMAScript → executed)
+        └── → plan_convert (DWG↔DXF)
 ```
 
+### Two-Tier Engine Design
+
+**Tier 1 — ezdxf** (always available, zero cost):
+- All parsing: layers, entities, blocks, bounding boxes
+- SVG preview via matplotlib backend
+- STL extrusion (wall polyline → 3D mesh)
+- Room analysis (closed polyline detection)
+- DXF creation from primitives
+
+**Tier 2 — QCAD Pro** (optional, ~€42 one-time):
+- ECMAScript bridge: execute arbitrary scripts against DXF documents
+- Native rendering: perfect hatches, TrueType fonts, lineweights, dimensions
+- Geometry engine: precise measurements, entity type detection
+- Dimension, text, hatch entity creation
+- DWG import/export via Teigha
+
 ---
 
-## Why `ezdxf` Is Enough
+## MCP Tools (20 total)
 
-`ezdxf` is a mature pure-Python library (MIT license) that reads and writes DXF files from R12 to R2023. It handles:
+### ezdxf Tier (always available)
+| Tool | Access | Purpose |
+|------|--------|---------|
+| `plan_info` | READ_ONLY | Layers, entity counts, bounding box, blocks |
+| `plan_to_svg` | MUTATING | DXF → SVG preview with layer filtering |
+| `plan_extrude` | MUTATING | DXF walls → 3D STL mesh |
+| `plan_export` | MUTATING | DXF → SVG/PNG/PDF (QCAD Pro preferred) |
+| `plan_analyse` | READ_ONLY | Room detection, area, door/window ID |
+| `plan_create` | MUTATING | Create DXF from geometric primitives |
+| `plan_depot` | READ_ONLY | List files in the depot |
+| `plan_modify` | MUTATING | Delete, offset, layer operations |
+| `plan_blocks` | READ_ONLY | Search CAD block libraries |
+| `plan_blocks_download` | MUTATING | Download blocks to depot |
 
-- All entity types (lines, arcs, circles, polylines, lwpolylines, splines, hatches, texts, dimensions, blocks, inserts)
-- Layers, blocks, linetypes, text styles
-- DXF/DWG filter for reading
-- SVG export (built-in, basic rendering)
-- Geometry queries (bounding box, extents, selection)
-
-What it doesn't do: render hatches perfectly, handle TrueType font paths, or reproduce QCAD's exact screen rendering. That's where QCAD Pro's CLI comes in if needed.
+### QCAD Pro Tier (requires QCAD Pro 3.x)
+| Tool | Access | Purpose |
+|------|--------|---------|
+| `qcad_status` | READ_ONLY | Pro install/version/running detection |
+| `plan_script` | MUTATING | Execute arbitrary ECMAScript against DXF |
+| `plan_render` | MUTATING | Native SVG/PDF/BMP rendering |
+| `plan_exec` | MUTATING | Quick ECMAScript execution, no file I/O |
+| `plan_convert` | MUTATING | DWG↔DXF conversion |
+| `plan_dimension` | MUTATING | Add aligned/radial/angular dimensions |
+| `plan_agentic` | MUTATING | NL goal → ECMAScript → executed |
+| `plan_measure` | READ_ONLY | Per-entity distance/angle/area measurement |
+| `plan_text` | MUTATING | Text annotations with styling |
+| `plan_hatch` | MUTATING | Hatch/fill patterns (ANSI, SOLID, AR-CONC) |
 
 ---
 
-## MCP Tools
+## Service Layer
 
-### plan_info
-Read a DXF and return layer names, entity counts per type, bounding box, block definitions.
+`src/qcad_mcp/services/qcad_pro.py` — Detection, CLI execution, ECMAScript bridge, rendering.
 
-### plan_to_svg  
-Convert DXF to SVG for browser preview. Uses `ezdxf`'s built-in SVG exporter with optional per-layer colour mapping. The webapp displays this in a viewer pane.
+Key functions:
+- `is_installed()` / `is_running()` / `get_version()` — QCAD Pro status
+- `run_script(code, input_file, output_file)` — ECMAScript bridge (headless)
+- `exec_in_live(code, file_name)` — Quick script execution
+- `render(input, output, format)` — Native SVG/PDF/BMP rendering
+- `convert(input, output, format)` — DWG↔DXF conversion
 
-### plan_extrude
-The killer feature. Takes a DXF floor plan, identifies closed polylines (walls, rooms), extrudes them to a configurable height (default 3m), and outputs an STL mesh. This STL can be:
-- Loaded into the freecad-mcp Viz.tsx 3D viewer
-- Imported into Resonite as a world
-- Imported into Unity3D for physics
-
-The extrusion logic: find all LWPOLYLINE/LINE entities on wall layers, offset them inward/outward for wall thickness, extrude vertically, boolean merge.
-
-### plan_export
-Pass through to QCAD Pro CLI if installed: `dwg2pdf`, `dwg2svg`, `dwg2bmp` for high-fidelity rendering.
-
-### plan_analyse
-Room detection: find enclosed polylines, label them as rooms, calculate area in m², identify doors/windows by block insertion.
+The bridge wraps user ECMAScript in a template that imports the input file, runs code, gathers entity/layer metadata, and exports output. Structured results are extracted from stdout via `__QCAD_MCP_RESULT__` JSON markers.
 
 ---
 
 ## Webapp
 
-Same fleet-standard Vite + React layout as freecad-mcp:
+Fleet-standard Vite + React layout on port 10967:
 
 | Page | Purpose |
 |------|---------|
-| **Dashboard** | File counts, quick actions |
-| **Viewer** | DXF upload + full-screen SVG preview with pan/zoom |
+| **Dashboard** | File counts, QCAD Pro status, quick actions |
+| **Depot** | Full CRUD with SVG preview, DXF creation wizard, upload |
+| **Viewer** | DXF upload + SVG preview with per-layer toggle |
 | **Extrude** | DXF → STL with wall height/thickness controls |
-| **Analyse** | Room labels, area table, wall lengths |
-| **Models** | Output STL browser, download |
-| **Logs** | SSE log stream |
-| **Settings** | QCAD Pro path, extrusion defaults |
-
-The SVG viewer uses `react-svg-pan-zoom` or a simple `<object>` tag embedding the SVG. Layer toggle (show/hide layers) controlled by clicking layer names.
+| **Analyse** | Room detection, area table, door/window list |
+| **Blocks** | Search + download CAD blocks from 3 sources |
+| **Layers** | Layer manager (color, freeze, lock, delete) |
+| **Batch** | Run plan_info/plan_analyse on all depot files |
+| **Models** | Uploads vs outputs listing with download |
+| **Logs** | Live SSE log viewer with filter/export/pause |
+| **Settings** | Ollama URL/model, extrusion defaults, QCAD Pro path |
+| **Help** | 9-tabbed reference covering QCAD, ezdxf, scripting, tools |
 
 ---
 
@@ -96,8 +123,6 @@ qcad-mcp plan_extrude → STL
     └── Direct: Resonite supports STL import natively
 ```
 
-The STL from `plan_extrude` is a 3D mesh of the floor plan. Import into Resonite as a static world object. Scale matches real-world dimensions (1 DXF unit = 1 metre by default).
-
 ---
 
 ## Fleet Registration
@@ -106,18 +131,7 @@ The STL from `plan_extrude` is a 3D mesh of the floor plan. Import into Resonite
 |------|-------|
 | **Repo** | `D:\Dev\repos\qcad-mcp` |
 | **Ports** | Backend 10966, Frontend 10967 |
-| **DXF engine** | `ezdxf` (MIT, free) |
-| **Optional** | QCAD Pro CLI (€50.40, for DWG/PDF) |
-
----
-
-## Implementation Order
-
-1. **Scaffold** — repo, FastMCP server, `ezdxf` integration, `plan_info` tool
-2. **Viewer** — `plan_to_svg` + webapp viewer page with layer toggle
-3. **Extrude** — `plan_extrude` → STL, the core feature
-4. **Analyse** — `plan_analyse` with room/area detection
-5. **QCAD Pro** — optional CLI integration for perfect PDF/DWG output
-6. **Fleet standards** — docstrings, biome, tsc, ruff, justfile, ports, project page
-
-Estimated effort: 6-10 hours over multiple sessions.
+| **Version** | 0.3.0 |
+| **Python engine** | `ezdxf` (MIT, free) |
+| **Pro engine** | QCAD Pro 3.x (~€42, for ECMAScript bridge + DWG) |
+| **Linting** | Ruff (Python), Biome (TSX), tsc (TypeScript) |

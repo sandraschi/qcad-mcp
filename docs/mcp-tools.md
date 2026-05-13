@@ -1,6 +1,6 @@
 # MCP Tools
 
-All 15 tools registered via `@mcp.tool()` in `src/qcad_mcp/server.py`.
+All 20 tools registered via `@mcp.tool()` in `src/qcad_mcp/server.py`.
 
 | Tool | Annotation | Description |
 |:---|:---|:---|
@@ -15,10 +15,15 @@ All 15 tools registered via `@mcp.tool()` in `src/qcad_mcp/server.py`.
 | `plan_modify` | MUTATING | Modify entities/layers (delete, offset, rename, freeze, etc.) |
 | `plan_blocks` | READ_ONLY | Search CAD block libraries |
 | `plan_blocks_download` | MUTATING | Download CAD blocks to depot |
-| **`qcad_status`** | READ_ONLY | QCAD Pro install/version/running status |
-| **`plan_script`** | MUTATING | Execute ECMAScript against DXF via QCAD Pro |
-| **`plan_render`** | MUTATING | High-fidelity SVG/PDF/BMP via QCAD Pro engine |
-| **`plan_exec`** | MUTATING | Execute ECMAScript in running QCAD Pro GUI |
+| `qcad_status` | READ_ONLY | QCAD Pro install/version/running status |
+| `plan_script` | MUTATING | Execute arbitrary ECMAScript against DXF |
+| `plan_render` | MUTATING | High-fidelity SVG/PDF/BMP via QCAD Pro engine |
+| `plan_exec` | MUTATING | Quick ECMAScript execution, no file I/O |
+| `plan_dimension` | MUTATING | Add aligned/radial/angular dimensions |
+| `plan_agentic` | MUTATING | NL goal → ECMAScript → executed |
+| `plan_measure` | READ_ONLY | Per-entity distance/angle/area measurement |
+| `plan_text` | MUTATING | Text annotations with height/alignment/rotation |
+| `plan_hatch` | MUTATING | Hatch/fill patterns to closed regions |
 
 ---
 
@@ -218,15 +223,93 @@ Supports SVG, PDF, and BMP. Renders hatches, TrueType fonts, lineweights, and di
 
 ### plan_exec
 
-Execute ECMAScript in the running QCAD Pro GUI for live visual feedback.
+Quick ECMAScript execution in a temporary QCAD Pro session — no file I/O overhead.
 
 ```python
 await plan_exec(code='''
-var di = EAction.getDocumentInterface();
-var doc = di.getDocument();
-print("Current document has " + doc.queryAllEntities().length + " entities");
+var op = new RAddObjectsOperation();
+op.addObject(new RCircleEntity(document, new RCircleData(new RVector(10,10), 5)));
+op.apply(document);
 ''')
-# {"success": true, "data": {"stdout": "...", "stderr": "..."}}
+# {"success": true, "data": {"entity_count": 1, "layers": ["0"], "errors": []}}
+
+# Load a depot file and query
+await plan_exec(code='''
+var ents = document.queryAllEntities();
+print("Found " + ents.length + " entities");
+''', file_name="floorplan.dxf")
 ```
 
-Requires QCAD Pro GUI to be open with a document loaded. Changes affect the live document.
+Use for quick queries, prototyping, or lightweight modifications. For operations that need output saved, use `plan_script` instead.
+
+### plan_dimension
+
+Add dimension entities to a drawing — aligned, radial, diametric, angular, rotated.
+
+```python
+await plan_dimension(file_name="floorplan.dxf", dimensions=[
+    {"type": "aligned", "x1": 0, "y1": 0, "x2": 5000, "y2": 0, "xd": 2500, "yd": -500},
+    {"type": "radial", "cx": 2500, "cy": 2000, "px": 2800, "py": 2000},
+    {"type": "angular", "cx": 0, "cy": 0, "x1": 5000, "y1": 0, "x2": 0, "y2": 3000, "xd": 2000, "yd": -800},
+], output_name="dimensioned.dxf")
+```
+
+### plan_agentic
+
+Multi-step CAD workflow from a natural language goal. Generates ECMAScript, executes it, returns results.
+
+```python
+await plan_agentic(goal="Create a rectangular floor plan 10m x 8m with 4 equal rooms, add dimensions on all sides")
+# {"success": true, "output": "agentic_output.dxf", "data": {"steps": 1, "entity_count": 12}}
+
+await plan_agentic(goal="Add a 1m door to the south wall of each room", file_name="floorplan.dxf")
+```
+
+Uses AI sampling when available (via `ctx: Context`). Falls back to template-based generation for common patterns (rectangles, circles).
+
+### plan_measure
+
+Precise per-entity measurements via QCAD Pro's geometry engine.
+
+```python
+await plan_measure(file_name="floorplan.dxf")
+# {"success": true, "data": {
+#   "entity_count": 42,
+#   "total_line_length": 15200,
+#   "total_area": 48000000,
+#   "entities": [
+#     {"type": "line", "length": 5000, "angle_deg": 0, "x1": 0, "y1": 0, "x2": 5000, "y2": 0},
+#     {"type": "circle", "radius": 200, "center_x": 2500, "center_y": 2000, "area": 125663}
+#   ]
+# }}
+```
+
+Detects lines, arcs, circles, polylines, splines, text, dimensions, hatches, block refs via `instanceof`.
+
+### plan_text
+
+Add text annotations with full styling control.
+
+```python
+await plan_text(file_name="floorplan.dxf", texts=[
+    {"text": "Living Room", "x": 2500, "y": 3000, "height": 250, "halign": "center"},
+    {"text": "Kitchen", "x": 6000, "y": 2000, "height": 250, "layer": "Labels", "bold": True},
+    {"text": "North", "x": 4000, "y": 7800, "height": 200, "rotation": 90, "halign": "center"},
+], output_name="annotated.dxf")
+```
+
+Supports height, alignment (left/center/right, top/middle/bottom/baseline), rotation (degrees), bold, italic.
+
+### plan_hatch
+
+Add hatch/fill patterns to closed polygon regions.
+
+```python
+await plan_hatch(file_name="floorplan.dxf", hatches=[
+    {"points": [[0,0], [5000,0], [5000,4000], [0,4000]], "pattern": "AR-CONC", "scale": 0.5},
+    {"points": [[1000,1000], [2000,1000], [2000,2000], [1000,2000]], "pattern": "SOLID"},
+    {"points": [[3000,1000], [4000,1000], [3500,2000]], "pattern": "ANSI31", "angle": 45},
+], output_name="hatched.dxf")
+```
+
+Available patterns: ANSI31-38, AR-CONC, AR-HBONE, AR-BRSTD, SOLID, EARTH, GRASS, GRAVEL, LINE.

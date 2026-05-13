@@ -5,30 +5,56 @@
 [![Linted with Biome](https://img.shields.io/badge/Linted_with-Biome-60a5fa?style=flat-square&logo=biome&logoColor=white)](https://biomejs.dev/)
 [![Built with Just](https://img.shields.io/badge/Built_with-Just-000000?style=flat-square&logo=gnu-bash&logoColor=white)](https://github.com/casey/just)
 
-**DXF/DWG floor plans to SVG + 3D STL, through your AI assistant.** — Parse 2D CAD drawings, render previews, extrude walls to 3D, detect rooms, and export to STL for game engines and 3D printing.
+**AI-driven 2D CAD automation — DXF/DWG parsing, 3D extrusion, ECMAScript scripting, native rendering, dimensions, annotations, and agentic workflows.** 20 MCP tools. Your AI assistant becomes a QCAD Pro operator.
 
 | | |
 |--:|--|
-| **You might use this if…** | You need to process floor plans programmatically, convert DXF to 3D for Resonite/Unity3D, or analyse building layouts without opening QCAD. |
-| **What it connects to** | `ezdxf` (pure Python DXF parser), optional QCAD Pro CLI for high-fidelity PDF/DWG export |
+| **You might use this if…** | You want your AI to write and execute QCAD scripts, process floor plans programmatically, convert DXF to 3D for Resonite/Unity3D, or automate CAD drafting without opening QCAD. |
+| **What it connects to** | `ezdxf` (free Python engine) for parsing/extrusion + **QCAD Pro** (~€42) for ECMAScript bridge, native rendering, DWG |
 | **Ports** | Backend **10966**, Dashboard **10967** |
 | **Start** | `just bootstrap` then `start.ps1` |
+
+## Two-Tier Engine
+
+| Tier | Cost | Powers |
+|------|------|--------|
+| **ezdxf** | Free | DXF parsing, SVG preview, STL extrusion, room analysis, DXF creation from primitives, entity/layer modification, block search |
+| **QCAD Pro** | ~€42 | **ECMAScript bridge** (AI writes QCAD scripts), **native SVG/PDF/BMP** (perfect hatches/fonts/dims), **dimensions**, **measurements**, **text annotations**, **hatch patterns**, **agentic workflows**, **DWG import/export** |
+
+## QCAD Pro Features
+
+With QCAD Pro 3.x installed the AI agent gains full CAD automation:
+
+- **`plan_script`** — Execute arbitrary ECMAScript against DXF documents. Full QCAD API: entities, layers, blocks, operations. The AI writes code, QCAD Pro runs it headless. **No script library needed — the LLM is the library.**
+- **`plan_agentic`** — Natural language CAD goals → ECMAScript → executed. "Create a 10m×8m floor plan with 4 rooms and dimensions" → done. Unlike hunting for a 20-year-old AutoLISP routine on a forum.
+- **`plan_render`** — Native SVG/PDF/BMP output with correct hatches, TrueType fonts, lineweights, dimension styles.
+- **`plan_dimension`** — Add aligned, radial, diametric, angular dimensions to drawings.
+- **`plan_measure`** — Per-entity distance, angle, area, perimeter measurement via QCAD's geometry engine.
+- **`plan_text`** / **`plan_hatch`** — Text annotations with full styling + hatch/fill patterns (ANSI31-38, AR-CONC, SOLID).
+- **`plan_convert`** — DWG↔DXF conversion via Teigha engine.
 
 ## Documentation Index
 
 | Guide | Content |
 | :--- | :--- |
-| **[Installation](docs/install.md)** | Prerequisites, ezdxf, QCAD Pro (optional), bootstrap |
-| **[Architecture](docs/architecture.md)** | Data pipeline, DXF→SVG→STL, depot storage, fleet integration |
-| **[MCP Tools](docs/mcp-tools.md)** | All 7 tools: plan_info, plan_to_svg, plan_extrude, plan_export, plan_analyse, plan_create, plan_depot |
+| **[Installation](docs/install.md)** | Prerequisites, ezdxf, QCAD Pro setup, bootstrap |
+| **[Architecture](ARCHITECTURE.md)** | Two-tier engine, 20-tool table, service layer, pipeline |
+| **[MCP Tools](docs/mcp-tools.md)** | All 20 tools with examples, return formats |
 | **[AI Tooling](docs/ai-tooling.md)** | Ollama CAD chat, agentic plan analysis workflows |
-| **[About QCAD](docs/about-qcad.md)** | History, scripting, ezdxf vs QCAD Pro, comparison to AutoCAD |
-| **[Webapp README](webapp/README.md)** | Dashboard frontend: pages, depot, extrude UI, viewer |
+| **[About QCAD](docs/about-qcad.md)** | History, scripting API, ezdxf vs QCAD Pro, AutoCAD comparison |
+| **[QCAD Pro vs. AutoCAD LT](docs/qcad-pro-vs-autocad-lt.md)** | Feature comparison, scripting, pricing, platform support |
+| **[Webapp README](webapp/README.md)** | 12-page React dashboard: depot, viewer, extrude, blocks, layers |
 
 ## Quick Start
 
 ```powershell
+# 1. Bootstrap
 just bootstrap   # uv sync + npm install
+
+# 2. (Optional) Set QCAD Pro path if installed
+$env:QCAD_PRO_PATH = "C:\Program Files\QCAD"
+
+# 3. Launch
 start.ps1        # kills zombies, starts backend + frontend, opens browser
 ```
 
@@ -45,11 +71,13 @@ start.ps1        # kills zombies, starts backend + frontend, opens browser
 }
 ```
 
+Once connected, call `qcad_status` to verify QCAD Pro availability, then `plan_info` on uploaded files, or `plan_script` to execute CAD operations.
+
 ## Industrial Quality Stack
 
-- **Python (Core)**: [Ruff](https://astral.sh/ruff) for linting and formatting.
-- **Webapp (UI)**: [Biome](https://biomejs.dev/) for sub-millisecond linting.
-- **Protocol**: FastMCP 3.2 SSE transport with hardened stdout/stderr isolation.
+- **Python (Core)**: [Ruff](https://astral.sh/ruff) for linting. 20 MCP tools on FastMCP 3.2. Zero lint errors.
+- **Webapp (UI)**: [Biome](https://biomejs.dev/) + `tsc` for formatting and type safety. Zero errors across 18 files.
+- **Protocol**: FastMCP 3.2 SSE transport + REST API (20+ endpoints).
 - **Automation**: [Justfile](./justfile) recipes for all fleet operations.
 
 ## License

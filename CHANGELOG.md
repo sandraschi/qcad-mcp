@@ -6,17 +6,23 @@ All notable changes to the QCAD MCP server and webapp.
 
 ### Added
 
-- **`plan_measure`**: precise distance/angle/area/perimeter measurement via QCAD Pro geometry engine. Returns structured per-entity measurements (line lengths, angles, circle radii/areas, polyline perimeters).
-- **`plan_text`**: add text annotations (RTextEntity) with configurable height, alignment, rotation, bold/italic.
+- **`plan_measure`**: precise distance/angle/area/perimeter measurement via QCAD Pro geometry engine.
+- **`plan_text`**: add text annotations (RTextEntity) with height, alignment, rotation, bold/italic.
 - **`plan_hatch`**: add hatch/fill patterns (ANSI31-38, AR-CONC, SOLID, EARTH, etc.) to closed polygon regions.
-- `exec_in_live` now returns raw `stdout` for custom marker extraction.
-- `_parse_marker()` helper for extracting arbitrary JSON markers from script output.
+- **`plan_dimension`**: add aligned, radial, diametric, angular, rotated dimensions.
+- **`plan_agentic`**: natural language CAD goal → ECMAScript code generation + execution. Template fallback when no AI sampling.
+
+### Changed
+
+- **Lint zeroed**: biome 141→0 (formatting, `any`→typed interfaces, a11y keyboard handlers, label associations, import ordering). tsc 32→0 (proper interfaces for all API responses).
+- `plan_exec` uses headless autostart instead of non-functional `-exec` flag.
+- `exec_in_live` returns raw `stdout` for custom marker extraction.
 
 ### Fixed
 
-- `plan_measure` entity type detection: switched from string comparison to `instanceof` checks (QCAD returns numeric type IDs).
-- `plan_hatch` now uses constructor-based `RHatchData(solid, scale, angle, pattern, boundary)` — setter methods unavailable in QCAD 3.32.9.
-- `plan_exec` uses headless autostart instead of non-functional `-exec` flag.
+- `plan_measure` entity type detection: `instanceof` checks instead of string comparison.
+- `plan_hatch` uses constructor-based `RHatchData()` — setter methods unavailable in QCAD 3.32.9.
+- Total MCP tools: 11 → 17 → 20.
 
 ## [0.2.0] - 2026-05-12
 
@@ -34,4 +40,4 @@ All notable changes to the QCAD MCP server and webapp.
 
 ### Added
 
-- Initial release: FastMCP 3.2 server, Vite/React dashboard, 7 core MCP tools, depot CRUD, SS log stream.
+- Initial release: FastMCP 3.2 server, Vite/React dashboard, 7 core MCP tools, depot CRUD, SSE log stream.

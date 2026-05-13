@@ -1,6 +1,6 @@
 # Status — qcad-mcp
 
-**Status**: v0.3.0 — Annotation + measurement layer complete.
+**Status**: v0.3.0 — 20 tools, zero lint errors across all layers.
 
 **Repo**: `D:\Dev\repos\qcad-mcp`
 **Ports**: Backend 10966, Frontend 10967
@@ -24,3 +24,4 @@ See `ARCHITECTURE.md` for full design.
 - REST API with 20+ endpoints
 - SSE log stream, LLM chat endpoint, settings persistence
 - justfile with bootstrap, serve, web, lint, fix, test, check
+- Lint: ruff 0, biome 0, tsc 0 errors

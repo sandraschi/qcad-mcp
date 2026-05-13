@@ -15,12 +15,37 @@ The webapp includes a chat page (`/chat`) that connects to an Ollama instance fo
 Since QCAD MCP is a FastMCP 3.2 server, any MCP client (Claude Desktop, Cursor, OpenCode) can chain tool calls agentically:
 
 ```
-1. plan_depot()            → list available DXF files
-2. plan_info("plan.dxf")   → understand the drawing structure
-3. plan_to_svg("plan.dxf") → preview as SVG
-4. plan_analyse("plan.dxf")→ detect rooms and calculate areas
-5. plan_extrude(...)       → generate 3D STL
+1. qcad_status()             → check QCAD Pro availability
+2. plan_depot()              → list available DXF files
+3. plan_info("plan.dxf")     → understand the drawing structure
+4. plan_to_svg("plan.dxf")   → preview as SVG
+5. plan_analyse("plan.dxf")  → detect rooms and calculate areas
+6. plan_script(code, ...)    → execute custom ECMAScript
+7. plan_render("plan.dxf")   → export native PDF/SVG
 ```
+
+### ECMAScript Bridge: The LLM Is the Library
+
+Unlike AutoCAD's AutoLISP ecosystem — 40 years of shared forum routines for wall area calculators, beam schedules, and layer management — QCAD Pro has no comparable script library. It doesn't need one.
+
+**The AI is the library.** `plan_script` and `plan_agentic` let an LLM generate ECMAScript on-demand from first principles:
+
+```
+User: "Label every closed polyline with its area in m²"
+
+AI generates:
+  var ents = document.queryAllEntities();
+  for (var i = 0; i < ents.length; i++) {
+      var e = document.queryEntity(ents[i]);
+      if (e instanceof RPolylineEntity && e.getData().isClosed()) {
+          // calculate area, add text label...
+      }
+  }
+
+→ plan_script(code=..., file_name="floorplan.dxf") → executed
+```
+
+No hunting for a pre-written LISP routine on a 20-year-old forum thread. The AI writes fresh, correct ECMAScript for each task — tailored to the specific drawing and goal.
 
 ### Use Cases
 
