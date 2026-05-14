@@ -5,6 +5,7 @@ import AnalysePage from "./pages/AnalysePage";
 import BatchPage from "./pages/BatchPage";
 import BlocksPage from "./pages/BlocksPage";
 import Dashboard from "./pages/Dashboard";
+import DemoPage from "./pages/DemoPage";
 import DepotPage from "./pages/DepotPage";
 import ExtrudePage from "./pages/ExtrudePage";
 import HelpPage from "./pages/HelpPage";
@@ -20,6 +21,7 @@ export default function App() {
 		<AppLayout>
 			<Routes>
 				<Route path="/" element={<Dashboard />} />
+				<Route path="/demo" element={<DemoPage />} />
 				<Route path="/agentic" element={<AgenticPage />} />
 				<Route path="/depot" element={<DepotPage />} />
 				<Route path="/viewer" element={<ViewerPage />} />

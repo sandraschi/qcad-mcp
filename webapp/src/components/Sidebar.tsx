@@ -15,11 +15,13 @@ import {
 	Ruler,
 	Settings,
 	SlidersHorizontal,
+	Sparkles,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 const navItems = [
 	{ path: "/", label: "Dashboard", icon: LayoutDashboard },
+	{ path: "/demo", label: "Demo", icon: Sparkles },
 	{ path: "/agentic", label: "AI Agent", icon: Bot },
 	{ path: "/depot", label: "Depot", icon: Database },
 	{ path: "/viewer", label: "Viewer", icon: Layers },
@@ -35,7 +37,10 @@ const navItems = [
 	{ path: "/help", label: "Help", icon: HelpCircle },
 ];
 
-export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
+export default function Sidebar({
+	collapsed,
+	onToggle,
+}: { collapsed: boolean; onToggle: () => void }) {
 	return (
 		<motion.aside
 			animate={{ width: collapsed ? 72 : 240 }}
@@ -43,7 +48,11 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
 		>
 			<div className="h-14 flex items-center gap-3 px-4 border-b border-white/10">
 				<Ruler className="text-amber-400 shrink-0" size={22} />
-				{!collapsed && <span className="text-sm font-bold text-white whitespace-nowrap">QCAD MCP</span>}
+				{!collapsed && (
+					<span className="text-sm font-bold text-white whitespace-nowrap">
+						QCAD MCP
+					</span>
+				)}
 			</div>
 			<nav className="flex-1 p-3 space-y-1 overflow-y-auto">
 				{navItems.map((item) => (
@@ -60,7 +69,9 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
 						}
 					>
 						<item.icon size={18} className="shrink-0" />
-						{!collapsed && <span className="whitespace-nowrap">{item.label}</span>}
+						{!collapsed && (
+							<span className="whitespace-nowrap">{item.label}</span>
+						)}
 					</NavLink>
 				))}
 			</nav>
