@@ -406,8 +406,179 @@ Available patterns: ANSI31-38, AR-CONC, AR-HBONE, AR-BRSTD, SOLID, EARTH, GRASS,
     return result
 
 
+async def plan_block_insert(
+    file_name: Annotated[str, Field(description="DXF/DWG filename in the depot.")],
+    inserts: Annotated[list[dict], Field(description="""List of block insertions. Each dict:
+- block_name: name of the block to insert (must exist in the drawing or be loaded from depot)
+- x, y: insertion position
+- scale_x, scale_y: scale factors (default 1.0)
+- rotation: rotation in degrees (default 0)
+- layer: target layer (default current layer)
+- columns, rows, col_spacing, row_spacing: optional array parameters
+""")],
+    output_name: Annotated[str, Field(default="", description="Output filename. Default: <input>_blocks.dxf")] = "",
+) -> dict:
+    """Insert block references (doors, windows, furniture) into a DXF drawing.
+
+    Blocks are reusable symbols stored in the drawing. Use plan_blocks to
+    search/download blocks to the depot first, then insert them.
+
+    Requires QCAD Pro.
+
+    ## Return Format
+    {"success": bool, "output": str, "data": {"entity_count": int, "insert_count": int}}
+
+    ## Examples
+    await plan_block_insert(file_name="floorplan.dxf", inserts=[
+        {"block_name": "DOOR", "x": 2000, "y": 0, "rotation": 0},
+        {"block_name": "WINDOW", "x": 5000, "y": 3000, "scale_x": 1.5},
+    ])
+    """
+    if not qcad_pro.is_installed():
+        return {"success": False, "error": "QCAD Pro required."}
+
+    in_path = os.path.join(DEPOT_DIR, file_name)
+    if not os.path.isfile(in_path):
+        return {"success": False, "error": f"File not found: {file_name}"}
+
+    out_name = output_name or f"{Path(file_name).stem}_blocks.dxf"
+    out_path = os.path.join(OUTPUT_DIR, out_name)
+
+    lines = ["var op = new RAddObjectsOperation();"]
+    for i, ins in enumerate(inserts):
+        x, y = ins.get("x", 0), ins.get("y", 0)
+        sx, sy = ins.get("scale_x", 1.0), ins.get("scale_y", 1.0)
+        rotation = (ins.get("rotation", 0) * 3.141592653589793) / 180
+        columns = ins.get("columns", 1)
+        rows = ins.get("rows", 1)
+        cs = ins.get("col_spacing", 0)
+        rs = ins.get("row_spacing", 0)
+
+        for col in range(columns):
+            for row in range(rows):
+                px = x + col * cs
+                py = y + row * rs
+                lines.append(
+                    f"var pt_{i}_{col}_{row} = new RVector({px}, {py});"
+                    f"op.addObject(new RBlockReferenceEntity(document, null, "
+                    f"new RBlockReferenceData(pt_{i}_{col}_{row}, new RVector({sx},{sy}), {rotation}, null)));"
+                )
+
+    lines.append("op.apply(document);")
+    code = "\n".join(lines)
+
+    result = qcad_pro.run_script(
+        user_code=code,
+        input_file=in_path,
+        output_file=out_path,
+        timeout=60,
+    )
+
+    if result.get("success"):
+        result["output"] = out_name
+        data = result.get("data", {})
+        data["insert_count"] = sum(ins.get("columns", 1) * ins.get("rows", 1) for ins in inserts)
+        result["data"] = data
+    return result
+
+
+async def plan_array(
+    file_name: Annotated[str, Field(description="DXF/DWG filename in the depot.")],
+    pattern: Annotated[str, Field(description="Array type: 'rectangular' or 'polar'.")],
+    count: Annotated[int, Field(description="Number of copies (including the original).")],
+    params: Annotated[dict, Field(default_factory=dict, description="""Array parameters:
+- For rectangular: dx, dy (spacing in mm)
+- For polar: cx, cy (center point), angle (total angle in degrees, default 360)
+""")] = {},
+    output_name: Annotated[str, Field(default="", description="Output filename. Default: <input>_array.dxf")] = "",
+) -> dict:
+    """Create a rectangular or polar array of all entities in a drawing.
+
+    Useful for: window grids, column grids, bolt patterns, radial furniture
+    arrangements, repeating architectural features.
+
+    Requires QCAD Pro.
+
+    ## Return Format
+    {"success": bool, "output": str, "data": {"entity_count": int, "copies": int}}
+
+    ## Examples
+    await plan_array(file_name="window.dxf", pattern="rectangular", count=4, params={"dx": 1000, "dy": 800})
+    await plan_array(file_name="bolt.dxf", pattern="polar", count=8, params={"cx": 50, "cy": 50, "angle": 360})
+    """
+    if not qcad_pro.is_installed():
+        return {"success": False, "error": "QCAD Pro required."}
+
+    in_path = os.path.join(DEPOT_DIR, file_name)
+    if not os.path.isfile(in_path):
+        return {"success": False, "error": f"File not found: {file_name}"}
+
+    out_name = output_name or f"{Path(file_name).stem}_array.dxf"
+    out_path = os.path.join(OUTPUT_DIR, out_name)
+
+    if pattern == "rectangular":
+        dx = params.get("dx", 1000)
+        dy = params.get("dy", 800)
+        code = f"""var ents = document.queryAllEntities();
+var originalCount = ents.length;
+var op = new RAddObjectsOperation();
+
+for (var i = 1; i < {count}; i++) {{
+    for (var j = 0; j < ents.length; j++) {{
+        var e = document.queryEntity(ents[j]);
+        if (!e) continue;
+        var copy = e.clone();
+        copy.scale(1.0, new RVector(0,0)); // ensure identity
+        copy.move(new RVector(i * {dx}, i * {dy}));
+        op.addObject(copy);
+    }}
+}}
+op.apply(document);
+"""
+    elif pattern == "polar":
+        cx = params.get("cx", 0)
+        cy = params.get("cy", 0)
+        total_angle = params.get("angle", 360)
+        angle_step = total_angle / count
+        code = f"""var ents = document.queryAllEntities();
+var originalCount = ents.length;
+var op = new RAddObjectsOperation();
+var center = new RVector({cx}, {cy});
+
+for (var i = 1; i < {count}; i++) {{
+    var angle = (i * {angle_step}) * Math.PI / 180;
+    for (var j = 0; j < ents.length; j++) {{
+        var e = document.queryEntity(ents[j]);
+        if (!e) continue;
+        var copy = e.clone();
+        copy.rotate(angle, center);
+        op.addObject(copy);
+    }}
+}}
+op.apply(document);
+"""
+    else:
+        return {"success": False, "error": f"Unknown pattern: {pattern}. Use 'rectangular' or 'polar'."}
+
+    result = qcad_pro.run_script(
+        user_code=code,
+        input_file=in_path,
+        output_file=out_path,
+        timeout=60,
+    )
+
+    if result.get("success"):
+        result["output"] = out_name
+        data = result.get("data", {})
+        data["copies"] = count - 1
+        result["data"] = data
+    return result
+
+
 def register(mcp):
     mcp.tool()(plan_dimension)
     mcp.tool(annotations=_READ_ONLY)(plan_measure)
     mcp.tool()(plan_text)
     mcp.tool()(plan_hatch)
+    mcp.tool()(plan_block_insert)
+    mcp.tool()(plan_array)
