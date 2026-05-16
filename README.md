@@ -1,11 +1,16 @@
 # QCAD MCP
 
-[![FastMCP Version](https://img.shields.io/badge/FastMCP-3.2.0-blue?style=flat-square&logo=python&logoColor=white)](https://github.com/sandraschi/fastmcp)
+[![CI](https://github.com/sandraschi/qcad-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/sandraschi/qcad-mcp/actions)
+[![Version](https://img.shields.io/badge/version-0.3.0-blue?style=flat-square)](https://github.com/sandraschi/qcad-mcp)
+[![Python](https://img.shields.io/badge/python-3.12|3.13-blue?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![FastMCP](https://img.shields.io/badge/FastMCP-3.2.0-6366f1?style=flat-square&logo=python&logoColor=white)](https://github.com/jlowin/fastmcp)
+[![MCP](https://img.shields.io/badge/MCP-2024--11--05-8B5CF6?style=flat-square)](https://modelcontextprotocol.io)
+[![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![Linted with Biome](https://img.shields.io/badge/Linted_with-Biome-60a5fa?style=flat-square&logo=biome&logoColor=white)](https://biomejs.dev/)
-[![Built with Just](https://img.shields.io/badge/Built_with-Just-000000?style=flat-square&logo=gnu-bash&logoColor=white)](https://github.com/casey/just)
+[![Biome](https://img.shields.io/badge/Linted-Biome-60a5fa?style=flat-square&logo=biome&logoColor=white)](https://biomejs.dev/)
+[![Just](https://img.shields.io/badge/Built-Just-000000?style=flat-square&logo=gnu-bash&logoColor=white)](https://github.com/casey/just)
 
-**AI-driven 2D CAD automation — DXF/DWG parsing, 3D extrusion, ECMAScript scripting, native rendering, dimensions, annotations, and agentic workflows.** 20 MCP tools. Your AI assistant becomes a QCAD Pro operator.
+**AI-driven 2D CAD automation — DXF/DWG parsing, 3D extrusion, ECMAScript scripting, native rendering, dimensions, annotations, and agentic workflows.** 22 MCP tools. Your AI assistant becomes a QCAD Pro operator.
 
 | | |
 |--:|--|
@@ -39,7 +44,7 @@ With QCAD Pro 3.x installed the AI agent gains full CAD automation:
 | :--- | :--- |
 | **[Installation](docs/install.md)** | Prerequisites, ezdxf, QCAD Pro setup, bootstrap |
 | **[Architecture](ARCHITECTURE.md)** | Two-tier engine, 20-tool table, service layer, pipeline |
-| **[MCP Tools](docs/mcp-tools.md)** | All 20 tools with examples, return formats |
+| **[MCP Tools](docs/mcp-tools.md)** | All 22 tools with examples, return formats |
 | **[AI Tooling](docs/ai-tooling.md)** | Ollama CAD chat, agentic plan analysis workflows |
 | **[About QCAD](docs/about-qcad.md)** | History, scripting API, ezdxf vs QCAD Pro, AutoCAD comparison |
 | **[QCAD Pro vs. AutoCAD LT](docs/qcad-pro-vs-autocad-lt.md)** | Feature comparison, scripting, pricing, platform support |
@@ -75,7 +80,7 @@ Once connected, call `qcad_status` to verify QCAD Pro availability, then `plan_i
 
 ## Industrial Quality Stack
 
-- **Python (Core)**: [Ruff](https://astral.sh/ruff) for linting. 20 MCP tools on FastMCP 3.2. Zero lint errors.
+- **Python (Core)**: [Ruff](https://astral.sh/ruff) for linting. 22 MCP tools on FastMCP 3.2. Zero lint errors.
 - **Webapp (UI)**: [Biome](https://biomejs.dev/) + `tsc` for formatting and type safety. Zero errors across 18 files.
 - **Protocol**: FastMCP 3.2 SSE transport + REST API (20+ endpoints).
 - **Automation**: [Justfile](./justfile) recipes for all fleet operations.
