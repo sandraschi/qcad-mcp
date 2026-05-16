@@ -1,5 +1,6 @@
 """QCAD MCP modify tools: convert formats, modify entities/layers."""
 
+import logging
 import os
 from pathlib import Path
 from typing import Annotated
@@ -13,6 +14,8 @@ from qcad_mcp.helpers import (
     _qcad_pro_available,
     _qcad_pro_convert,
 )
+
+logger = logging.getLogger("qcad-mcp")
 
 _ENTITY_TYPES_HELP = "line: {'type':'line','layer':'Walls','x1':0,'y1':0,'x2':100,'y2':100}. rect: {'type':'rect','x':0,'y':0,'w':100,'h':80,'layer':'Walls'}. circle: {'type':'circle','cx':50,'cy':50,'r':20,'layer':'Columns'}"
 
@@ -56,7 +59,10 @@ async def plan_convert(
 
 async def plan_modify(
     file_name: Annotated[str, Field(description="DXF or DWG filename in the depot.")],
-    operations: Annotated[list[dict], Field(description="""List of modification operations. Each operation has:
+    operations: Annotated[
+        list[dict],
+        Field(
+            description="""List of modification operations. Each operation has:
 - op: "delete" (delete matching entities by layer/type),
        "offset" (offset lines/polylines by distance),
        "layer-set-color" (set layer colour),
@@ -66,20 +72,22 @@ async def plan_modify(
        "merge-layers" (combine two layers: {op:"merge-layers", source:"LayerA", target:"LayerB"})
 - type_filter: optional DXF type filter (e.g. "LINE", "CIRCLE", "TEXT")
 - layer_filter: optional layer name filter
-""")],
+"""
+        ),
+    ],
 ) -> dict:
     """Modify entities and layers in a DXF/DWG file.
 
-    Operations are applied in order. The file is saved back to the depot.
+        Operations are applied in order. The file is saved back to the depot.
 
-    ## Return Format
-    {"success": bool, "operations": int, "summary": [str, ...]}
+        ## Return Format
+        {"success": bool, "operations": int, "summary": [str, ...]}
+
+        ## Examples
+        await plan_modify(file_name="plan.dxf", operations=[{"op": "layer-set-color", "layer_filter": "Walls", "color": 7}])
 
     ## Examples
-    await plan_modify(file_name="plan.dxf", operations=[{"op": "layer-set-color", "layer_filter": "Walls", "color": 7}])
-
-## Examples
-    await plan_modify(file_name="plan.dxf", operations=[{"op": "delete", "type_filter": "TEXT"}])
+        await plan_modify(file_name="plan.dxf", operations=[{"op": "delete", "type_filter": "TEXT"}])
     """
     doc, err = _load_dxf(file_name)
     if doc is None:
@@ -113,8 +121,8 @@ async def plan_modify(
                     if hasattr(e, "offset_curve"):
                         try:
                             e.offset_curve(dist)
-                        except Exception:  # noqa: S110
-                            pass
+                        except Exception as ex:
+                            logger.debug("offset_curve failed for entity: %s", ex)
                 summary.append(f"Offset {len(targets)} entities by {dist}")
 
             elif op_type == "layer-set-color":
@@ -142,8 +150,8 @@ async def plan_modify(
                         try:
                             if hasattr(layer, "is_frozen"):
                                 layer.is_frozen = freeze
-                        except Exception:  # noqa: S110
-                            pass
+                        except Exception as ex:
+                            logger.debug("layer freeze/thaw failed for %s: %s", layer_filter, ex)
                 summary.append(f"{'Froze' if freeze else 'Thawed'} layer '{layer_filter or 'all'}'")
 
             elif op_type == "layer-lock" or op_type == "layer-unlock":
@@ -153,8 +161,8 @@ async def plan_modify(
                         try:
                             if hasattr(layer, "is_locked"):
                                 layer.is_locked = lock
-                        except Exception:  # noqa: S110
-                            pass
+                        except Exception as ex:
+                            logger.debug("layer lock/unlock failed for %s: %s", layer_filter, ex)
                 summary.append(f"{'Locked' if lock else 'Unlocked'} layer '{layer_filter or 'all'}'")
 
             elif op_type == "merge-layers":
@@ -166,8 +174,8 @@ async def plan_modify(
                             e.dxf.layer = tgt
                     try:
                         doc.layers.remove(src)
-                    except Exception:  # noqa: S110
-                        pass
+                    except Exception as ex:
+                        logger.debug("layer remove failed for %s: %s", src, ex)
                     summary.append(f"Merged layer '{src}' -> '{tgt}'")
                 else:
                     summary.append("merge-layers requires source and target")
@@ -187,6 +195,5 @@ async def plan_modify(
 
 
 def register(mcp):
-    """Register modify tools on the given FastMCP instance."""
-    mcp.tool()(plan_convert)
-    mcp.tool()(plan_modify)
+    mcp.tool(version="0.3.0")(plan_convert)
+    mcp.tool(version="0.3.0")(plan_modify)

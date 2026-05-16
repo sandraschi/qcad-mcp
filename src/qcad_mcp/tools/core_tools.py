@@ -47,8 +47,13 @@ async def plan_info(
 async def plan_to_svg(
     file_name: Annotated[str, Field(description="DXF filename in the depot.")],
     output_name: Annotated[str, Field(default="output.svg", description="Desired output SVG filename.")] = "output.svg",
-    layers: Annotated[list[str] | None, Field(default=None, description="Optional list of layer names to include. All layers if omitted.")] = None,
-    background: Annotated[str, Field(default="white", description="Background colour: white, black, or hex (e.g. #1a1a1a).")] = "white",
+    layers: Annotated[
+        list[str] | None,
+        Field(default=None, description="Optional list of layer names to include. All layers if omitted."),
+    ] = None,
+    background: Annotated[
+        str, Field(default="white", description="Background colour: white, black, or hex (e.g. #1a1a1a).")
+    ] = "white",
 ) -> dict:
     """
     Convert a DXF file to an SVG preview image.
@@ -73,6 +78,7 @@ async def plan_to_svg(
 
     try:
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
 
@@ -105,10 +111,20 @@ async def plan_to_svg(
 
 async def plan_extrude(
     file_name: Annotated[str, Field(description="DXF filename in the depot.")],
-    output_name: Annotated[str, Field(default="extruded.stl", description="Desired output STL filename.")] = "extruded.stl",
-    wall_height: Annotated[float, Field(default=3.0, description="Wall extrusion height in metres (default 3.0m).")] = 3.0,
+    output_name: Annotated[
+        str, Field(default="extruded.stl", description="Desired output STL filename.")
+    ] = "extruded.stl",
+    wall_height: Annotated[
+        float, Field(default=3.0, description="Wall extrusion height in metres (default 3.0m).")
+    ] = 3.0,
     wall_thickness: Annotated[float, Field(default=0.3, description="Wall thickness in metres (default 0.3m).")] = 0.3,
-    wall_layers: Annotated[list[str] | None, Field(default=None, description="Layer names to treat as walls. Auto-detected if omitted (matches 'wall', 'mauer', 'wand').")] = None,
+    wall_layers: Annotated[
+        list[str] | None,
+        Field(
+            default=None,
+            description="Layer names to treat as walls. Auto-detected if omitted (matches 'wall', 'mauer', 'wand').",
+        ),
+    ] = None,
 ) -> dict:
     """
     Extrude walls from a DXF floor plan into a 3D STL mesh.
@@ -147,7 +163,9 @@ async def plan_extrude(
             if wall_layers and layer_name not in wall_layers:
                 continue
             if e.dxftype() == "LINE":
-                wall_segments.append({"type": "line", "start": (e.dxf.start.x, e.dxf.start.y), "end": (e.dxf.end.x, e.dxf.end.y)})
+                wall_segments.append(
+                    {"type": "line", "start": (e.dxf.start.x, e.dxf.start.y), "end": (e.dxf.end.x, e.dxf.end.y)}
+                )
             elif e.dxftype() == "LWPOLYLINE":
                 pts = [(p[0], p[1]) for p in e.get_points("xy")]
                 for i in range(len(pts) - 1):
@@ -160,7 +178,10 @@ async def plan_extrude(
                     wall_segments.append({"type": "line", "start": pts[i], "end": pts[i + 1]})
 
         if not wall_segments:
-            return {"success": False, "error": "No wall entities found. Try specifying wall_layers or use a DXF with LINE/LWPOLYLINE entities."}
+            return {
+                "success": False,
+                "error": "No wall entities found. Try specifying wall_layers or use a DXF with LINE/LWPOLYLINE entities.",
+            }
 
         meshes = []
         for seg in wall_segments:
@@ -172,20 +193,34 @@ async def plan_extrude(
                 continue
             nx, ny = -dy / length, dx / length
             hw = wall_thickness / 2.0
-            v = np.array([
-                [x1 - nx * hw, y1 - ny * hw, 0], [x1 + nx * hw, y1 + ny * hw, 0],
-                [x2 + nx * hw, y2 + ny * hw, 0], [x2 - nx * hw, y2 - ny * hw, 0],
-                [x1 - nx * hw, y1 - ny * hw, wall_height], [x1 + nx * hw, y1 + ny * hw, wall_height],
-                [x2 + nx * hw, y2 + ny * hw, wall_height], [x2 - nx * hw, y2 - ny * hw, wall_height],
-            ])
-            triangles = np.array([
-                [v[0], v[1], v[2]], [v[0], v[2], v[3]],
-                [v[4], v[6], v[5]], [v[4], v[7], v[6]],
-                [v[0], v[3], v[7]], [v[0], v[7], v[4]],
-                [v[1], v[5], v[6]], [v[1], v[6], v[2]],
-                [v[0], v[4], v[5]], [v[0], v[5], v[1]],
-                [v[3], v[2], v[6]], [v[3], v[6], v[7]],
-            ])
+            v = np.array(
+                [
+                    [x1 - nx * hw, y1 - ny * hw, 0],
+                    [x1 + nx * hw, y1 + ny * hw, 0],
+                    [x2 + nx * hw, y2 + ny * hw, 0],
+                    [x2 - nx * hw, y2 - ny * hw, 0],
+                    [x1 - nx * hw, y1 - ny * hw, wall_height],
+                    [x1 + nx * hw, y1 + ny * hw, wall_height],
+                    [x2 + nx * hw, y2 + ny * hw, wall_height],
+                    [x2 - nx * hw, y2 - ny * hw, wall_height],
+                ]
+            )
+            triangles = np.array(
+                [
+                    [v[0], v[1], v[2]],
+                    [v[0], v[2], v[3]],
+                    [v[4], v[6], v[5]],
+                    [v[4], v[7], v[6]],
+                    [v[0], v[3], v[7]],
+                    [v[0], v[7], v[4]],
+                    [v[1], v[5], v[6]],
+                    [v[1], v[6], v[2]],
+                    [v[0], v[4], v[5]],
+                    [v[0], v[5], v[1]],
+                    [v[3], v[2], v[6]],
+                    [v[3], v[6], v[7]],
+                ]
+            )
             for tri in triangles:
                 mesh_data = np.zeros(1, dtype=Mesh.dtype)
                 mesh_data["vectors"][0] = tri
@@ -198,9 +233,12 @@ async def plan_extrude(
             "success": True,
             "output": output_name,
             "data": {
-                "vertices": len(combined.points), "faces": len(combined.data),
-                "wall_count": len(wall_segments), "size_kb": round(os.path.getsize(stl_path) / 1024, 1),
-                "wall_height_m": wall_height, "wall_thickness_m": wall_thickness,
+                "vertices": len(combined.points),
+                "faces": len(combined.data),
+                "wall_count": len(wall_segments),
+                "size_kb": round(os.path.getsize(stl_path) / 1024, 1),
+                "wall_height_m": wall_height,
+                "wall_thickness_m": wall_thickness,
             },
         }
     except Exception as e:
@@ -244,7 +282,11 @@ async def plan_export(
         fmt_pro = format if format != "png" else "bmp"
         render_result = qcad_pro.render(in_path, out_path, fmt_pro)
         if render_result.get("success"):
-            return {"success": True, "output": out_name, "data": {"size_kb": render_result["size_kb"], "backend": "qcad_pro"}}
+            return {
+                "success": True,
+                "output": out_name,
+                "data": {"size_kb": render_result["size_kb"], "backend": "qcad_pro"},
+            }
 
     # For PNG, try QCAD Pro BMP then convert via Pillow
     if qcad_pro.is_installed() and format == "png":
@@ -253,9 +295,14 @@ async def plan_export(
         if bmp_result.get("success"):
             try:
                 from PIL import Image
+
                 Image.open(bmp_path).save(out_path, "PNG")
                 os.unlink(bmp_path)
-                return {"success": True, "output": out_name, "data": {"size_kb": round(os.path.getsize(out_path) / 1024, 1), "backend": "qcad_pro"}}
+                return {
+                    "success": True,
+                    "output": out_name,
+                    "data": {"size_kb": round(os.path.getsize(out_path) / 1024, 1), "backend": "qcad_pro"},
+                }
             except Exception:
                 if os.path.isfile(bmp_path):
                     os.unlink(bmp_path)
@@ -270,6 +317,7 @@ async def plan_export(
 
     try:
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
 
@@ -282,7 +330,11 @@ async def plan_export(
         fig.savefig(out_path, format=format, facecolor="white", dpi=150)
         plt.close(fig)
 
-        return {"success": True, "output": out_name, "data": {"size_kb": round(os.path.getsize(out_path) / 1024, 1), "backend": "ezdxf+matplotlib"}}
+        return {
+            "success": True,
+            "output": out_name,
+            "data": {"size_kb": round(os.path.getsize(out_path) / 1024, 1), "backend": "ezdxf+matplotlib"},
+        }
     except Exception as e:
         return {"success": False, "error": f"Export failed: {e}"}
 
@@ -321,18 +373,22 @@ async def plan_analyse(
                 if e.closed and len(pts) >= 3:
                     poly_area = abs(area(pts))
                     perimeter = sum(
-                        np.sqrt((pts[i][0] - pts[(i + 1) % len(pts)][0]) ** 2 +
-                                (pts[i][1] - pts[(i + 1) % len(pts)][1]) ** 2)
+                        np.sqrt(
+                            (pts[i][0] - pts[(i + 1) % len(pts)][0]) ** 2
+                            + (pts[i][1] - pts[(i + 1) % len(pts)][1]) ** 2
+                        )
                         for i in range(len(pts))
                     )
                     is_wall = any(kw in layer for kw in ["wall", "mauer", "wand"])
-                    rooms.append({
-                        "layer": e.get_dxf_attrib("layer", ""),
-                        "area_m2": round(poly_area / 1_000_000, 3),
-                        "perimeter_m": round(perimeter / 1000, 3),
-                        "vertex_count": len(pts),
-                        "likely_type": "wall_outline" if is_wall else "room",
-                    })
+                    rooms.append(
+                        {
+                            "layer": e.get_dxf_attrib("layer", ""),
+                            "area_m2": round(poly_area / 1_000_000, 3),
+                            "perimeter_m": round(perimeter / 1000, 3),
+                            "vertex_count": len(pts),
+                            "likely_type": "wall_outline" if is_wall else "room",
+                        }
+                    )
                     if not is_wall:
                         total_wall_length += perimeter / 1000
                 elif not e.closed and len(pts) >= 2:
@@ -349,26 +405,43 @@ async def plan_analyse(
 
             elif dtype == "INSERT":
                 block_name = e.dxf.name.lower()
-                if any(kw in block_name for kw in ["door", "tu__r", "porte", "porta", "window", "fenster", "fenetre", "finestra"]):
-                    doors_windows.append({
-                        "block": e.dxf.name, "layer": e.get_dxf_attrib("layer", ""),
-                        "position": {"x": e.dxf.insert.x, "y": e.dxf.insert.y},
-                    })
+                if any(
+                    kw in block_name
+                    for kw in ["door", "tu__r", "porte", "porta", "window", "fenster", "fenetre", "finestra"]
+                ):
+                    doors_windows.append(
+                        {
+                            "block": e.dxf.name,
+                            "layer": e.get_dxf_attrib("layer", ""),
+                            "position": {"x": e.dxf.insert.x, "y": e.dxf.insert.y},
+                        }
+                    )
 
-        return {"success": True, "data": {
-            "rooms": sorted(rooms, key=lambda r: r.get("area_m2", 0), reverse=True),
-            "doors_windows": doors_windows,
-            "total_entities": len(rooms) + len(doors_windows),
-            "wall_length_m": round(total_wall_length, 2),
-        }}
+        return {
+            "success": True,
+            "data": {
+                "rooms": sorted(rooms, key=lambda r: r.get("area_m2", 0), reverse=True),
+                "doors_windows": doors_windows,
+                "total_entities": len(rooms) + len(doors_windows),
+                "wall_length_m": round(total_wall_length, 2),
+            },
+        }
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
 async def plan_create(
     filename: Annotated[str, Field(description="Output filename (must end in .dxf).")],
-    entities: Annotated[list[dict], Field(description="List of entity dicts. Types: line, rect, circle, text, polyline. See examples.")],
-    layers: Annotated[list[dict] | None, Field(default=None, description="Optional layer definitions: [{'name': 'walls', 'color': 7}, ...]. Auto-created from entities if omitted.")] = None,
+    entities: Annotated[
+        list[dict], Field(description="List of entity dicts. Types: line, rect, circle, text, polyline. See examples.")
+    ],
+    layers: Annotated[
+        list[dict] | None,
+        Field(
+            default=None,
+            description="Optional layer definitions: [{'name': 'walls', 'color': 7}, ...]. Auto-created from entities if omitted.",
+        ),
+    ] = None,
     description: Annotated[str, Field(default="", description="Optional description stored in depot metadata.")] = "",
 ) -> dict:
     """
@@ -400,7 +473,10 @@ async def plan_create(
 
     path = os.path.join(DEPOT_DIR, filename)
     if os.path.isfile(path):
-        return {"success": False, "error": f"File '{filename}' already exists in depot. Delete or choose a different name."}
+        return {
+            "success": False,
+            "error": f"File '{filename}' already exists in depot. Delete or choose a different name.",
+        }
 
     try:
         doc = ezdxf.new("R2010")
@@ -429,13 +505,17 @@ async def plan_create(
                     count += 1
                 elif etype == "rect":
                     x, y, w, h = ent["x"], ent["y"], ent["w"], ent["h"]
-                    msp.add_lwpolyline([(x, y), (x + w, y), (x + w, y + h), (x, y + h)], close=True, dxfattribs={"layer": layer})
+                    msp.add_lwpolyline(
+                        [(x, y), (x + w, y), (x + w, y + h), (x, y + h)], close=True, dxfattribs={"layer": layer}
+                    )
                     count += 1
                 elif etype == "circle":
                     msp.add_circle((ent["cx"], ent["cy"]), ent["r"], dxfattribs={"layer": layer})
                     count += 1
                 elif etype == "text":
-                    msp.add_text(ent["content"], dxfattribs={"layer": layer}).set_pos((ent["x"], ent["y"]), align="LEFT")
+                    msp.add_text(ent["content"], dxfattribs={"layer": layer}).set_pos(
+                        (ent["x"], ent["y"]), align="LEFT"
+                    )
                     count += 1
                 elif etype == "polyline":
                     pts = [Vec2(p[0], p[1]) for p in ent.get("points", [])]
@@ -473,11 +553,10 @@ async def plan_depot() -> dict:
 
 
 def register(mcp):
-    """Register all core plan tools on the given FastMCP instance."""
-    mcp.tool(annotations=_READ_ONLY)(plan_info)
-    mcp.tool()(plan_to_svg)
-    mcp.tool()(plan_extrude)
-    mcp.tool()(plan_export)
-    mcp.tool(annotations=_READ_ONLY)(plan_analyse)
-    mcp.tool()(plan_create)
-    mcp.tool(annotations=_READ_ONLY)(plan_depot)
+    mcp.tool(annotations=_READ_ONLY, version="0.3.0")(plan_info)
+    mcp.tool(version="0.3.0")(plan_to_svg)
+    mcp.tool(version="0.3.0")(plan_extrude)
+    mcp.tool(version="0.3.0")(plan_export)
+    mcp.tool(annotations=_READ_ONLY, version="0.3.0")(plan_analyse)
+    mcp.tool(version="0.3.0")(plan_create)
+    mcp.tool(annotations=_READ_ONLY, version="0.3.0")(plan_depot)

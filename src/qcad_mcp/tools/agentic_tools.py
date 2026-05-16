@@ -26,8 +26,8 @@ op.addObject(new RLineEntity(document, new RLineData(new RVector(0,0), new RVect
 op.addObject(new RLineEntity(document, new RLineData(new RVector({w},0), new RVector({w},{h}))));
 op.addObject(new RLineEntity(document, new RLineData(new RVector({w},{h}), new RVector(0,{h}))));
 op.addObject(new RLineEntity(document, new RLineData(new RVector(0,{h}), new RVector(0,0))));
-op.addObject(new RDimAlignedEntity(document, new RDimAlignedData(new RVector(0,{h}), new RVector({w},{h}), new RVector({w//2},{h+500}))));
-op.addObject(new RDimAlignedEntity(document, new RDimAlignedData(new RVector({w},0), new RVector({w},{h}), new RVector({w+500},{h//2}))));
+op.addObject(new RDimAlignedEntity(document, new RDimAlignedData(new RVector(0,{h}), new RVector({w},{h}), new RVector({w // 2},{h + 500}))));
+op.addObject(new RDimAlignedEntity(document, new RDimAlignedData(new RVector({w},0), new RVector({w},{h}), new RVector({w + 500},{h // 2}))));
 op.apply(document);"""
     elif "circle" in goal_lower:
         radii = re.findall(r"(\d+)\s*mm", goal)
@@ -122,7 +122,8 @@ def _heuristic_transpile(lisp: str) -> str:
     # Pattern: (command "_LINE" (list x1 y1) (list x2 y2) "")
     line_pattern = re.findall(
         r'\(command\s+"_LINE"\s+\(list\s+([\d.]+)\s+([\d.]+)\)\s+\(list\s+([\d.]+)\s+([\d.]+)\)\s*""?\s*\)',
-        lisp, re.IGNORECASE,
+        lisp,
+        re.IGNORECASE,
     )
     if line_pattern:
         lines = []
@@ -137,24 +138,23 @@ def _heuristic_transpile(lisp: str) -> str:
     # Pattern: (command "_CIRCLE" (list cx cy) radius)
     circle_pattern = re.findall(
         r'\(command\s+"_CIRCLE"\s+\(list\s+([\d.]+)\s+([\d.]+)\)\s+([\d.]+)\s*\)',
-        lisp, re.IGNORECASE,
+        lisp,
+        re.IGNORECASE,
     )
     if circle_pattern:
         circles = []
         for m in circle_pattern:
             cx, cy, r = m
-            circles.append(
-                f"op.addObject(new RCircleEntity(document, "
-                f"new RCircleData(new RVector({cx},{cy}), {r})));"
-            )
+            circles.append(f"op.addObject(new RCircleEntity(document, new RCircleData(new RVector({cx},{cy}), {r})));")
         return "var op = new RAddObjectsOperation();\n" + "\n".join(circles) + "\nop.apply(document);"
 
     # Pattern: (defun draw-rect (w h) ... (command "_RECTANG" ...) ...) (draw-rect w h)
     rect_pattern = re.findall(
         r'\(defun\s+\S+\s*\((\S+)\s+(\S+)\).*?\(command\s+"_RECTANG".*?\).*?\)',
-        lisp, re.IGNORECASE | re.DOTALL,
+        lisp,
+        re.IGNORECASE | re.DOTALL,
     )
-    vals = re.findall(r'\(draw-rect\s+([\d.]+)\s+([\d.]+)\)', lisp, re.IGNORECASE)
+    vals = re.findall(r"\(draw-rect\s+([\d.]+)\s+([\d.]+)\)", lisp, re.IGNORECASE)
     if rect_pattern and vals:
         w, h = vals[0]
         return f"""var op = new RAddObjectsOperation();
@@ -168,7 +168,8 @@ op.apply(document);"""
     # Pattern: (command "_TEXT" (list x y) hgt rot "text")
     text_pattern = re.findall(
         r'\(command\s+"_TEXT"\s+\(list\s+([\d.]+)\s+([\d.]+)\)\s+([\d.]+)\s+([\d.]+)\s+"([^"]+)"\s*\)',
-        lisp, re.IGNORECASE,
+        lisp,
+        re.IGNORECASE,
     )
     if text_pattern:
         texts = []
@@ -196,8 +197,15 @@ op.apply(document);"""
 
 
 async def plan_agentic(
-    goal: Annotated[str, Field(description="Natural language description of the CAD operation to perform. E.g. 'Create a rectangular floor plan 10m x 8m with 4 rooms, add dimensions, and export to SVG'.")],
-    file_name: Annotated[str, Field(default="", description="Optional depot file to work on. Empty = create new document.")] = "",
+    goal: Annotated[
+        str,
+        Field(
+            description="Natural language description of the CAD operation to perform. E.g. 'Create a rectangular floor plan 10m x 8m with 4 rooms, add dimensions, and export to SVG'."
+        ),
+    ],
+    file_name: Annotated[
+        str, Field(default="", description="Optional depot file to work on. Empty = create new document.")
+    ] = "",
     ctx: None = None,
 ) -> dict:
     """Multi-step CAD workflow: plans and executes ECMAScript operations from a natural-language goal.
@@ -288,7 +296,9 @@ Key rules:
 
 async def plan_transpile(
     lisp_code: Annotated[str, Field(description="AutoLISP code to translate to QCAD ECMAScript.")],
-    output_name: Annotated[str, Field(default="transpiled_output.dxf", description="Output filename for the executed result.")] = "",
+    output_name: Annotated[
+        str, Field(default="transpiled_output.dxf", description="Output filename for the executed result.")
+    ] = "",
     ctx: None = None,
 ) -> dict:
     """Translate AutoLISP to QCAD ECMAScript and execute the result.
@@ -371,7 +381,10 @@ Rules:
         transpiled_js = _heuristic_transpile(lisp_code)
 
     if not transpiled_js or transpiled_js == lisp_code:
-        return {"success": False, "error": "Transpilation produced no output. The AutoLISP may be too complex for heuristic fallback. Try with AI sampling enabled."}
+        return {
+            "success": False,
+            "error": "Transpilation produced no output. The AutoLISP may be too complex for heuristic fallback. Try with AI sampling enabled.",
+        }
 
     result = qcad_pro.run_script(
         user_code=transpiled_js,
@@ -390,5 +403,5 @@ Rules:
 
 
 def register(mcp):
-    mcp.tool()(plan_agentic)
-    mcp.tool()(plan_transpile)
+    mcp.tool(version="0.3.0")(plan_agentic)
+    mcp.tool(version="0.3.0")(plan_transpile)

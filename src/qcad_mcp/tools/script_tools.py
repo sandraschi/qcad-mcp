@@ -20,9 +20,11 @@ _READ_ONLY = {"readonly": True}
 
 def _script_source(name: str):
     """Decorator to register a script search source."""
+
     def deco(fn):
         _SCRIPT_SOURCES[name] = fn
         return fn
+
     return deco
 
 
@@ -30,42 +32,90 @@ def _script_source(name: str):
 async def _search_script_gallery(query: str, category: str, limit: int) -> list[dict]:
     """Curated local gallery of QCAD ECMAScript scripts."""
     gallery = [
-        {"title": "Rectangle Generator", "category": "drawing",
-         "description": "Generate a rectangle from width/height parameters. Useful as a floor plan starting point.",
-         "source": "gallery", "url": "gallery://rectangle.js"},
-        {"title": "Door Swing Arc", "category": "drawing",
-         "description": "Draw a door swing arc (90°) at a given hinge point, wall angle, and door width.",
-         "source": "gallery", "url": "gallery://door_swing.js"},
-        {"title": "Auto-Dimension Polyline", "category": "dimension",
-         "description": "Add aligned dimensions to all segments of a selected polyline automatically.",
-         "source": "gallery", "url": "gallery://dim_polyline.js"},
-        {"title": "Layer Report", "category": "utility",
-         "description": "Generate a text report of all layers with entity counts, colors, and frozen/locked state.",
-         "source": "gallery", "url": "gallery://layer_report.js"},
-        {"title": "Room Area Labels", "category": "geometry",
-         "description": "Find all closed polylines and add text labels showing the enclosed area in m².",
-         "source": "gallery", "url": "gallery://room_areas.js"},
-        {"title": "Batch DXF to SVG", "category": "export",
-         "description": "Export all DXF files in a directory to SVG using QCAD Pro rendering.",
-         "source": "gallery", "url": "gallery://batch_svg.js"},
-        {"title": "Merge Layers", "category": "layer",
-         "description": "Merge all entities from a source layer into a target layer, then delete the source.",
-         "source": "gallery", "url": "gallery://merge_layers.js"},
-        {"title": "Grid Generator", "category": "drawing",
-         "description": "Generate an orthogonal grid of lines with specified spacing and extent.",
-         "source": "gallery", "url": "gallery://grid.js"},
-        {"title": "Entity Counter", "category": "utility",
-         "description": "Count entities by type and layer, output as a structured report.",
-         "source": "gallery", "url": "gallery://entity_count.js"},
-        {"title": "Wall Centerline", "category": "geometry",
-         "description": "Extract the centerline from parallel wall polylines (offset half the wall thickness).",
-         "source": "gallery", "url": "gallery://wall_centerline.js"},
-        {"title": "Scale Drawing", "category": "modify",
-         "description": "Scale all entities in the drawing by a given factor around the origin.",
-         "source": "gallery", "url": "gallery://scale.js"},
-        {"title": "Rotate Selection", "category": "modify",
-         "description": "Rotate all entities by a given angle around a center point.",
-         "source": "gallery", "url": "gallery://rotate.js"},
+        {
+            "title": "Rectangle Generator",
+            "category": "drawing",
+            "description": "Generate a rectangle from width/height parameters. Useful as a floor plan starting point.",
+            "source": "gallery",
+            "url": "gallery://rectangle.js",
+        },
+        {
+            "title": "Door Swing Arc",
+            "category": "drawing",
+            "description": "Draw a door swing arc (90°) at a given hinge point, wall angle, and door width.",
+            "source": "gallery",
+            "url": "gallery://door_swing.js",
+        },
+        {
+            "title": "Auto-Dimension Polyline",
+            "category": "dimension",
+            "description": "Add aligned dimensions to all segments of a selected polyline automatically.",
+            "source": "gallery",
+            "url": "gallery://dim_polyline.js",
+        },
+        {
+            "title": "Layer Report",
+            "category": "utility",
+            "description": "Generate a text report of all layers with entity counts, colors, and frozen/locked state.",
+            "source": "gallery",
+            "url": "gallery://layer_report.js",
+        },
+        {
+            "title": "Room Area Labels",
+            "category": "geometry",
+            "description": "Find all closed polylines and add text labels showing the enclosed area in m².",
+            "source": "gallery",
+            "url": "gallery://room_areas.js",
+        },
+        {
+            "title": "Batch DXF to SVG",
+            "category": "export",
+            "description": "Export all DXF files in a directory to SVG using QCAD Pro rendering.",
+            "source": "gallery",
+            "url": "gallery://batch_svg.js",
+        },
+        {
+            "title": "Merge Layers",
+            "category": "layer",
+            "description": "Merge all entities from a source layer into a target layer, then delete the source.",
+            "source": "gallery",
+            "url": "gallery://merge_layers.js",
+        },
+        {
+            "title": "Grid Generator",
+            "category": "drawing",
+            "description": "Generate an orthogonal grid of lines with specified spacing and extent.",
+            "source": "gallery",
+            "url": "gallery://grid.js",
+        },
+        {
+            "title": "Entity Counter",
+            "category": "utility",
+            "description": "Count entities by type and layer, output as a structured report.",
+            "source": "gallery",
+            "url": "gallery://entity_count.js",
+        },
+        {
+            "title": "Wall Centerline",
+            "category": "geometry",
+            "description": "Extract the centerline from parallel wall polylines (offset half the wall thickness).",
+            "source": "gallery",
+            "url": "gallery://wall_centerline.js",
+        },
+        {
+            "title": "Scale Drawing",
+            "category": "modify",
+            "description": "Scale all entities in the drawing by a given factor around the origin.",
+            "source": "gallery",
+            "url": "gallery://scale.js",
+        },
+        {
+            "title": "Rotate Selection",
+            "category": "modify",
+            "description": "Rotate all entities by a given angle around a center point.",
+            "source": "gallery",
+            "url": "gallery://rotate.js",
+        },
     ]
     results = []
     ql = query.lower() if query else ""
@@ -95,10 +145,15 @@ async def _search_script_gist(query: str, category: str, limit: int) -> list[dic
                 title = title_el.get_text(strip=True) if title_el else "QCAD Script"
                 desc = desc_el.get_text(strip=True) if desc_el else ""
                 link = "https://gist.github.com" + link_el["href"] if link_el and link_el.get("href") else ""
-                results.append({
-                    "title": title, "description": desc, "url": link,
-                    "source": "gist", "category": category or "utility",
-                })
+                results.append(
+                    {
+                        "title": title,
+                        "description": desc,
+                        "url": link,
+                        "source": "gist",
+                        "category": category or "utility",
+                    }
+                )
             return results
     except Exception:
         return []
@@ -108,30 +163,62 @@ async def _search_script_gist(query: str, category: str, limit: int) -> list[dic
 async def _search_script_examples(query: str, category: str, limit: int) -> list[dict]:
     """Index QCAD Pro bundled example scripts."""
     qcad_examples = [
-        {"title": "ExMinimal — Hello World", "category": "utility",
-         "description": "Minimal QCAD script: shows a Hello World message. Best starting point for learning.",
-         "source": "examples", "path": "scripts/Misc/Examples/ExMinimal/ExMinimal.js"},
-        {"title": "Draw Examples — Lines, Circles, Arcs", "category": "drawing",
-         "description": "Examples of creating all basic entity types programmatically.",
-         "source": "examples", "path": "scripts/Misc/Examples/DrawExamples/DrawExamples.js"},
-        {"title": "Modify Examples — Move, Rotate, Scale", "category": "modify",
-         "description": "Examples of entity modification operations.",
-         "source": "examples", "path": "scripts/Misc/Examples/ModifyExamples/ModifyExamples.js"},
-        {"title": "IO Examples — Import/Export", "category": "export",
-         "description": "Examples of file import and export operations in QCAD.",
-         "source": "examples", "path": "scripts/Misc/Examples/IOExamples/IOExamples.js"},
-        {"title": "Layer Examples", "category": "layer",
-         "description": "Examples of layer creation, modification, and management.",
-         "source": "examples", "path": "scripts/Misc/Examples/LayerExamples/LayerExamples.js"},
-        {"title": "Block Examples", "category": "block",
-         "description": "Examples of block creation and insertion.",
-         "source": "examples", "path": "scripts/Misc/Examples/BlockExamples/BlockExamples.js"},
-        {"title": "Math Examples — Vectors, Trig", "category": "geometry",
-         "description": "Examples of RVector, RMath, and geometric calculations.",
-         "source": "examples", "path": "scripts/Misc/Examples/MathExamples/MathExamples.js"},
-        {"title": "Command Line Examples", "category": "utility",
-         "description": "Examples of headless/CLI script patterns for batch processing.",
-         "source": "examples", "path": "scripts/Misc/Examples/CommandLineExamples/CommandLineExamples.js"},
+        {
+            "title": "ExMinimal — Hello World",
+            "category": "utility",
+            "description": "Minimal QCAD script: shows a Hello World message. Best starting point for learning.",
+            "source": "examples",
+            "path": "scripts/Misc/Examples/ExMinimal/ExMinimal.js",
+        },
+        {
+            "title": "Draw Examples — Lines, Circles, Arcs",
+            "category": "drawing",
+            "description": "Examples of creating all basic entity types programmatically.",
+            "source": "examples",
+            "path": "scripts/Misc/Examples/DrawExamples/DrawExamples.js",
+        },
+        {
+            "title": "Modify Examples — Move, Rotate, Scale",
+            "category": "modify",
+            "description": "Examples of entity modification operations.",
+            "source": "examples",
+            "path": "scripts/Misc/Examples/ModifyExamples/ModifyExamples.js",
+        },
+        {
+            "title": "IO Examples — Import/Export",
+            "category": "export",
+            "description": "Examples of file import and export operations in QCAD.",
+            "source": "examples",
+            "path": "scripts/Misc/Examples/IOExamples/IOExamples.js",
+        },
+        {
+            "title": "Layer Examples",
+            "category": "layer",
+            "description": "Examples of layer creation, modification, and management.",
+            "source": "examples",
+            "path": "scripts/Misc/Examples/LayerExamples/LayerExamples.js",
+        },
+        {
+            "title": "Block Examples",
+            "category": "block",
+            "description": "Examples of block creation and insertion.",
+            "source": "examples",
+            "path": "scripts/Misc/Examples/BlockExamples/BlockExamples.js",
+        },
+        {
+            "title": "Math Examples — Vectors, Trig",
+            "category": "geometry",
+            "description": "Examples of RVector, RMath, and geometric calculations.",
+            "source": "examples",
+            "path": "scripts/Misc/Examples/MathExamples/MathExamples.js",
+        },
+        {
+            "title": "Command Line Examples",
+            "category": "utility",
+            "description": "Examples of headless/CLI script patterns for batch processing.",
+            "source": "examples",
+            "path": "scripts/Misc/Examples/CommandLineExamples/CommandLineExamples.js",
+        },
     ]
     results = []
     ql = query.lower() if query else ""
@@ -488,7 +575,13 @@ print("Rotated " + ents.length + " entities by " + angleDeg + "°");
 
 async def plan_scripts_search(
     query: Annotated[str, Field(default="", description="Search term for script title or description.")] = "",
-    category: Annotated[str, Field(default="", description="Filter by category: drawing, modify, dimension, export, utility, block, layer, geometry.")] = "",
+    category: Annotated[
+        str,
+        Field(
+            default="",
+            description="Filter by category: drawing, modify, dimension, export, utility, block, layer, geometry.",
+        ),
+    ] = "",
     source: Annotated[str, Field(default="all", description="Source: gallery, gist, examples, or all.")] = "all",
     limit: Annotated[int, Field(default=20, description="Max results.")] = 20,
 ) -> dict:
@@ -544,8 +637,13 @@ async def plan_scripts_download(
             with open(path, "w", encoding="utf-8") as f:
                 f.write(content)
             size_kb = round(len(content.encode("utf-8")) / 1024, 1)
-            return {"success": True, "filename": filename, "size_kb": size_kb, "path": path,
-                    "content": content[:500] + ("..." if len(content) > 500 else "")}
+            return {
+                "success": True,
+                "filename": filename,
+                "size_kb": size_kb,
+                "path": path,
+                "content": content[:500] + ("..." if len(content) > 500 else ""),
+            }
         return {"success": False, "error": f"Gallery script not found: {script_id}"}
 
     if url:
@@ -556,8 +654,13 @@ async def plan_scripts_download(
             content = r.text
             with open(path, "w", encoding="utf-8") as f:
                 f.write(content)
-            return {"success": True, "filename": filename, "size_kb": round(len(content.encode("utf-8")) / 1024, 1),
-                    "path": path, "content": content[:500] + ("..." if len(content) > 500 else "")}
+            return {
+                "success": True,
+                "filename": filename,
+                "size_kb": round(len(content.encode("utf-8")) / 1024, 1),
+                "path": path,
+                "content": content[:500] + ("..." if len(content) > 500 else ""),
+            }
         except Exception as e:
             logger.error("Script download error: %s", e)
             return {"success": False, "error": f"Download failed: {e}"}
@@ -565,6 +668,5 @@ async def plan_scripts_download(
 
 
 def register(mcp):
-    mcp.tool(annotations=_READ_ONLY)(plan_scripts_search)
-    mcp.tool()(plan_scripts_download)
-
+    mcp.tool(annotations=_READ_ONLY, version="0.3.0")(plan_scripts_search)
+    mcp.tool(version="0.3.0")(plan_scripts_download)

@@ -10,11 +10,9 @@ QCAD Pro CLI integration (dwg2pdf, dwg2svg, DWG↔DXF conversion) is optional an
 
 import asyncio
 import collections
-import json
 import logging
 import os
 from contextlib import asynccontextmanager
-from datetime import datetime
 from pathlib import Path
 
 import httpx
@@ -23,10 +21,25 @@ from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastmcp import FastMCP
+
+try:
+    from fastmcp.providers import ProxyProvider
+except ImportError:
+    ProxyProvider = None
 from pydantic import BaseModel, Field
 
 from qcad_mcp.config import DEPOT_DIR, EXT_DXF, OUTPUT_DIR
-from qcad_mcp.helpers import _BLOCK_CATEGORIES, _doc_to_info, _get_ezdxf_version, _load_dxf
+from qcad_mcp.helpers import (
+    _BLOCK_CATEGORIES,
+    _depot_list,
+    _doc_to_info,
+    _ensure_meta,
+    _get_ezdxf_version,
+    _load_dxf,
+    _meta_path,
+    _read_meta,
+    _write_meta,
+)
 from qcad_mcp.services import qcad_pro
 from qcad_mcp.tools import register_all
 from qcad_mcp.tools.block_tools import plan_blocks, plan_blocks_download
@@ -75,68 +88,17 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 mcp = FastMCP.from_fastapi(app, name="QCAD MCP")
 
-
-# ── File Metadata ────────────────────────────────────────────────────────────
-
-
-def _meta_path(filename: str) -> str:
-    return os.path.join(DEPOT_DIR, f"{filename}.meta.json")
-
-
-def _read_meta(filename: str) -> dict:
-    mp = _meta_path(filename)
-    if os.path.isfile(mp):
-        try:
-            with open(mp) as f:
-                return json.load(f)
-        except Exception:
-            logger.debug("Failed to read meta for %s", filename, exc_info=True)
-    return {}
-
-
-def _write_meta(filename: str, meta: dict):
-    with open(_meta_path(filename), "w") as f:
-        json.dump(meta, f, indent=2, default=str)
-
-
-def _ensure_meta(filename: str):
-    meta = _read_meta(filename)
-    changed = False
-    if "created" not in meta:
-        meta["created"] = datetime.now().isoformat()
-        changed = True
-    if "description" not in meta:
-        meta["description"] = ""
-        changed = True
-    if "tags" not in meta:
-        meta["tags"] = []
-        changed = True
-    if changed:
-        _write_meta(filename, meta)
-    return meta
-
-
-def _depot_list() -> list[dict]:
-    files = {}
-    for f in os.listdir(DEPOT_DIR):
-        fp = os.path.join(DEPOT_DIR, f)
-        if not os.path.isfile(fp):
-            continue
-        _base, ext = os.path.splitext(f)
-        if ext == ".meta.json":
-            continue
-        if ext not in EXT_DXF and ext != ".dwg":
-            continue
-        meta = _ensure_meta(f)
-        files[f] = {
-            "name": f,
-            "size_bytes": os.path.getsize(fp),
-            "size_kb": round(os.path.getsize(fp) / 1024, 1),
-            "modified": datetime.fromtimestamp(os.path.getmtime(fp)).isoformat(),
-            "meta": meta,
-        }
-    return sorted(files.values(), key=lambda x: x["modified"], reverse=True)
-
+_bridge_proxies = []
+bridge_urls = os.getenv("MCP_BRIDGE_URLS", "")
+if bridge_urls and ProxyProvider is not None:
+    for url in bridge_urls.split(","):
+        url = url.strip()
+        if url:
+            try:
+                mcp.add_provider(ProxyProvider(url=url))
+                _bridge_proxies.append(url)
+            except Exception:
+                logger.warning("Failed to register MCP bridge proxy for %s", url)
 
 # ── MCP Tools ────────────────────────────────────────────────────────────────
 
@@ -238,11 +200,18 @@ async def batch_run(body: dict):
         fn = f["name"]
         try:
             r = await tool_map[tool_name](file_name=fn, **args)
-            results.append({"file": fn, "success": r.get("success", False), "data": r.get("data", {}), "error": r.get("error")})
+            results.append(
+                {"file": fn, "success": r.get("success", False), "data": r.get("data", {}), "error": r.get("error")}
+            )
         except Exception as e:
             results.append({"file": fn, "success": False, "error": str(e)})
 
-    return {"tool": tool_name, "total": len(files), "success_count": sum(1 for r in results if r["success"]), "results": results}
+    return {
+        "tool": tool_name,
+        "total": len(files),
+        "success_count": sum(1 for r in results if r["success"]),
+        "results": results,
+    }
 
 
 @app.get("/api/v1/layers/{filename}")
@@ -385,7 +354,11 @@ async def list_files():
         fp = os.path.join(DEPOT_DIR, f)
         if os.path.isfile(fp) and not f.endswith(".meta.json"):
             uploads.append({"name": f, "size_kb": round(os.path.getsize(fp) / 1024, 1)})
-    outputs = [{"name": f, "size_kb": round(os.path.getsize(os.path.join(OUTPUT_DIR, f)) / 1024, 1)} for f in os.listdir(OUTPUT_DIR) if os.path.isfile(os.path.join(OUTPUT_DIR, f))]
+    outputs = [
+        {"name": f, "size_kb": round(os.path.getsize(os.path.join(OUTPUT_DIR, f)) / 1024, 1)}
+        for f in os.listdir(OUTPUT_DIR)
+        if os.path.isfile(os.path.join(OUTPUT_DIR, f))
+    ]
     return {"uploads": uploads, "outputs": outputs}
 
 
@@ -393,7 +366,9 @@ async def list_files():
 
 
 class ToolRequest(BaseModel):
-    tool: str = Field(description="Tool name: plan_info, plan_to_svg, plan_extrude, plan_export, plan_analyse, plan_create, plan_depot, plan_convert, plan_modify")
+    tool: str = Field(
+        description="Tool name: plan_info, plan_to_svg, plan_extrude, plan_export, plan_analyse, plan_create, plan_depot, plan_convert, plan_modify"
+    )
     arguments: dict = Field(default_factory=dict, description="Tool arguments as a dict")
 
 
@@ -405,15 +380,35 @@ async def execute_tool(req: ToolRequest):
     if t == "plan_info":
         return await plan_info(file_name=args.get("file_name", ""))
     elif t == "plan_to_svg":
-        return await plan_to_svg(file_name=args.get("file_name", ""), output_name=args.get("output_name", "output.svg"), layers=args.get("layers"), background=args.get("background", "white"))
+        return await plan_to_svg(
+            file_name=args.get("file_name", ""),
+            output_name=args.get("output_name", "output.svg"),
+            layers=args.get("layers"),
+            background=args.get("background", "white"),
+        )
     elif t == "plan_extrude":
-        return await plan_extrude(file_name=args.get("file_name", ""), output_name=args.get("output_name", "extruded.stl"), wall_height=args.get("wall_height", 3.0), wall_thickness=args.get("wall_thickness", 0.3), wall_layers=args.get("wall_layers"))
+        return await plan_extrude(
+            file_name=args.get("file_name", ""),
+            output_name=args.get("output_name", "extruded.stl"),
+            wall_height=args.get("wall_height", 3.0),
+            wall_thickness=args.get("wall_thickness", 0.3),
+            wall_layers=args.get("wall_layers"),
+        )
     elif t == "plan_export":
-        return await plan_export(file_name=args.get("file_name", ""), format=args.get("format", "svg"), output_name=args.get("output_name", ""))
+        return await plan_export(
+            file_name=args.get("file_name", ""),
+            format=args.get("format", "svg"),
+            output_name=args.get("output_name", ""),
+        )
     elif t == "plan_analyse":
         return await plan_analyse(file_name=args.get("file_name", ""))
     elif t == "plan_create":
-        return await plan_create(filename=args.get("filename", ""), entities=args.get("entities", []), layers=args.get("layers"), description=args.get("description", ""))
+        return await plan_create(
+            filename=args.get("filename", ""),
+            entities=args.get("entities", []),
+            layers=args.get("layers"),
+            description=args.get("description", ""),
+        )
     elif t == "plan_depot":
         return await plan_depot()
     elif t == "plan_convert":
@@ -450,6 +445,7 @@ async def stream_logs():
                 yield f"data: {LOG_RING[idx]}\n\n"
                 idx += 1
             await asyncio.sleep(0.1)
+
     return StreamingResponse(gen(), media_type="text/event-stream")
 
 
@@ -478,7 +474,12 @@ _app_settings = {"default_wall_height": 3.0, "default_wall_thickness": 0.3}
 
 @app.get("/api/v1/settings")
 async def get_settings():
-    return {**_llm_settings, **_app_settings, "qcad_pro_path": _state.get("qcad_pro_path", ""), "qcad_pro_ok": _state.get("qcad_pro_ok", False)}
+    return {
+        **_llm_settings,
+        **_app_settings,
+        "qcad_pro_path": _state.get("qcad_pro_path", ""),
+        "qcad_pro_ok": _state.get("qcad_pro_ok", False),
+    }
 
 
 @app.put("/api/v1/settings")
@@ -494,7 +495,12 @@ async def update_settings(body: SettingsUpdate):
         _app_settings["default_wall_height"] = body.default_wall_height
     if body.default_wall_thickness is not None:
         _app_settings["default_wall_thickness"] = body.default_wall_thickness
-    return {**_llm_settings, **_app_settings, "qcad_pro_path": _state.get("qcad_pro_path", ""), "qcad_pro_ok": _state.get("qcad_pro_ok", False)}
+    return {
+        **_llm_settings,
+        **_app_settings,
+        "qcad_pro_path": _state.get("qcad_pro_path", ""),
+        "qcad_pro_ok": _state.get("qcad_pro_ok", False),
+    }
 
 
 @app.post("/api/v1/chat")
@@ -505,11 +511,17 @@ async def chat_completion(req: ChatRequest):
         return {"content": "Only Ollama provider is supported currently."}
     try:
         async with httpx.AsyncClient(timeout=120.0) as client:
-            r = await client.post(url, json={
-                "model": model,
-                "messages": [{"role": "system", "content": req.system or "You are a CAD and floor plan expert."}, *req.messages],
-                "stream": False,
-            })
+            r = await client.post(
+                url,
+                json={
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": req.system or "You are a CAD and floor plan expert."},
+                        *req.messages,
+                    ],
+                    "stream": False,
+                },
+            )
             data = r.json()
             return {"content": (data.get("message") or {}).get("content", "") or data.get("response", "")}
     except Exception as e:

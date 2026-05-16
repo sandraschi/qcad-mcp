@@ -19,6 +19,7 @@ def _get_ezdxf_version() -> str:
     """Return the installed ezdxf version string."""
     try:
         import ezdxf
+
         return ezdxf.__version__
     except Exception:
         return "unknown"
@@ -124,21 +125,29 @@ def _doc_to_info(doc) -> dict:
 
     layers = []
     for layer in doc.layers:
-        layers.append({
-            "name": layer.dxf.name,
-            "color": layer.dxf.color,
-            "frozen": getattr(layer, "is_frozen", lambda: False)(),
-            "locked": getattr(layer, "is_locked", lambda: False)(),
-        })
+        layers.append(
+            {
+                "name": layer.dxf.name,
+                "color": layer.dxf.color,
+                "frozen": getattr(layer, "is_frozen", lambda: False)(),
+                "locked": getattr(layer, "is_locked", lambda: False)(),
+            }
+        )
 
     blocks = [b.name for b in doc.blocks]
 
     bbox = None
     try:
         from ezdxf.bbox import extents
+
         bbox_rect = extents(msp)
         if bbox_rect.has_data:
-            bbox = {"xmin": bbox_rect.extmin.x, "ymin": bbox_rect.extmin.y, "xmax": bbox_rect.extmax.x, "ymax": bbox_rect.extmax.y}
+            bbox = {
+                "xmin": bbox_rect.extmin.x,
+                "ymin": bbox_rect.extmin.y,
+                "xmax": bbox_rect.extmax.x,
+                "ymax": bbox_rect.extmax.y,
+            }
     except Exception:
         logger.debug("Failed to compute bounding box", exc_info=True)
 
@@ -213,13 +222,17 @@ _BLOCK_CATEGORIES = [
     {"id": "detailing", "label": "Construction Detailing"},
 ]
 
-_BLOCK_HEADERS = {"User-Agent": "qcad-mcp/0.1.0 (MCP server; +https://github.com/sandraschi/qcad-mcp)"}
+_BLOCK_HEADERS = {"User-Agent": "qcad-mcp/0.3.0 (MCP server; +https://github.com/sandraschi/qcad-mcp)"}
 
 
 async def _search_cadblocksfree(query: str, category: str, limit: int) -> list[dict]:
     """Search cadblocksfree.com for CAD blocks."""
     results = []
-    url = f"https://www.cadblocksfree.com/en/search/{query.replace(' ', '-')}/" if query else "https://www.cadblocksfree.com/en/cad-blocks/"
+    url = (
+        f"https://www.cadblocksfree.com/en/search/{query.replace(' ', '-')}/"
+        if query
+        else "https://www.cadblocksfree.com/en/cad-blocks/"
+    )
     try:
         async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
             r = await client.get(url, headers=_BLOCK_HEADERS)
@@ -234,13 +247,19 @@ async def _search_cadblocksfree(query: str, category: str, limit: int) -> list[d
                 img = img_el.get("src", "") if img_el else ""
                 cat_el = article.select_one(".category, .cat, .term")
                 cat = cat_el.get_text(strip=True) if cat_el else category or "General"
-                results.append({
-                    "title": title[:100],
-                    "source": "cadblocksfree",
-                    "url": href if href.startswith("http") else f"https://www.cadblocksfree.com{href}",
-                    "image_url": img if img.startswith("http") else f"https://www.cadblocksfree.com{img}" if img else "",
-                    "category": cat,
-                })
+                results.append(
+                    {
+                        "title": title[:100],
+                        "source": "cadblocksfree",
+                        "url": href if href.startswith("http") else f"https://www.cadblocksfree.com{href}",
+                        "image_url": img
+                        if img.startswith("http")
+                        else f"https://www.cadblocksfree.com{img}"
+                        if img
+                        else "",
+                        "category": cat,
+                    }
+                )
     except Exception as e:
         logger.warning("cadblocksfree search error: %s", e)
     return results
@@ -261,13 +280,15 @@ async def _search_biblocad(query: str, category: str, limit: int) -> list[dict]:
                 href = title_el.get("href", "")
                 img_el = item.select_one("img")
                 img = img_el.get("src", "") if img_el else ""
-                results.append({
-                    "title": title[:100],
-                    "source": "biblocad",
-                    "url": href if href.startswith("http") else f"https://biblocad.com{href}",
-                    "image_url": img if img.startswith("http") else f"https://biblocad.com{img}" if img else "",
-                    "category": category or "General",
-                })
+                results.append(
+                    {
+                        "title": title[:100],
+                        "source": "biblocad",
+                        "url": href if href.startswith("http") else f"https://biblocad.com{href}",
+                        "image_url": img if img.startswith("http") else f"https://biblocad.com{img}" if img else "",
+                        "category": category or "General",
+                    }
+                )
     except Exception as e:
         logger.warning("biblocad search error: %s", e)
     return results
@@ -277,11 +298,31 @@ async def _search_gallery(query: str, category: str, limit: int) -> list[dict]:
     """Return curated sample floor plans and architectural blocks."""
     samples = {
         "floor-plans": [
-            {"title": "Small Apartment Floor Plan (45m\u00b2)", "url": "https://www.cadblocksfree.com/en/download/small-apartment-plan.dxf", "category": "Floor Plans"},
-            {"title": "Office Layout Open Plan", "url": "https://www.cadblocksfree.com/en/download/office-open-plan.dxf", "category": "Floor Plans"},
-            {"title": "Two-Bedroom House Plan (80m\u00b2)", "url": "https://www.cadblocksfree.com/en/download/two-bedroom-house.dxf", "category": "Floor Plans"},
-            {"title": "Restaurant Floor Plan", "url": "https://www.cadblocksfree.com/en/download/restaurant-plan.dxf", "category": "Floor Plans"},
-            {"title": "Classroom Layout", "url": "https://www.cadblocksfree.com/en/download/classroom.dxf", "category": "Floor Plans"},
+            {
+                "title": "Small Apartment Floor Plan (45m\u00b2)",
+                "url": "https://www.cadblocksfree.com/en/download/small-apartment-plan.dxf",
+                "category": "Floor Plans",
+            },
+            {
+                "title": "Office Layout Open Plan",
+                "url": "https://www.cadblocksfree.com/en/download/office-open-plan.dxf",
+                "category": "Floor Plans",
+            },
+            {
+                "title": "Two-Bedroom House Plan (80m\u00b2)",
+                "url": "https://www.cadblocksfree.com/en/download/two-bedroom-house.dxf",
+                "category": "Floor Plans",
+            },
+            {
+                "title": "Restaurant Floor Plan",
+                "url": "https://www.cadblocksfree.com/en/download/restaurant-plan.dxf",
+                "category": "Floor Plans",
+            },
+            {
+                "title": "Classroom Layout",
+                "url": "https://www.cadblocksfree.com/en/download/classroom.dxf",
+                "category": "Floor Plans",
+            },
         ],
         "doors-windows": [
             {"title": "Door Block Collection (20 types)", "category": "Doors & Windows"},
@@ -310,7 +351,9 @@ async def _search_gallery(query: str, category: str, limit: int) -> list[dict]:
         ],
     }
     if query:
-        results = [item for cat_items in samples.values() for item in cat_items if query.lower() in item["title"].lower()]
+        results = [
+            item for cat_items in samples.values() for item in cat_items if query.lower() in item["title"].lower()
+        ]
     elif category and category in samples:
         results = samples[category]
     else:

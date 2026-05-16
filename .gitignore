@@ -1,4 +1,10 @@
 __pycache__/
 *.pyc
+.pytest_cache/
+htmlcov/
+*.egg-info/
+dist/
+build/
 webapp/node_modules/
 .venv/
+uv.lock

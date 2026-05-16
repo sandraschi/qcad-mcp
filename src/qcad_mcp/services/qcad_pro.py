@@ -47,7 +47,8 @@ def is_running() -> bool:
     try:
         result = subprocess.run(
             ["tasklist", "/FI", f"IMAGENAME eq {exe_name}"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         return exe_name.lower() in result.stdout.lower()
     except Exception:
@@ -61,6 +62,7 @@ def get_version() -> str:
         return ""
     try:
         import win32api
+
         info = win32api.GetFileVersionInfo(qcad_exe, "\\")
         ms = info["FileVersionMS"]
         ls = info["FileVersionLS"]
@@ -68,6 +70,7 @@ def get_version() -> str:
     except Exception:
         try:
             from win32com.client import Dispatch
+
             parser = Dispatch("Scripting.FileSystemObject")
             version = parser.GetFileVersion(qcad_exe)
             return version or ""
@@ -116,17 +119,23 @@ def render(input_path: str, output_path: str, fmt: str, timeout: int = 120) -> d
     try:
         result = subprocess.run(
             [str(tool_path), "-a", "-f", "-o", output_path, input_path],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
             cwd=str(_qcad_base_dir()),
             timeout=timeout,
         )
         if result.returncode != 0 or not os.path.isfile(output_path):
             stderr_tail = result.stderr.split("\n")[-5:] if result.stderr else []
-            return {"success": False, "error": f"QCAD Pro {fmt} render failed (rc={result.returncode})",
-                    "stderr": stderr_tail}
+            return {
+                "success": False,
+                "error": f"QCAD Pro {fmt} render failed (rc={result.returncode})",
+                "stderr": stderr_tail,
+            }
 
         size_kb = round(os.path.getsize(output_path) / 1024, 1)
-        logger.info("QCAD Pro %s render: %s -> %s (%.1f KB)", fmt, Path(input_path).name, Path(output_path).name, size_kb)
+        logger.info(
+            "QCAD Pro %s render: %s -> %s (%.1f KB)", fmt, Path(input_path).name, Path(output_path).name, size_kb
+        )
         return {"success": True, "output": output_path, "size_kb": size_kb}
     except subprocess.TimeoutExpired:
         return {"success": False, "error": f"QCAD Pro {fmt} render timed out after {timeout}s."}
@@ -149,10 +158,19 @@ def convert(input_path: str, output_path: str, fmt: str = "DXF", timeout: int = 
     qcad_exe = cmd()
     try:
         result = subprocess.run(
-            [qcad_exe, "-no-gui", "-allow-multiple-instances",
-             "-autostart", "scripts/Pro/Tools/Dwg2Dwg/Dwg2Dwg.js",
-             "-f", "-o", output_path, input_path],
-            capture_output=True, text=True,
+            [
+                qcad_exe,
+                "-no-gui",
+                "-allow-multiple-instances",
+                "-autostart",
+                "scripts/Pro/Tools/Dwg2Dwg/Dwg2Dwg.js",
+                "-f",
+                "-o",
+                output_path,
+                input_path,
+            ],
+            capture_output=True,
+            text=True,
             cwd=str(_qcad_base_dir()),
             timeout=timeout,
         )
@@ -281,9 +299,9 @@ def run_script(
 
     try:
         result = subprocess.run(
-            [qcad_exe, "-no-gui", "-allow-multiple-instances",
-             "-autostart", script_path],
-            capture_output=True, text=True,
+            [qcad_exe, "-no-gui", "-allow-multiple-instances", "-autostart", script_path],
+            capture_output=True,
+            text=True,
             cwd=str(_qcad_base_dir()),
             timeout=timeout,
         )
@@ -291,15 +309,12 @@ def run_script(
         stdout = result.stdout
         stderr = result.stderr
 
-        logger.debug("QCAD script exit=%d, stdout_len=%d, stderr_len=%d",
-                      result.returncode, len(stdout), len(stderr))
+        logger.debug("QCAD script exit=%d, stdout_len=%d, stderr_len=%d", result.returncode, len(stdout), len(stderr))
 
         data = _parse_script_output(stdout)
         if data is None:
             stderr_tail = stderr.split("\n")[-10:] if stderr else []
-            return {"success": False,
-                    "error": "QCAD script produced no valid output.",
-                    "stderr": stderr_tail}
+            return {"success": False, "error": "QCAD script produced no valid output.", "stderr": stderr_tail}
 
         data["output_file"] = output_file if has_output == "true" else None
         data["session_id"] = session_id
@@ -320,7 +335,7 @@ def run_script(
             pass
 
 
-def _parse_marker(stdout: str, marker: str = "__QCAD_MCP_RESULT__") -> dict | None:
+def parse_marker(stdout: str, marker: str = "__QCAD_MCP_RESULT__") -> dict | None:
     if marker not in stdout:
         return None
     lines = stdout.split("\n")
@@ -334,7 +349,7 @@ def _parse_marker(stdout: str, marker: str = "__QCAD_MCP_RESULT__") -> dict | No
 
 
 def _parse_script_output(stdout: str) -> dict | None:
-    return _parse_marker(stdout)
+    return parse_marker(stdout)
 
 
 EXEC_TEMPLATE = r"""
@@ -415,9 +430,9 @@ def exec_in_live(
 
     try:
         result = subprocess.run(
-            [qcad_exe, "-no-gui", "-allow-multiple-instances",
-             "-autostart", script_path],
-            capture_output=True, text=True,
+            [qcad_exe, "-no-gui", "-allow-multiple-instances", "-autostart", script_path],
+            capture_output=True,
+            text=True,
             cwd=str(_qcad_base_dir()),
             timeout=timeout,
         )
@@ -425,9 +440,7 @@ def exec_in_live(
         data = _parse_script_output(result.stdout)
         if data is None:
             stderr_tail = result.stderr.split("\n")[-5:] if result.stderr else []
-            return {"success": False,
-                    "error": "Exec produced no valid output.",
-                    "stderr": stderr_tail}
+            return {"success": False, "error": "Exec produced no valid output.", "stderr": stderr_tail}
 
         return {"success": True, "data": data, "stdout": result.stdout}
 

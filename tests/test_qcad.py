@@ -164,7 +164,7 @@ class TestPlanToSvg:
     @pytest.mark.asyncio
     async def test_svg_with_layer_filter(self, simple_floorplan):
         from qcad_mcp.server import plan_to_svg
-        result = await plan_to_svg(file_name=simple_floorplan, layers="Walls")
+        result = await plan_to_svg(file_name=simple_floorplan, layers=["Walls"])
         assert result.get("success")
 
 

@@ -13,7 +13,7 @@ from pydantic import Field
 
 from qcad_mcp.config import DEPOT_DIR, OUTPUT_DIR
 from qcad_mcp.services import qcad_pro
-from qcad_mcp.services.qcad_pro import _parse_marker
+from qcad_mcp.services.qcad_pro import parse_marker
 
 _READ_ONLY = {"readonly": True}
 
@@ -25,9 +25,24 @@ _DIM_TYPE_MAP = {
     "angular": "RDimAngular3PEntity",
 }
 
-_PATTERNS = ["ANSI31", "ANSI32", "ANSI33", "ANSI34", "ANSI35", "ANSI36",
-             "ANSI37", "ANSI38", "AR-CONC", "AR-HBONE", "AR-BRSTD",
-             "SOLID", "EARTH", "GRASS", "GRAVEL", "LINE"]
+_PATTERNS = [
+    "ANSI31",
+    "ANSI32",
+    "ANSI33",
+    "ANSI34",
+    "ANSI35",
+    "ANSI36",
+    "ANSI37",
+    "ANSI38",
+    "AR-CONC",
+    "AR-HBONE",
+    "AR-BRSTD",
+    "SOLID",
+    "EARTH",
+    "GRASS",
+    "GRAVEL",
+    "LINE",
+]
 
 
 def _build_dim_script(dimensions: list[dict]) -> str:
@@ -84,14 +99,21 @@ def _build_dim_script(dimensions: list[dict]) -> str:
 
 async def plan_dimension(
     file_name: Annotated[str, Field(description="DXF/DWG filename in the depot to add dimensions to.")],
-    dimensions: Annotated[list[dict], Field(description="""List of dimension specifications. Each dict requires:
+    dimensions: Annotated[
+        list[dict],
+        Field(
+            description="""List of dimension specifications. Each dict requires:
 - type: "aligned" (linear), "rotated" (angled linear), "radial" (radius), "diametric" (diameter), "angular"
 - For aligned/rotated: x1, y1, x2, y2 (extension line origins), xd, yd (dimension line position)
 - For radial/diametric: cx, cy (center), px, py (point on circle)
 - For angular: cx, cy (center), x1, y1 (line1 endpoint), x2, y2 (line2 endpoint), xd, yd (arc position)
 - Optional: layer (default "0")
-""")],
-    output_name: Annotated[str, Field(default="", description="Output filename. Default: <input>_dimensioned.dxf")] = "",
+"""
+        ),
+    ],
+    output_name: Annotated[
+        str, Field(default="", description="Output filename. Default: <input>_dimensioned.dxf")
+    ] = "",
 ) -> dict:
     """Add dimension entities to a DXF drawing using QCAD Pro.
 
@@ -245,7 +267,7 @@ print(JSON.stringify({
     result = qcad_pro.exec_in_live(code, file_name=in_path, timeout=60)
     if result.get("success"):
         stdout = result.get("stdout", "")
-        measure_data = _parse_marker(stdout, "__QCAD_MCP_MEASURE__")
+        measure_data = parse_marker(stdout, "__QCAD_MCP_MEASURE__")
         if measure_data:
             return {"success": True, "data": measure_data}
         return {"success": True, "data": result.get("data", {}), "warning": "Measurement data not found in output"}
@@ -254,7 +276,10 @@ print(JSON.stringify({
 
 async def plan_text(
     file_name: Annotated[str, Field(description="DXF/DWG filename in the depot.")],
-    texts: Annotated[list[dict], Field(description="""List of text annotations. Each dict:
+    texts: Annotated[
+        list[dict],
+        Field(
+            description="""List of text annotations. Each dict:
 - text: string content
 - x, y: position
 - height: text height (default 5)
@@ -264,7 +289,9 @@ async def plan_text(
 - valign: "top"|"middle"|"bottom"|"baseline" (default "baseline")
 - bold: bool (default false)
 - italic: bool (default false)
-""")],
+"""
+        ),
+    ],
     output_name: Annotated[str, Field(default="", description="Output filename. Default: <input>_annotated.dxf")] = "",
 ) -> dict:
     """Add text annotations to a DXF drawing via QCAD Pro.
@@ -307,10 +334,12 @@ async def plan_text(
         bold = "true" if t.get("bold") else "false"
         italic = "true" if t.get("italic") else "false"
 
-        lines.append(f"var td_{var_idx} = new RTextData("
-                     f"new RVector({x},{y}), {height}, 0, '{text}', "
-                     f"'Standard', {ha}, {va}, RS.UnknownUnit, 0, 0, 0, "
-                     f"{bold}, {italic}, {rotation}, false, false);")
+        lines.append(
+            f"var td_{var_idx} = new RTextData("
+            f"new RVector({x},{y}), {height}, 0, '{text}', "
+            f"'Standard', {ha}, {va}, RS.UnknownUnit, 0, 0, 0, "
+            f"{bold}, {italic}, {rotation}, false, false);"
+        )
         lines.append(f"op.addObject(new RTextEntity(document, td_{var_idx}));")
         var_idx += 1
 
@@ -334,7 +363,10 @@ async def plan_text(
 
 async def plan_hatch(
     file_name: Annotated[str, Field(description="DXF/DWG filename in the depot.")],
-    hatches: Annotated[list[dict], Field(description="""List of hatch specifications. Each dict:
+    hatches: Annotated[
+        list[dict],
+        Field(
+            description="""List of hatch specifications. Each dict:
 - points: [[x1,y1], [x2,y2], ...] closed polygon boundary (required)
 - pattern: pattern name (default "ANSI31") — see list below
 - scale: pattern scale (default 1.0)
@@ -343,7 +375,9 @@ async def plan_hatch(
 - color: color name or #RRGGBB (default layer color)
 
 Available patterns: ANSI31-38, AR-CONC, AR-HBONE, AR-BRSTD, SOLID, EARTH, GRASS, GRAVEL, LINE
-""")],
+"""
+        ),
+    ],
     output_name: Annotated[str, Field(default="", description="Output filename. Default: <input>_hatched.dxf")] = "",
 ) -> dict:
     """Add hatch/fill patterns to closed regions in a DXF drawing via QCAD Pro.
@@ -408,14 +442,19 @@ Available patterns: ANSI31-38, AR-CONC, AR-HBONE, AR-BRSTD, SOLID, EARTH, GRASS,
 
 async def plan_block_insert(
     file_name: Annotated[str, Field(description="DXF/DWG filename in the depot.")],
-    inserts: Annotated[list[dict], Field(description="""List of block insertions. Each dict:
+    inserts: Annotated[
+        list[dict],
+        Field(
+            description="""List of block insertions. Each dict:
 - block_name: name of the block to insert (must exist in the drawing or be loaded from depot)
 - x, y: insertion position
 - scale_x, scale_y: scale factors (default 1.0)
 - rotation: rotation in degrees (default 0)
 - layer: target layer (default current layer)
 - columns, rows, col_spacing, row_spacing: optional array parameters
-""")],
+"""
+        ),
+    ],
     output_name: Annotated[str, Field(default="", description="Output filename. Default: <input>_blocks.dxf")] = "",
 ) -> dict:
     """Insert block references (doors, windows, furniture) into a DXF drawing.
@@ -486,10 +525,16 @@ async def plan_array(
     file_name: Annotated[str, Field(description="DXF/DWG filename in the depot.")],
     pattern: Annotated[str, Field(description="Array type: 'rectangular' or 'polar'.")],
     count: Annotated[int, Field(description="Number of copies (including the original).")],
-    params: Annotated[dict, Field(default_factory=dict, description="""Array parameters:
+    params: Annotated[
+        dict,
+        Field(
+            default={},
+            description="""Array parameters:
 - For rectangular: dx, dy (spacing in mm)
 - For polar: cx, cy (center point), angle (total angle in degrees, default 360)
-""")] = {},
+""",
+        ),
+    ] = {},
     output_name: Annotated[str, Field(default="", description="Output filename. Default: <input>_array.dxf")] = "",
 ) -> dict:
     """Create a rectangular or polar array of all entities in a drawing.
@@ -576,9 +621,9 @@ op.apply(document);
 
 
 def register(mcp):
-    mcp.tool()(plan_dimension)
-    mcp.tool(annotations=_READ_ONLY)(plan_measure)
-    mcp.tool()(plan_text)
-    mcp.tool()(plan_hatch)
-    mcp.tool()(plan_block_insert)
-    mcp.tool()(plan_array)
+    mcp.tool(version="0.3.0")(plan_dimension)
+    mcp.tool(annotations=_READ_ONLY, version="0.3.0")(plan_measure)
+    mcp.tool(version="0.3.0")(plan_text)
+    mcp.tool(version="0.3.0")(plan_hatch)
+    mcp.tool(version="0.3.0")(plan_block_insert)
+    mcp.tool(version="0.3.0")(plan_array)

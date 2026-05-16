@@ -39,9 +39,18 @@ async def qcad_status() -> dict:
 
 
 async def plan_script(
-    code: Annotated[str, Field(description="ECMAScript code to execute in QCAD Pro. Variables `document` and `di` (document interface) are pre-bound. Use the full QCAD API: RAddObjectsOperation, RLineEntity, RCircleEntity, RLayer, etc.")],
-    file_name: Annotated[str, Field(default="", description="Optional DXF/DWG filename in depot to load before executing code.")] = "",
-    output_name: Annotated[str, Field(default="script_output.dxf", description="Output filename saved to output dir. Empty = no export.")] = "script_output.dxf",
+    code: Annotated[
+        str,
+        Field(
+            description="ECMAScript code to execute in QCAD Pro. Variables `document` and `di` (document interface) are pre-bound. Use the full QCAD API: RAddObjectsOperation, RLineEntity, RCircleEntity, RLayer, etc."
+        ),
+    ],
+    file_name: Annotated[
+        str, Field(default="", description="Optional DXF/DWG filename in depot to load before executing code.")
+    ] = "",
+    output_name: Annotated[
+        str, Field(default="script_output.dxf", description="Output filename saved to output dir. Empty = no export.")
+    ] = "script_output.dxf",
 ) -> dict:
     """Execute arbitrary ECMAScript in QCAD Pro against a DXF document.
 
@@ -91,7 +100,9 @@ async def plan_script(
 async def plan_render(
     file_name: Annotated[str, Field(description="DXF/DWG filename in the depot to render.")],
     format: Annotated[str, Field(default="svg", description="Output format: svg, pdf, or bmp.")] = "svg",
-    output_name: Annotated[str, Field(default="", description="Output filename. Auto-generated from input name if empty.")] = "",
+    output_name: Annotated[
+        str, Field(default="", description="Output filename. Auto-generated from input name if empty.")
+    ] = "",
 ) -> dict:
     """High-fidelity rendering of a DXF/DWG via QCAD Pro.
 
@@ -134,7 +145,12 @@ async def plan_render(
 
 
 async def plan_exec(
-    code: Annotated[str, Field(description="ECMAScript snippet to execute. Has access to `document` and `di`. Use for quick operations: queries, adding entities, modifying layers.")],
+    code: Annotated[
+        str,
+        Field(
+            description="ECMAScript snippet to execute. Has access to `document` and `di`. Use for quick operations: queries, adding entities, modifying layers."
+        ),
+    ],
     file_name: Annotated[str, Field(default="", description="Optional depot filename to load before execution.")] = "",
 ) -> dict:
     """Execute ECMAScript in a temporary QCAD Pro session and return results.
@@ -163,7 +179,7 @@ async def plan_exec(
 
 
 def register(mcp):
-    mcp.tool(annotations=_READ_ONLY)(qcad_status)
-    mcp.tool()(plan_script)
-    mcp.tool()(plan_render)
-    mcp.tool()(plan_exec)
+    mcp.tool(annotations=_READ_ONLY, version="0.3.0")(qcad_status)
+    mcp.tool(version="0.3.0")(plan_script)
+    mcp.tool(version="0.3.0")(plan_render)
+    mcp.tool(version="0.3.0")(plan_exec)

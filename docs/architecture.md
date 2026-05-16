@@ -44,16 +44,32 @@ DXF/DWG Upload
 │  │  - DXF creation from primitives           │     │
 │  └──────────────────────────────────────────┘     │
 │                                                    │
-│  MCP Tools (7)          REST Endpoints (12)        │
-│  ┌────────────────┐    ┌─────────────────────┐    │
-│  │ plan_info       │    │ GET  /api/v1/status │    │
-│  │ plan_to_svg     │    │ POST /api/v1/upload │    │
-│  │ plan_extrude    │    │ GET  /api/v1/depot  │    │
-│  │ plan_export     │    │ GET  /api/v1/files  │    │
-│  │ plan_analyse    │    │ POST /api/v1/chat   │    │
-│  │ plan_create     │    │ POST /api/v1/control│    │
-│  │ plan_depot      │    │ GET  /api/v1/logs   │    │
-│  └────────────────┘    └─────────────────────┘    │
+  │  MCP Tools (22)         REST Endpoints (20+)       │
+  │  ┌────────────────┐    ┌─────────────────────┐    │
+  │  │ plan_info       │    │ GET  /api/v1/status │    │
+  │  │ plan_to_svg     │    │ POST /api/v1/upload │    │
+  │  │ plan_extrude    │    │ GET  /api/v1/depot  │    │
+  │  │ plan_export     │    │ GET  /api/v1/files  │    │
+  │  │ plan_analyse    │    │ POST /api/v1/chat   │    │
+  │  │ plan_create     │    │ POST /api/v1/control│    │
+  │  │ plan_depot      │    │ GET  /api/v1/logs   │    │
+  │  │ plan_convert    │    │ ...blocks, scripts, │    │
+  │  │ plan_modify     │    │ layers, batch, ...  │    │
+  │  │ plan_blocks     │    └─────────────────────┘    │
+  │  │ plan_dimension  │                              │
+  │  │ plan_measure    │                              │
+  │  │ plan_text       │                              │
+  │  │ plan_hatch      │                              │
+  │  │ plan_block_insert│                             │
+  │  │ plan_array      │                              │
+  │  │ plan_script     │                              │
+  │  │ plan_render     │                              │
+  │  │ plan_exec       │                              │
+  │  │ plan_agentic    │                              │
+  │  │ plan_transpile  │                              │
+  │  │ plan_scripts_*  │                              │
+  │  │ qcad_status     │                              │
+  │  └────────────────┘                              │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -80,7 +96,7 @@ DXF plan
 Load via ezdxf → iterate entities → filter by wall layers
    │
    ▼
-Convert LINE/LWPOLYLINE → shapely LineString → offset for wall thickness
+Convert LINE/LWPOLYLINE → numpy vector ops → offset for wall thickness
    │
    ▼
 Extrude to 3D (wall height) → triangulate → numpy-stl mesh

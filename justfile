@@ -2,7 +2,7 @@ set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
 
 export NAME := "QCAD MCP"
 export DESC := "DXF/DWG floor plans to SVG + STL via MCP tools"
-export VER  := "0.1.0"
+export VER  := "0.3.0"
 export PORT := "10966"
 export HOST := "0.0.0.0"
 

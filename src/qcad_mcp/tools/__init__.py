@@ -1,7 +1,9 @@
 """QCAD MCP tools — portmanteau registration for FastMCP 3.2.
 
-All tools are registered via register_all(mcp) which each module's
-register() function. This ensures @mcp.tool decorators fire at boot.
+[RATIONALALE] Consolidates 22 tools across 7 modules into a single register_all()
+entry point. Each module's register() function fires @mcp.tool decorators at
+import time for server boot discovery. Without this portmanteau, individual
+tool modules would need manual import by operators.
 """
 
 

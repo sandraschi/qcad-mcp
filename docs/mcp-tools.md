@@ -1,6 +1,6 @@
 # MCP Tools
 
-All 20 tools registered via `@mcp.tool()` in `src/qcad_mcp/server.py`.
+All 22 tools registered via `@mcp.tool()` across 7 tool modules. Versioned at `0.3.0`.
 
 | Tool | Annotation | Description |
 |:---|:---|:---|
@@ -56,7 +56,7 @@ await plan_to_svg(file_name="floorplan.dxf")
 # {"success": true, "output": "floorplan.svg", "data": {"layers": 5, "entities": 246}}
 
 # Specific layers only
-await plan_to_svg(file_name="floorplan.dxf", layers="Walls,Windows", background="#ffffff")
+await plan_to_svg(file_name="floorplan.dxf", layers=["Walls", "Windows"], background="#ffffff")
 ```
 
 Returns SVG file path and entity/layer counts. The SVG is served via `GET /api/v1/download/{filename}`.
@@ -72,7 +72,7 @@ await plan_extrude(
     file_name="floorplan.dxf",
     wall_height=3.0,       # metres
     wall_thickness=0.3,    # metres
-    layer_filter="Walls",  # comma-separated layer names
+    wall_layers=["Walls"],  # layer names to treat as walls
 )
 # {"success": true, "output": "floorplan.stl",
 #  "data": {"walls": 42, "vertices": 1008, "faces": 2016, "size_kb": 156.2}}
