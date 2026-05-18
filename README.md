@@ -44,6 +44,7 @@ With QCAD Pro 3.x installed the AI agent gains full CAD automation:
 | :--- | :--- |
 | **[Installation](docs/install.md)** | Prerequisites, ezdxf, QCAD Pro setup, bootstrap |
 | **[Architecture](ARCHITECTURE.md)** | Two-tier engine, 20-tool table, service layer, pipeline |
+| **[FreeCAD Pipeline](docs/freecad-pipeline.md)** | NL→DXF→STL→BIM→IFC cross-repo chain with freecad-mcp |
 | **[MCP Tools](docs/mcp-tools.md)** | All 22 tools with examples, return formats |
 | **[AI Tooling](docs/ai-tooling.md)** | Ollama CAD chat, agentic plan analysis workflows |
 | **[About QCAD](docs/about-qcad.md)** | History, scripting API, ezdxf vs QCAD Pro, AutoCAD comparison |
