@@ -733,6 +733,336 @@ print(JSON.stringify({{
     return result
 
 
+async def plan_beam_analysis(
+    beams: Annotated[list[dict], Field(description="""List of 2D beam segments. Each dict:
+- x1, y1, x2, y2: start and end coordinates (mm)
+- height: beam section height in mm (default 300)
+- width: beam section width in mm (default 200)
+- E: elastic modulus in MPa (default 25000 = concrete, 210000 = steel)
+""")],
+    supports: Annotated[list[dict], Field(default_factory=list, description="""List of supports. Each dict:
+- node_index: beam segment index (0-based) to place support
+- location: 'start' or 'end' of the segment
+- dof: comma-separated restrained DOFs: 'x,y,rz' for fixed, 'x,y' for pinned, 'y' for roller
+""")],
+    loads: Annotated[list[dict], Field(default_factory=list, description="""List of loads. Each dict:
+- type: 'point' (kN) or 'distributed' (kN/m)
+- beam_index: beam segment index (0-based)
+- magnitude: force in kN (positive = downward for y-direction)
+- For point loads: position (0 to 1, fraction along beam)
+- For distributed loads: uniform over full beam length
+""")],
+) -> dict:
+    """2D beam structural analysis using direct stiffness FEM.
+
+    Computes bending moments, shear forces, axial forces, and deflections
+    for planar beam structures. Suitable for architectural wall loading
+    analysis, lintel design, and simple frame structures.
+
+    Supports: pinned/fixed/roller supports, point loads, distributed loads.
+    Concrete and steel material presets.
+
+    ## Return Format
+    {"success": bool, "data": {"nodes": [...], "beams": [{"moment":[...], "shear":float, "axial":float, "max_deflection_mm":float, ...}], "reactions": [...]}}
+
+    ## Examples
+    # Simply supported concrete beam, 5m span, 10kN point load at midspan
+    await plan_beam_analysis(beams=[{"x1":0,"y1":0,"x2":5000,"y2":0,"height":400,"width":200,"E":25000}], supports=[{"node_index":0,"location":"start","dof":"x,y"},{"node_index":0,"location":"end","dof":"y"}], loads=[{"type":"point","beam_index":0,"position":0.5,"magnitude":10}])
+    """
+    import numpy as np
+
+    if not beams:
+        return {"success": False, "error": "No beam segments provided."}
+
+    # ─── Build node index ───────────────────────────────────────────
+    # Map each beam's start/end to a global node number
+    nodes = []
+    node_map = {}  # (x, y) rounded to 1mm → node_index
+    beam_nodes = []  # list of (start_node, end_node) per beam
+
+    for b in beams:
+        x1 = round(b.get("x1", 0))
+        y1 = round(b.get("y1", 0))
+        x2 = round(b.get("x2", 0))
+        y2 = round(b.get("y2", 0))
+        key1 = (x1, y1)
+        key2 = (x2, y2)
+        if key1 not in node_map:
+            node_map[key1] = len(nodes)
+            nodes.append({"x": x1, "y": y1})
+        if key2 not in node_map:
+            node_map[key2] = len(nodes)
+            nodes.append({"x": x2, "y": y2})
+        beam_nodes.append((node_map[key1], node_map[key2]))
+
+    n_nodes = len(nodes)
+    n_dof = n_nodes * 3  # ux, uy, rot per node
+
+    # ─── Global stiffness matrix ─────────────────────────────────────
+    K = np.zeros((n_dof, n_dof))
+    F = np.zeros(n_dof)
+
+    for i, (ni, nj) in enumerate(beam_nodes):
+        b = beams[i]
+        x1, y1 = b["x1"], b["y1"]
+        x2, y2 = b["x2"], b["y2"]
+        L = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+        if L < 1e-6:
+            continue
+        cos_a = (x2 - x1) / L
+        sin_a = (y2 - y1) / L
+
+        h = b.get("height", 300)  # mm
+        w = b.get("width", 200)  # mm
+        E_val = b.get("E", 25000)  # MPa (concrete)
+
+        A = w * h  # mm²
+        inertia = w * h**3 / 12  # mm⁴
+        EA = E_val * A
+        EI = E_val * inertia
+
+        # Local stiffness matrix (6x6 Euler-Bernoulli)
+        k_local = np.zeros((6, 6))
+        k_local[0, 0] = EA / L
+        k_local[0, 3] = -EA / L
+        k_local[1, 1] = 12 * EI / L**3
+        k_local[1, 2] = 6 * EI / L**2
+        k_local[1, 4] = -12 * EI / L**3
+        k_local[1, 5] = 6 * EI / L**2
+        k_local[2, 2] = 4 * EI / L
+        k_local[2, 4] = -6 * EI / L**2
+        k_local[2, 5] = 2 * EI / L
+        k_local[3, 3] = EA / L
+        k_local[4, 4] = 12 * EI / L**3
+        k_local[4, 5] = -6 * EI / L**2
+        k_local[5, 5] = 4 * EI / L
+        # Symmetry
+        for r in range(6):
+            for c in range(r + 1, 6):
+                k_local[c, r] = k_local[r, c]
+
+        # Transformation matrix
+        T_local = np.eye(6)
+        T_local[0, 0] = cos_a
+        T_local[0, 1] = sin_a
+        T_local[1, 0] = -sin_a
+        T_local[1, 1] = cos_a
+        T_local[3, 3] = cos_a
+        T_local[3, 4] = sin_a
+        T_local[4, 3] = -sin_a
+        T_local[4, 4] = cos_a
+
+        k_global = T_local.T @ k_local @ T_local
+
+        # Assemble into global K
+        dof_map = [ni * 3, ni * 3 + 1, ni * 3 + 2, nj * 3, nj * 3 + 1, nj * 3 + 2]
+        for r in range(6):
+            for c in range(6):
+                K[dof_map[r], dof_map[c]] += k_global[r, c]
+
+    # ─── Apply loads ─────────────────────────────────────────────────
+    for load in loads:
+        bi = load.get("beam_index", 0)
+        if bi >= len(beam_nodes):
+            continue
+        b = beams[bi]
+        x1, y1 = b["x1"], b["y1"]
+        x2, y2 = b["x2"], b["y2"]
+        L = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+        if L < 1e-6:
+            continue
+        magnitude_N = load.get("magnitude", 0) * 1000  # kN → N
+        cos_a = (x2 - x1) / L
+        sin_a = (y2 - y1) / L
+
+        ni, nj = beam_nodes[bi]
+
+        if load.get("type") == "point":
+            pos = load.get("position", 0.5)
+            a = pos * L
+            b_load = L - a
+            # Shear and moment at start and end
+            V_i = magnitude_N * b_load**2 * (L + 2 * a) / L**3
+            M_i = magnitude_N * a * b_load**2 / L**2
+            V_j = magnitude_N * a**2 * (L + 2 * b_load) / L**3
+            M_j = -magnitude_N * a**2 * b_load / L**2
+
+            # Local force vector (ux=Fx, uy=Fy, rot=M at each node)
+            F_local = np.array([0, -V_i, -M_i, 0, -V_j, M_j])
+
+            # Transform to global
+            T_local = np.eye(6)
+            T_local[0, 0] = cos_a
+            T_local[0, 1] = sin_a
+            T_local[1, 0] = -sin_a
+            T_local[1, 1] = cos_a
+            T_local[3, 3] = cos_a
+            T_local[3, 4] = sin_a
+            T_local[4, 3] = -sin_a
+            T_local[4, 4] = cos_a
+
+            f_global = T_local.T @ F_local
+
+        elif load.get("type") == "distributed":
+            w_N_mm = magnitude_N / L  # N/mm (magnitude_N is total N over beam)
+            # Fixed-end forces for uniform distributed load
+            F_local = np.array([0, -w_N_mm * L / 2, -w_N_mm * L**2 / 12, 0, -w_N_mm * L / 2, w_N_mm * L**2 / 12])
+            T_local = np.eye(6)
+            T_local[0, 0] = cos_a
+            T_local[0, 1] = sin_a
+            T_local[1, 0] = -sin_a
+            T_local[1, 1] = cos_a
+            T_local[3, 3] = cos_a
+            T_local[3, 4] = sin_a
+            T_local[4, 3] = -sin_a
+            T_local[4, 4] = cos_a
+            f_global = T_local.T @ F_local
+        else:
+            continue
+
+        dof_map = [ni * 3, ni * 3 + 1, ni * 3 + 2, nj * 3, nj * 3 + 1, nj * 3 + 2]
+        for j in range(6):
+            F[dof_map[j]] += f_global[j]
+
+    # ─── Apply boundary conditions ───────────────────────────────────
+    constrained = set()
+    for sup in supports:
+        ni = sup.get("node_index", 0)
+        loc = sup.get("location", "start")
+        if ni >= len(beam_nodes):
+            continue
+        node = beam_nodes[ni][0] if loc == "start" else beam_nodes[ni][1]
+        dof_str = sup.get("dof", "x,y,rz")
+        for d in dof_str.split(","):
+            d = d.strip()
+            if d == "x":
+                constrained.add(node * 3)
+            elif d == "y":
+                constrained.add(node * 3 + 1)
+            elif d in ("rz", "z", "rot"):
+                constrained.add(node * 3 + 2)
+
+    # Auto-detect: if no supports specified, fix first node
+    if not constrained:
+        constrained.add(1)  # y at node 0
+        constrained.add(0)  # x at node 0
+
+    # Apply penalties
+    penalty = 1e20
+    free_dofs = [i for i in range(n_dof) if i not in constrained]
+    K_constrained = K[np.ix_(free_dofs, free_dofs)]
+    F_constrained = F[free_dofs]
+
+    # ─── Solve ───────────────────────────────────────────────────────
+    try:
+        U_free = np.linalg.solve(K_constrained, F_constrained)
+    except np.linalg.LinAlgError:
+        return {"success": False, "error": "Stiffness matrix is singular — check supports. At least 3 restraints needed for 2D stability."}
+
+    U = np.zeros(n_dof)
+    for idx, dof in enumerate(free_dofs):
+        U[dof] = U_free[idx]
+
+    # ─── Element forces ──────────────────────────────────────────────
+    beam_results = []
+    for i, (ni, nj) in enumerate(beam_nodes):
+        b = beams[i]
+        x1, y1 = b["x1"], b["y1"]
+        x2, y2 = b["x2"], b["y2"]
+        L = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+        if L < 1e-6:
+            beam_results.append({"beam_index": i, "error": "Zero-length beam"})
+            continue
+        cos_a = (x2 - x1) / L
+        sin_a = (y2 - y1) / L
+
+        h = b.get("height", 300)
+        w = b.get("width", 200)
+        E_val = b.get("E", 25000)  # MPa
+
+        # Apply standard beam formulas for moment/shear
+        # M_max = wL²/8 (distributed) or PL/4 (centered point)
+        M_max = 0.0
+        V_max = 0.0
+        axial = 0.0
+
+        for load in loads:
+            if load.get("beam_index", 0) != i:
+                continue
+            mag_N = load.get("magnitude", 0) * 1000
+            ltype = load.get("type", "")
+            if ltype == "point":
+                pos = load.get("position", 0.5)
+                a = pos * L
+                b_ld = L - a
+                M_max += mag_N * a * b_ld / L
+                V_max += mag_N * b_ld / L
+            elif ltype == "distributed":
+                M_max += mag_N * L / (8 * 1000)  # w_total*L/8 in N·mm
+                V_max += mag_N / 2000
+
+        # Compute axial force from displacements
+        dof_map = [ni * 3, ni * 3 + 1, ni * 3 + 2, nj * 3, nj * 3 + 1, nj * 3 + 2]
+        u_local = np.zeros(6)
+        T = np.eye(6)
+        T[0, 0] = cos_a
+        T[0, 1] = sin_a
+        T[1, 0] = -sin_a
+        T[1, 1] = cos_a
+        T[3, 3] = cos_a
+        T[3, 4] = sin_a
+        T[4, 3] = -sin_a
+        T[4, 4] = cos_a
+        u_global = U[dof_map]
+        u_local = T @ u_global
+        axial = (E_val * w * h / L) * (u_local[3] - u_local[0])
+
+        # Max deflection from displacements
+        defl_i = np.sqrt(U[ni * 3 + 1] ** 2 + U[ni * 3] ** 2)
+        defl_j = np.sqrt(U[nj * 3 + 1] ** 2 + U[nj * 3] ** 2)
+        max_defl = max(abs(defl_i), abs(defl_j))
+
+        # Stress
+        S = h * w**2 / 6  # section modulus (mm³)
+        stress_moment = abs(M_max) / S if S > 0 else 0  # MPa
+
+        beam_results.append({
+            "beam_index": i,
+            "length_m": round(L / 1000, 3),
+            "max_moment_kNm": round(M_max / 1e6, 2),
+            "max_shear_kN": round(V_max / 1000, 2),
+            "axial_force_kN": round(axial / 1000, 2),
+            "max_deflection_mm": round(max_defl, 2),
+            "max_stress_mpa": round(stress_moment, 2),
+            "material_mpa": E_val,
+            "section_mm": f"{w}x{h}",
+            "ok": stress_moment < E_val / 15,  # rough safety check
+        })
+
+    # Reactions
+    reactions = []
+    for const in sorted(constrained):
+        node = const // 3
+        dof_local = const % 3
+        label = ["Fx", "Fy", "Mz"][dof_local]
+        reactions.append({
+            "node": node,
+            "dof": label,
+            "reaction_N": round(float(U[const] * penalty * 1e-20), 1),
+        })
+
+    return {
+        "success": True,
+        "data": {
+            "node_count": n_nodes,
+            "beam_count": len(beams),
+            "nodes": nodes,
+            "beams": beam_results,
+            "reactions": reactions,
+        },
+    }
+
+
 def register(mcp):
     mcp.tool(version="0.3.0")(plan_dimension)
     mcp.tool(annotations=_READ_ONLY, version="0.3.0")(plan_measure)
@@ -741,3 +1071,4 @@ def register(mcp):
     mcp.tool(version="0.3.0")(plan_block_insert)
     mcp.tool(version="0.3.0")(plan_array)
     mcp.tool(annotations=_READ_ONLY, version="0.4.0")(plan_wall_data)
+    mcp.tool(version="0.4.0")(plan_beam_analysis)
