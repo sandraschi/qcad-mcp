@@ -620,6 +620,119 @@ op.apply(document);
     return result
 
 
+async def plan_wall_data(
+    file_name: Annotated[str, Field(description="DXF/DWG filename in the depot.")],
+    wall_layers: Annotated[str, Field(default="", description="Comma-separated layer names containing walls. Empty = auto-detect layers with 'wall', 'mauer', or 'wand' in the name.")] = "",
+    wall_thickness: Annotated[float, Field(default=0.3, description="Default wall thickness in metres if not otherwise specified.")] = 0.3,
+) -> dict:
+    """Extract wall segment coordinates as structured BIM-ready JSON.
+
+    Reads a DXF floor plan and exports wall line segments as structured
+    data ready for freecad-mcp BIM tools (bim_create_wall).
+
+    Each wall segment includes: start/end coordinates, length, angle,
+    and layer name. LWPOLYLINE entities on wall layers are decomposed
+    into individual segments.
+
+    Requires QCAD Pro.
+
+    ## Return Format
+    {"success": bool, "data": {"wall_count": int, "total_length_m": float, "walls": [{"x1":.., "y1":.., "x2":.., "y2":.., "length_mm":.., "angle_deg":.., "layer":..}]}}
+
+    ## Examples
+    await plan_wall_data(file_name="floorplan.dxf")
+    await plan_wall_data(file_name="floorplan.dxf", wall_layers="Walls, Exterior")
+    """
+    if not qcad_pro.is_installed():
+        return {"success": False, "error": "QCAD Pro required."}
+
+    in_path = os.path.join(DEPOT_DIR, file_name)
+    if not os.path.isfile(in_path):
+        return {"success": False, "error": f"File not found: {file_name}"}
+
+    layer_filter = wall_layers.replace("'", "\\'")
+
+    code = f"""var ents = document.queryAllEntities();
+var walls = [];
+var totalLength = 0;
+
+var filterLayers = "{layer_filter}";
+var layerNames = filterLayers ? filterLayers.split(",") : [];
+
+for (var i = 0; i < ents.length; i++) {{
+    var e = document.queryEntity(ents[i]);
+    if (!e) continue;
+
+    var layer = "0";
+    try {{
+        var lid = e.getLayerId();
+        if (lid && lid.isValid()) {{
+            var l = document.queryLayer(lid);
+            if (l) layer = l.getName().toLowerCase();
+        }}
+    }} catch (ex) {{}}
+
+    // Apply layer filter
+    if (layerNames.length > 0) {{
+        var match = false;
+        for (var j = 0; j < layerNames.length; j++) {{
+            if (layer === layerNames[j].toLowerCase().trim()) {{ match = true; break; }}
+        }}
+        if (!match) continue;
+    }} else {{
+        // Auto-detect wall layers
+        var isWallLayer = layer.indexOf("wall") >= 0 ||
+                           layer.indexOf("mauer") >= 0 ||
+                           layer.indexOf("wand") >= 0 ||
+                           layer === "0";
+        if (!isWallLayer) continue;
+    }}
+
+    if (e instanceof RLineEntity) {{
+        var d = e.getData();
+        var x1 = d.getStartPoint().getX();
+        var y1 = d.getStartPoint().getY();
+        var x2 = d.getEndPoint().getX();
+        var y2 = d.getEndPoint().getY();
+        var dx = x2 - x1;
+        var dy = y2 - y1;
+        var len = Math.sqrt(dx*dx + dy*dy);
+        var ang = Math.atan2(dy, dx) * 180 / Math.PI;
+        walls.push({{"type":"line","x1":x1,"y1":y1,"x2":x2,"y2":y2,"length_mm":len,"angle_deg":ang,"layer":layer}});
+        totalLength += len;
+    }} else if (e instanceof RPolylineEntity) {{
+        var verts = e.getData().getVertices();
+        for (var j = 0; j < verts.length - 1; j++) {{
+            var v1 = verts[j];
+            var v2 = verts[j + 1];
+            var dx = v2.getX() - v1.getX();
+            var dy = v2.getY() - v1.getY();
+            var len = Math.sqrt(dx*dx + dy*dy);
+            var ang = Math.atan2(dy, dx) * 180 / Math.PI;
+            walls.push({{"type":"polyline_seg","x1":v1.getX(),"y1":v1.getY(),"x2":v2.getX(),"y2":v2.getY(),"length_mm":len,"angle_deg":ang,"layer":layer}});
+            totalLength += len;
+        }}
+    }}
+}}
+
+print("__QCAD_MCP_MEASURE__");
+print(JSON.stringify({{
+    "wall_count": walls.length,
+    "total_length_m": totalLength / 1000,
+    "walls": walls
+}}));
+"""
+
+    result = qcad_pro.exec_in_live(code, file_name=in_path, timeout=60)
+    if result.get("success"):
+        stdout = result.get("stdout", "")
+        wall_data = qcad_pro._parse_marker(stdout, "__QCAD_MCP_MEASURE__")
+        if wall_data:
+            return {"success": True, "data": wall_data}
+        return {"success": True, "data": result.get("data", {}), "warning": "Wall data marker not found"}
+    return result
+
+
 def register(mcp):
     mcp.tool(version="0.3.0")(plan_dimension)
     mcp.tool(annotations=_READ_ONLY, version="0.3.0")(plan_measure)
@@ -627,3 +740,4 @@ def register(mcp):
     mcp.tool(version="0.3.0")(plan_hatch)
     mcp.tool(version="0.3.0")(plan_block_insert)
     mcp.tool(version="0.3.0")(plan_array)
+    mcp.tool(annotations=_READ_ONLY, version="0.4.0")(plan_wall_data)

@@ -21,11 +21,7 @@ from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastmcp import FastMCP
-
-try:
-    from fastmcp.providers import ProxyProvider
-except ImportError:
-    ProxyProvider = None
+from fastmcp.server import create_proxy
 from pydantic import BaseModel, Field
 
 from qcad_mcp.config import DEPOT_DIR, EXT_DXF, OUTPUT_DIR
@@ -90,12 +86,11 @@ mcp = FastMCP.from_fastapi(app, name="QCAD MCP")
 
 _bridge_proxies = []
 bridge_urls = os.getenv("MCP_BRIDGE_URLS", "")
-if bridge_urls and ProxyProvider is not None:
-    for url in bridge_urls.split(","):
+for url in bridge_urls.split(","):
         url = url.strip()
         if url:
             try:
-                mcp.add_provider(ProxyProvider(url=url))
+                mcp.add_provider(create_proxy(url))
                 _bridge_proxies.append(url)
             except Exception:
                 logger.warning("Failed to register MCP bridge proxy for %s", url)
