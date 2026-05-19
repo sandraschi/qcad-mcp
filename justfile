@@ -103,3 +103,17 @@ test:
 # Check QCAD MCP status
 health:
     curl http://localhost:10966/api/v1/status
+
+# ── Native (Tauri) ────────────────────────────────────────────────────────────
+
+# Build Tauri native desktop app (Rust + WebView2)
+build-native:
+    Set-Location '{{justfile_directory()}}\native'
+    $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
+    npx @tauri-apps/cli build
+
+# Build Tauri native app (debug)
+build-native-debug:
+    Set-Location '{{justfile_directory()}}\native'
+    $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
+    npx @tauri-apps/cli build --debug
