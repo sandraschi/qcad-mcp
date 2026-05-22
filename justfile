@@ -31,7 +31,7 @@ setup: clean bootstrap
 # ── Operation ─────────────────────────────────────────────────────────────────
 
 # Start the QCAD MCP server (Unified Gateway, dual mode)
-serve mode=dual port=PORT:
+serve mode="dual" port=PORT:
     uv run python -m qcad_mcp.server --mode {{mode}} --port {{port}}
 
 # Start in stdio mode (for MCP clients)
@@ -86,10 +86,24 @@ health:
 build-native:
     Set-Location '{{justfile_directory()}}\native'
     $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
-    npx @tauri-apps/cli build
+    .\build.ps1
 
 # Build Tauri native app (debug)
 build-native-debug:
     Set-Location '{{justfile_directory()}}\native'
     $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
     npx @tauri-apps/cli build --debug
+
+tauri-sidecar:
+    pwsh -NoLogo -File '{{justfile_directory()}}\native\build-sidecar.ps1'
+
+tauri-build:
+    Set-Location '{{justfile_directory()}}\native'
+    $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
+    .\build.ps1
+
+tauri-dev:
+    Set-Location '{{justfile_directory()}}\native'
+    $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
+    npm install
+    npx @tauri-apps/cli dev

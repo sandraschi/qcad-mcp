@@ -7,17 +7,41 @@ use tauri_plugin_shell::ShellExt;
 struct BackendProcess(Mutex<Option<tauri_plugin_shell::process::CommandChild>>);
 
 #[tauri::command]
-async fn start_backend(app: tauri::AppHandle, state: tauri::State<'_, BackendProcess>) -> Result<String, String> {
-    let resource_dir = app.path().resource_dir().map_err(|e| e.to_string())?;
-    let project_root = resource_dir.parent().unwrap_or(std::path::Path::new("."));
+async fn start_backend(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, BackendProcess>,
+) -> Result<String, String> {
+    let cmd = app
+        .shell()
+        .sidecar("qcad-mcp-backend")
+        .map_err(|e| format!("Sidecar error: {}", e))?
+        .args(["--mode", "dual", "--port", "10966"]);
 
-    let cmd = app.shell()
-        .command("uv")
-        .args(["run", "python", "-m", "qcad_mcp.server", "--mode", "http", "--port", "10966"])
-        .current_dir(project_root);
-
-    let (_rx, child) = cmd.spawn().map_err(|e| format!("Failed to start backend: {}", e))?;
+    let (mut rx, child) = cmd
+        .spawn()
+        .map_err(|e| format!("Failed to start backend: {}", e))?;
     *state.0.lock().unwrap() = Some(child);
+
+    tauri::async_runtime::spawn(async move {
+        use tauri_plugin_shell::process::CommandEvent;
+        while let Some(event) = rx.recv().await {
+            match event {
+                CommandEvent::Stdout(line) | CommandEvent::Stderr(line) => {
+                    let text = String::from_utf8_lossy(&line);
+                    eprintln!("[backend] {}", text.trim());
+                    if text.contains("Uvicorn running")
+                        || text.contains("Application startup complete")
+                        || text.contains("Starting QCAD MCP on")
+                    {
+                        let _ = app.emit("backend-status", "ready");
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+    });
+
     Ok("Backend starting on port 10966".into())
 }
 
@@ -32,8 +56,11 @@ fn main() {
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 match start_backend(handle.clone(), handle.state::<BackendProcess>()).await {
-                    Ok(_) => { let _ = handle.emit("backend-status", "ready"); }
-                    Err(e) => { let _ = handle.emit("backend-status", format!("error: {}", e)); }
+                    Ok(_) => {}
+                    Err(e) => {
+                        eprintln!("Backend error: {}", e);
+                        let _ = handle.emit("backend-status", format!("error: {}", e));
+                    }
                 }
             });
             #[cfg(debug_assertions)]
@@ -43,7 +70,7 @@ fn main() {
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("error while building tauri application")
+        .expect("error building tauri application")
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
                 if let Some(child) = app.state::<BackendProcess>().0.lock().unwrap().take() {

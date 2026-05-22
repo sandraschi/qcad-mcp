@@ -24,4 +24,5 @@ See `ARCHITECTURE.md` for full design.
 - REST API with 20+ endpoints
 - SSE log stream, LLM chat endpoint, settings persistence
 - justfile with bootstrap, serve, web, lint, fix, test, check
+- Tauri 2.0 native wrapper (PyInstaller sidecar, ports 10966/10967): `just tauri-build`
 - Lint: ruff 0, biome 0, tsc 0 errors
