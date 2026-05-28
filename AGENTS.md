@@ -13,3 +13,5 @@ QCAD MCP server — DXF/DWG floor plans to SVG preview + STL extrusion via MCP t
 - `README.md` — full documentation
 - `pyproject.toml` — build config and entry points
 - `CLAUDE.md` — Claude Code context (if present)
+
+Install docs: follow mcp-central-docs/standards/AGENT_INSTALL_REFERENCE.md
