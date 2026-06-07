@@ -19,6 +19,8 @@ $FleetStart = Initialize-FleetStartMode @PSBoundParameters
 Enter-FleetHeadlessConsole -Headless:$Headless -BackendOnly:$BackendOnly
 Stop-FleetPortSquatters -Ports @($WebPort, $ApiPort) -Label "qcad-mcp"
 
+if (-not (Assert-FleetPortsAvailable -Ports @($WebPort, $ApiPort) -Label "qcad-mcp")) { exit 1 }
+
 $env:QCAD_MCP_WORK_DIR = "$env:TEMP\qcad_mcp_work"
 $backendCmd = "Set-Location '$ProjectRoot'; uv run --project '$ProjectRoot' python -m qcad_mcp.server --mode dual --host 127.0.0.1 --port $ApiPort"
 Write-Host "Starting QCAD MCP backend on port $ApiPort ..." -ForegroundColor Cyan
@@ -45,4 +47,5 @@ Push-Location (Join-Path $ProjectRoot "webapp")
 if (-not (Test-Path "node_modules")) { npm install }
 Write-Host "Starting Vite frontend on port $WebPort ..." -ForegroundColor Green
 npm run dev -- --port $WebPort --host 127.0.0.1 --strictPort
+
 
