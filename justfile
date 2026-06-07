@@ -1,4 +1,4 @@
-set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
+﻿set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
 
 export NAME := "QCAD MCP"
 export DESC := "DXF/DWG floor plans to SVG + STL via MCP tools"
@@ -8,7 +8,7 @@ export HOST := "0.0.0.0"
 
 # Open the interactive recipe dashboard in the browser
 default:
-    @pwsh.exe -NoProfile -ExecutionPolicy Bypass -File ../mcp-central-docs/scripts/just-dashboard.ps1 -Path .
+    @just --list
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 
@@ -74,6 +74,18 @@ check: lint test
 test:
     uv run pytest
 
+# Build an MCPB portable bundle from tool definitions
+mcpb-pack:
+    uvx mcpb build --server qcad_mcp.server:mcp --output devices-mcp.mcpb
+
+# Register this MCP server with a client (stdio)
+install-mcp:
+    uv run python -m qcad_mcp.server --mode stdio
+
+# Regenerate LLM documentation files (llms.txt)
+llms-txt:
+    uv run python -m qcad_mcp.utils.llms_txt
+
 # ── Diagnostics ───────────────────────────────────────────────────────────────
 
 # Check QCAD MCP status
@@ -107,3 +119,4 @@ tauri-dev:
     $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
     npm install
     npx @tauri-apps/cli dev
+
