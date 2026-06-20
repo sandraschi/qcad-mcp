@@ -1,0 +1,32 @@
+{
+  "manifest_version": "0.2",
+  "name": "qcad-mcp",
+  "version": "0.3.0",
+  "description": "QCAD MCP server — DXF/DWG floor plans to SVG preview + STL extrusion via MCP tools and REST API",
+  "author": {
+    "name": "sandraschi"
+  },
+  "server": {
+    "type": "python",
+    "entry_point": "run_server.py",
+    "mcp_config": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "${PWD}",
+        "run_server.py"
+      ],
+      "env": {
+        "PYTHONPATH": "${PWD}/src",
+        "PYTHONUNBUFFERED": "1"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "qcad-mcp",
+      "description": "QCAD MCP server — DXF/DWG floor plans to SVG preview + STL extrusion via MCP tools and REST API"
+    }
+  ]
+}

@@ -1,4 +1,5 @@
-﻿set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
+set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
+import 'scripts/just/fleet.just'
 
 export NAME := "QCAD MCP"
 export DESC := "DXF/DWG floor plans to SVG + STL via MCP tools"
@@ -76,7 +77,7 @@ test:
 
 # Build an MCPB portable bundle from tool definitions
 mcpb-pack:
-    uvx mcpb build --server qcad_mcp.server:mcp --output devices-mcp.mcpb
+    uvx mcpb build --server qcad_mcp.server:mcp --output qcad-mcp.mcpb
 
 # Register this MCP server with a client (stdio)
 install-mcp:
@@ -100,6 +101,10 @@ build-native:
     $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
     .\build.ps1
 
+# Run CUA smoke test against installed NSIS app
+cua-nsis-test:
+    C:\Windows\py.exe scripts/cua-smoke.py
+
 # Build Tauri native app (debug)
 build-native-debug:
     Set-Location '{{justfile_directory()}}\native'
@@ -119,4 +124,3 @@ tauri-dev:
     $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
     npm install
     npx @tauri-apps/cli dev
-
