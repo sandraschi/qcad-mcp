@@ -12,10 +12,12 @@ from qcad_mcp.config import DEPOT_DIR
 
 logger = logging.getLogger("qcad-mcp")
 
+_README_ONLY = {"readonly": True}
+
+_MUTATING = {}
+
 _SCRIPT_SOURCES: dict = {}
 _SCRIPT_CATEGORIES = ["drawing", "modify", "dimension", "export", "utility", "block", "layer", "geometry"]
-
-_READ_ONLY = {"readonly": True}
 
 
 def _script_source(name: str):
@@ -668,5 +670,5 @@ async def plan_scripts_download(
 
 
 def register(mcp):
-    mcp.tool(annotations=_READ_ONLY, version="0.3.0")(plan_scripts_search)
-    mcp.tool(version="0.3.0")(plan_scripts_download)
+    mcp.tool(annotations=_README_ONLY, version="0.3.0")(plan_scripts_search)
+    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_scripts_download)

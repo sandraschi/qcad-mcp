@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from typing import Annotated
 
+from fastmcp.tool.annotations import MUTATING
 from pydantic import Field
 
 from qcad_mcp.config import DEPOT_DIR
@@ -85,8 +86,6 @@ async def plan_modify(
 
         ## Examples
         await plan_modify(file_name="plan.dxf", operations=[{"op": "layer-set-color", "layer_filter": "Walls", "color": 7}])
-
-    ## Examples
         await plan_modify(file_name="plan.dxf", operations=[{"op": "delete", "type_filter": "TEXT"}])
     """
     doc, err = _load_dxf(file_name)
@@ -195,5 +194,5 @@ async def plan_modify(
 
 
 def register(mcp):
-    mcp.tool(version="0.3.0")(plan_convert)
-    mcp.tool(version="0.3.0")(plan_modify)
+    mcp.tool(annotations=MUTATING, version="0.3.0")(plan_convert)
+    mcp.tool(annotations=MUTATING, version="0.3.0")(plan_modify)

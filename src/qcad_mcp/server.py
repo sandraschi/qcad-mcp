@@ -12,6 +12,8 @@ import asyncio
 import collections
 import logging
 import os
+import subprocess
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -53,6 +55,8 @@ from qcad_mcp.tools.script_tools import _SCRIPT_CATEGORIES, plan_scripts_downloa
 
 logger = logging.getLogger("qcad-mcp")
 
+_START_TIME = time.time()
+
 # ── Lifespan ─────────────────────────────────────────────────────────────────
 
 _state: dict = {}
@@ -80,7 +84,23 @@ async def lifespan(app: FastAPI):
 # ── FastAPI App ──────────────────────────────────────────────────────────────
 
 app = FastAPI(lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+_QCAD_TAURI = os.environ.get("QCAD_TAURI", "").lower() in ("1", "true", "yes")
+app.add_middleware(
+    CORSMiddleware,
+        allow_origins=[
+            "http://127.0.0.1:10967",
+            "http://localhost:10967",
+            "http://goliath:10967",
+        "http://tauri.localhost",
+        "https://tauri.localhost",
+        "tauri://localhost",
+    ],
+    allow_origin_regex=r"https?://tauri\.localhost(:\d+)?" if _QCAD_TAURI else None,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 mcp = FastMCP.from_fastapi(app, name="QCAD MCP")
 
@@ -118,6 +138,49 @@ async def api_status():
         "depot": _state.get("depot_dir", ""),
         "output": _state.get("output_dir", ""),
         "file_count": len(_depot_list()),
+    }
+
+
+@app.get("/api/v1/health")
+async def api_health():
+    """Health endpoint with component status."""
+    qcad_ok = qcad_pro.is_installed()
+    qcad_version = qcad_pro.get_version()
+    docker_ok = False
+    try:
+        r = subprocess.run(
+            ["docker", "info", "--format", "{{.ServerVersion}}"],  # noqa: S607
+            capture_output=True, text=True, timeout=5,
+        )
+        docker_ok = r.returncode == 0 and bool(r.stdout.strip())
+    except Exception:
+        docker_ok = False
+    fluidx3d_path = os.environ.get("FLUIDX3D_PATH") or ""
+    if not fluidx3d_path or not os.path.isdir(fluidx3d_path):
+        candidate = r"D:\Dev\repos\FluidX3D"
+        fluidx3d_path = candidate if os.path.isdir(candidate) else None
+    compiler = None
+    for exe in ["g++", "clang++", "cl.exe"]:
+        try:
+            cr = subprocess.run([exe, "--version"], capture_output=True, text=True, timeout=3)
+            if cr.returncode == 0:
+                compiler = exe
+                break
+        except Exception:
+            logger.debug("Compiler probe failed for: %s", exe)
+            continue
+    tool_count = sum(1 for _ in mcp._tool_manager.tools.values()) if hasattr(mcp, "_tool_manager") else len(mcp.get_tools())
+    return {
+        "status": "ok" if qcad_ok else "degraded",
+        "qcad_ok": qcad_ok,
+        "qcad_version": qcad_version,
+        "ezdxf_version": _state.get("ezdxf_version", "unknown"),
+        "docker_available": docker_ok,
+        "openfoam_image": docker_ok,
+        "fluidx3d_path": fluidx3d_path,
+        "compiler": compiler,
+        "tool_count": tool_count,
+        "uptime_seconds": time.time() - _START_TIME,
     }
 
 
@@ -444,6 +507,46 @@ async def stream_logs():
     return StreamingResponse(gen(), media_type="text/event-stream")
 
 
+# ── FloatingChat LLM Endpoints ────────────────────────────────────────────────
+
+
+@app.get("/api/llm/providers")
+async def llm_providers():
+    models: list[str] = []
+    ollama_url = _llm_settings.get("ollama_url", "http://192.168.1.11:11434")
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            r = await client.get(f"{ollama_url}/api/tags")
+            for m in r.json().get("models", []):
+                name = m.get("name", "")
+                if name:
+                    models.append(name)
+    except Exception:
+        pass
+    return {"providers": [{"name": "ollama", "models": models}]}
+
+
+class LlmChatRequest(BaseModel):
+    provider: str = "ollama"
+    model: str = "gemma3:1b"
+    prompt: str = ""
+
+
+@app.post("/api/llm/chat")
+async def llm_chat(req: LlmChatRequest):
+    ollama_url = _llm_settings.get("ollama_url", "http://192.168.1.11:11434")
+    try:
+        async with httpx.AsyncClient(timeout=120) as client:
+            r = await client.post(
+                f"{ollama_url}/api/generate",
+                json={"model": req.model, "prompt": req.prompt, "stream": False},
+            )
+            data = r.json()
+            return {"response": data.get("response", "")}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 # ── Chat / LLM ───────────────────────────────────────────────────────────────
 
 _llm_settings = {"ollama_url": "http://192.168.1.11:11434", "model": "gemma3:1b"}
@@ -528,7 +631,7 @@ async def chat_completion(req: ChatRequest):
 
 
 async def _run_stdio():
-    await mcp.run_stdio_async()
+    await mcp.run_stdio_async(show_banner=False)
 
 
 def main():

@@ -14,8 +14,9 @@ from qcad_mcp.helpers import (
 
 logger = logging.getLogger("qcad-mcp")
 
-_READ_ONLY = {"readonly": True}
+_README_ONLY = {"readonly": True}
 
+_MUTATING = {}
 
 async def plan_blocks(
     query: Annotated[str, Field(default="", description="Search query (empty = browse all in category).")] = "",
@@ -69,6 +70,7 @@ async def plan_blocks_download(
     """
     from qcad_mcp.config import DEPOT_DIR
 
+
     if not url:
         return {"success": False, "error": "No download URL provided. Browse the source website."}
     try:
@@ -87,5 +89,5 @@ async def plan_blocks_download(
 
 
 def register(mcp):
-    mcp.tool(annotations=_READ_ONLY, version="0.3.0")(plan_blocks)
-    mcp.tool(version="0.3.0")(plan_blocks_download)
+    mcp.tool(annotations=_README_ONLY, version="0.3.0")(plan_blocks)
+    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_blocks_download)

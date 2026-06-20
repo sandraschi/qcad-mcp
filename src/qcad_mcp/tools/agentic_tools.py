@@ -1,14 +1,18 @@
 """Agentic multi-step CAD workflows and AutoLISP transpilation for QCAD MCP."""
 
+import json
 import logging
 import os
 import re
 from pathlib import Path
 from typing import Annotated
 
+from fastmcp import Context
+from fastmcp.tool.annotations import MUTATING, READ_ONLY
 from pydantic import Field
 
 from qcad_mcp.config import DEPOT_DIR, OUTPUT_DIR
+from qcad_mcp.helpers import _depot_list, _read_meta
 from qcad_mcp.services import qcad_pro
 
 logger = logging.getLogger("qcad-mcp")
@@ -206,7 +210,7 @@ async def plan_agentic(
     file_name: Annotated[
         str, Field(default="", description="Optional depot file to work on. Empty = create new document.")
     ] = "",
-    ctx: None = None,
+    ctx: Context = None,
 ) -> dict:
     """Multi-step CAD workflow: plans and executes ECMAScript operations from a natural-language goal.
 
@@ -299,7 +303,7 @@ async def plan_transpile(
     output_name: Annotated[
         str, Field(default="transpiled_output.dxf", description="Output filename for the executed result.")
     ] = "",
-    ctx: None = None,
+    ctx: Context = None,
 ) -> dict:
     """Translate AutoLISP to QCAD ECMAScript and execute the result.
 
@@ -402,6 +406,125 @@ Rules:
     return result
 
 
+async def cad_sampling(
+    goal: Annotated[str, Field(description="The CAD operation or question to reason about.")],
+    ctx: Context = None,
+) -> dict:
+    """
+    Use the host LLM (via MCP sampling) to reason about a CAD problem or plan a multi-step operation.
+
+    The host's LLM analyzes the goal and returns a structured plan or explanation.
+    Falls back to a static response if sampling is unavailable.
+
+    ## Return Format
+    {"success": bool, "response": str, "sampling_used": bool}
+
+    ## Examples
+    await cad_sampling(goal="What wall height should I use for a residential floor plan?")
+    await cad_sampling(goal="Plan the steps to convert a DXF to a 3D printable STL")
+    """
+    if ctx is not None:
+        try:
+            result = await ctx.sample(
+                system_prompt="You are a CAD and architecture expert assistant. Answer concisely and technically.",
+                messages=[{"role": "user", "content": goal}],
+                max_tokens=1000,
+            )
+            return {"success": True, "response": result, "sampling_used": True}
+        except Exception as e:
+            logger.warning("Sampling failed: %s", e)
+
+    return {
+        "success": True,
+        "response": f"I received your CAD question: '{goal}'. To enable AI reasoning, connect this MCP server to a sampling-capable client (Claude Desktop, Cursor).",
+        "sampling_used": False,
+    }
+
+
+async def cad_help_prompt(topic: str = "") -> str:
+    """
+    Get help with CAD operations. Returns a structured prompt for the LLM.
+    """
+    base = """You are a QCAD MCP assistant. You have access to the following tools:
+
+Core tools: plan_info, plan_to_svg, plan_extrude, plan_export, plan_analyse, plan_create, plan_depot
+Modify tools: plan_modify, plan_convert
+Script tools: plan_scripts_search, plan_scripts_download
+Block tools: plan_blocks, plan_blocks_download
+Agentic tools: plan_agentic, cad_sampling
+
+File depot is at %LOCALAPPDATA%\\qcad-mcp\\depot. All files persist across restarts.
+Use the depot CRUD REST API for file management: GET/PUT/DELETE /api/v1/depot/{name}
+
+Help the user with their CAD task. Be precise and suggest concrete tool calls.
+"""
+    if topic:
+        return f"{base}\n\nThe user specifically asked about: {topic}"
+    return base
+
+
 def register(mcp):
-    mcp.tool(version="0.3.0")(plan_agentic)
-    mcp.tool(version="0.3.0")(plan_transpile)
+    mcp.tool(annotations=MUTATING, version="0.3.0")(plan_agentic)
+    mcp.tool(annotations=MUTATING, version="0.3.0")(plan_transpile)
+    mcp.tool(annotations=READ_ONLY, version="0.3.0")(cad_sampling)
+
+    @mcp.prompt()
+    async def cad_expert(topic: str = "") -> str:
+        """Get CAD expertise and tool guidance."""
+        return await cad_help_prompt(topic)
+
+    @mcp.prompt()
+    async def cad_analyse_plan(file_name: str) -> str:
+        """Analyse a DXF floor plan step by step."""
+        return f"""Analyse the DXF floor plan at '{file_name}':
+
+1. Call plan_info with file_name="{file_name}" to get layer and entity metadata
+2. Call plan_to_svg with file_name="{file_name}" to generate a preview
+3. Call plan_analyse with file_name="{file_name}" to detect rooms, areas, and openings
+4. Summarise the results: building dimensions, room count, total area, door/window count
+
+Be precise and structured in your output."""
+
+    @mcp.prompt()
+    async def cad_extrude_3d(file_name: str, height: float = 3.0, thickness: float = 0.3) -> str:
+        """Extrude a DXF floor plan to a 3D STL mesh."""
+        return f"""Convert the DXF floor plan '{file_name}' to a 3D STL mesh:
+
+1. Run plan_extrude with file_name="{file_name}", wall_height={height}, wall_thickness={thickness}
+2. The STL is ready for download from the output directory
+3. Import into Resonite, Unity3D, or Blender for further processing
+
+Wall height: {height}m, wall thickness: {thickness}m"""
+
+    @mcp.resource("cad://depot")
+    async def depot_list_resource() -> str:
+        """List all files in the persistent CAD depot."""
+        files = _depot_list()
+        if not files:
+            return "Depot is empty. Upload a DXF file to get started."
+        lines = ["# CAD Depot Files\n"]
+        for f in files:
+            lines.append(f"- **{f['name']}** ({f['size_kb']} KB, modified {f['modified'][:10]})")
+            meta = f.get("meta", {})
+            if meta.get("description"):
+                lines.append(f"  - {meta['description']}")
+            if meta.get("tags"):
+                lines.append(f"  - Tags: {', '.join(meta['tags'])}")
+            if meta.get("entity_count") is not None:
+                lines.append(f"  - Entities: {meta['entity_count']}")
+        return "\n".join(lines)
+
+    @mcp.resource("cad://depot/{filename}")
+    async def depot_file_resource(filename: str) -> str:
+        """Get information about a specific file in the depot."""
+        meta = _read_meta(filename)
+        path = os.path.join(DEPOT_DIR, filename)
+        if not os.path.isfile(path):
+            return f"File '{filename}' not found in depot."
+        size_kb = round(os.path.getsize(path) / 1024, 1)
+        return json.dumps({
+            "name": filename,
+            "size_kb": size_kb,
+            "path": path,
+            "meta": meta,
+        }, indent=2)

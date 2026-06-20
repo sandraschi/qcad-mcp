@@ -15,8 +15,8 @@ from qcad_mcp.config import DEPOT_DIR, OUTPUT_DIR
 from qcad_mcp.services import qcad_pro
 from qcad_mcp.services.qcad_pro import parse_marker
 
-_READ_ONLY = {"readonly": True}
-
+_README_ONLY = {"readonly": True}
+_MUTATING = {}
 _DIM_TYPE_MAP = {
     "aligned": "RDimAlignedEntity",
     "rotated": "RDimRotatedEntity",
@@ -1064,11 +1064,11 @@ async def plan_beam_analysis(
 
 
 def register(mcp):
-    mcp.tool(version="0.3.0")(plan_dimension)
-    mcp.tool(annotations=_READ_ONLY, version="0.3.0")(plan_measure)
-    mcp.tool(version="0.3.0")(plan_text)
-    mcp.tool(version="0.3.0")(plan_hatch)
-    mcp.tool(version="0.3.0")(plan_block_insert)
-    mcp.tool(version="0.3.0")(plan_array)
-    mcp.tool(annotations=_READ_ONLY, version="0.4.0")(plan_wall_data)
-    mcp.tool(version="0.4.0")(plan_beam_analysis)
+    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_dimension)
+    mcp.tool(annotations=_README_ONLY, version="0.3.0")(plan_measure)
+    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_text)
+    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_hatch)
+    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_block_insert)
+    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_array)
+    mcp.tool(annotations=_README_ONLY, version="0.4.0")(plan_wall_data)
+    mcp.tool(annotations=_README_ONLY, version="0.4.0")(plan_beam_analysis)

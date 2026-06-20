@@ -12,8 +12,9 @@ from qcad_mcp.services import qcad_pro
 
 logger = logging.getLogger("qcad-mcp")
 
-_READ_ONLY = {"readonly": True}
+_README_ONLY = {"readonly": True}
 
+_MUTATING = {}
 
 async def qcad_status() -> dict:
     """Check QCAD Pro installation status, version, and capabilities.
@@ -179,7 +180,7 @@ async def plan_exec(
 
 
 def register(mcp):
-    mcp.tool(annotations=_READ_ONLY, version="0.3.0")(qcad_status)
-    mcp.tool(version="0.3.0")(plan_script)
-    mcp.tool(version="0.3.0")(plan_render)
-    mcp.tool(version="0.3.0")(plan_exec)
+    mcp.tool(annotations=_README_ONLY, version="0.3.0")(qcad_status)
+    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_script)
+    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_render)
+    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_exec)

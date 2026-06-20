@@ -18,8 +18,9 @@ from qcad_mcp.helpers import (
 
 logger = logging.getLogger("qcad-mcp")
 
-_READ_ONLY = {"readonly": True}
+_README_ONLY = {"readonly": True}
 
+_MUTATING = {}
 
 async def plan_info(
     file_name: Annotated[str, Field(description="DXF filename in the depot, e.g. floorplan.dxf")],
@@ -265,6 +266,7 @@ async def plan_export(
     await plan_export(file_name="floorplan.dxf", format="svg")
     """
     from qcad_mcp.services import qcad_pro
+
 
     ext_map = {"svg": ".svg", "pdf": ".pdf", "png": ".png"}
     if format not in ext_map:
@@ -553,10 +555,10 @@ async def plan_depot() -> dict:
 
 
 def register(mcp):
-    mcp.tool(annotations=_READ_ONLY, version="0.3.0")(plan_info)
-    mcp.tool(version="0.3.0")(plan_to_svg)
-    mcp.tool(version="0.3.0")(plan_extrude)
-    mcp.tool(version="0.3.0")(plan_export)
-    mcp.tool(annotations=_READ_ONLY, version="0.3.0")(plan_analyse)
-    mcp.tool(version="0.3.0")(plan_create)
-    mcp.tool(annotations=_READ_ONLY, version="0.3.0")(plan_depot)
+    mcp.tool(annotations=_README_ONLY, version="0.3.0")(plan_info)
+    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_to_svg)
+    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_extrude)
+    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_export)
+    mcp.tool(annotations=_README_ONLY, version="0.3.0")(plan_analyse)
+    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_create)
+    mcp.tool(annotations=_README_ONLY, version="0.3.0")(plan_depot)
