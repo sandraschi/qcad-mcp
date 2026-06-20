@@ -5,7 +5,6 @@ import os
 from pathlib import Path
 from typing import Annotated
 
-from fastmcp.tool.annotations import MUTATING
 from pydantic import Field
 
 from qcad_mcp.config import DEPOT_DIR
@@ -15,6 +14,8 @@ from qcad_mcp.helpers import (
     _qcad_pro_available,
     _qcad_pro_convert,
 )
+
+_MUTATING = {}
 
 logger = logging.getLogger("qcad-mcp")
 
@@ -194,5 +195,5 @@ async def plan_modify(
 
 
 def register(mcp):
-    mcp.tool(annotations=MUTATING, version="0.3.0")(plan_convert)
-    mcp.tool(annotations=MUTATING, version="0.3.0")(plan_modify)
+    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_convert)
+    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_modify)

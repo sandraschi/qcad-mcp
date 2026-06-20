@@ -8,12 +8,14 @@ from pathlib import Path
 from typing import Annotated
 
 from fastmcp import Context
-from fastmcp.tool.annotations import MUTATING, READ_ONLY
 from pydantic import Field
 
 from qcad_mcp.config import DEPOT_DIR, OUTPUT_DIR
 from qcad_mcp.helpers import _depot_list, _read_meta
 from qcad_mcp.services import qcad_pro
+
+_README_ONLY = {"readonly": True}
+_MUTATING = {}
 
 logger = logging.getLogger("qcad-mcp")
 
@@ -464,9 +466,9 @@ Help the user with their CAD task. Be precise and suggest concrete tool calls.
 
 
 def register(mcp):
-    mcp.tool(annotations=MUTATING, version="0.3.0")(plan_agentic)
-    mcp.tool(annotations=MUTATING, version="0.3.0")(plan_transpile)
-    mcp.tool(annotations=READ_ONLY, version="0.3.0")(cad_sampling)
+    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_agentic)
+    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_transpile)
+    mcp.tool(annotations=_README_ONLY, version="0.3.0")(cad_sampling)
 
     @mcp.prompt()
     async def cad_expert(topic: str = "") -> str:
