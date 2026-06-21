@@ -1,0 +1,66 @@
+use std::fs;
+use std::io::{BufRead, BufReader};
+use std::path::PathBuf;
+use std::process::{Child, Command, Stdio};
+use std::sync::Mutex;
+use tauri::{AppHandle, Emitter, Manager, path::BaseDirectory};
+
+pub struct BackendProcess(pub Mutex<Option<Child>>);
+
+const BACKEND_NAME: &str = "qcad-mcp-backend.exe";
+
+fn dev_backend_path() -> Option<PathBuf> {
+    if !cfg!(debug_assertions) { return None; }
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("binaries")
+        .join("qcad-mcp-backend-x86_64-pc-windows-msvc.exe");
+    path.exists().then_some(path)
+}
+
+fn materialize_backend(app: &AppHandle) -> Result<PathBuf, String> {
+    if let Some(p) = dev_backend_path() { return Ok(p); }
+    let bundled = app.path().resolve(BACKEND_NAME, BaseDirectory::Resource)
+        .map_err(|e| format!("bundled backend missing: {e}"))?;
+    let cache_dir = app.path().app_cache_dir().map_err(|e| e.to_string())?;
+    fs::create_dir_all(&cache_dir).map_err(|e| e.to_string())?;
+    let cached = cache_dir.join(BACKEND_NAME);
+    let version = app.package_info().version.to_string();
+    let stamp = cache_dir.join("backend-version.txt");
+    if !cached.exists() || fs::read_to_string(&stamp).unwrap_or_default() != version {
+        fs::copy(&bundled, &cached).map_err(|e| e.to_string())?;
+        fs::write(&stamp, version).map_err(|e| e.to_string())?;
+    }
+    Ok(cached)
+}
+
+pub fn spawn_backend(app: AppHandle, state: &BackendProcess) -> Result<String, String> {
+    let path = materialize_backend(&app)?;
+    let mut cmd = Command::new(&path);
+    cmd.args(["--mode", "dual", "--port", "10966"])
+        .env("QCAD_TAURI", "1")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    let mut child = cmd.spawn().map_err(|e| format!("spawn failed: {e}"))?;
+
+    let app_clone = app.clone();
+    if let Some(stdout) = child.stdout.take() {
+        std::thread::spawn(move || {
+            let reader = BufReader::new(stdout);
+            for line in reader.lines() {
+                if let Ok(text) = line {
+                    if text.contains("Uvicorn running")
+                        || text.contains("Application startup complete")
+                        || text.contains("Starting QCAD MCP on")
+                    {
+                        let _ = app_clone.emit("backend-status", "ready");
+                        break;
+                    }
+                }
+            }
+        });
+    }
+
+    state.0.lock().unwrap().replace(child);
+    Ok("Backend starting on port 10966".into())
+}

@@ -11,7 +11,6 @@
     "windows": [
       {
         "title": "QCAD MCP — AI CAD Automation",
-        "label": "main",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
@@ -41,7 +40,9 @@
       "webviewInstallMode": {
         "type": "skip"
       },
-      "nsis": {}
+      "nsis": {
+        "installerHooks": "./windows/hooks.nsh"
+      }
     }
   },
   "plugins": {
