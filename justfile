@@ -124,3 +124,15 @@ tauri-dev:
     $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
     npm install
     npx @tauri-apps/cli dev
+
+# ── Playwright E2E ─────────────────────────────────────────────────────
+
+# Install Playwright Chromium browser
+e2e-install:
+    cd {{REPO}}\webapp
+    npx playwright install chromium
+
+# Run Playwright E2E smoke tests (start backend first: just serve)
+e2e:
+    cd {{REPO}}\webapp
+    npx playwright test
