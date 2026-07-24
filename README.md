@@ -82,8 +82,8 @@ All CAD files are stored in a persistent depot at `%LOCALAPPDATA%\qcad-mcp\depot
 
 | Route | Page | Description |
 |-------|------|-------------|
-| `/` | Dashboard | Hero banner, depot stats, ezdxf version, QCAD Pro status, quick actions |
-| `/demo` | AI CAD Demo | NL → floor plan → SVG → 3D STL pipeline with presets |
+| `/` | Dashboard | Hero banner, QCAD Pro status panel, depot stats, ezdxf version |
+| `/demo` | AI CAD Demo | NL → floor plan → SVG → 3D STL. Baroque church, mob compound, art museum presets |
 | `/depot` | Depot | Full CRUD file browser with SVG preview, create DXF wizard, upload, rename, delete |
 | `/viewer` | Viewer | DXF upload + SVG preview with per-layer toggle |
 | `/extrude` | Extrude | DXF → STL with wall height/thickness/wall-layer controls |
@@ -92,8 +92,9 @@ All CAD files are stored in a persistent depot at `%LOCALAPPDATA%\qcad-mcp\depot
 | `/blocks` | Blocks | Search 4800+ CAD blocks from library with download |
 | `/scripts` | Scripts | Browse QCAD ECMAScript scripts gallery + save local scripts |
 | `/agentic` | AI Agent | Autonomous multi-step CAD workflow (QCAD Pro) |
-| `/batch` | Batch | Run MCP tools across all depot files at once |
-| `/pipeline` | Pipeline | FreeCAD BIM chain guide: extrude → solid → BIM → IFC |
+| `/batch` | Batch | Run info/analysis/extrude across all depot files. STL batch extrude with gallery |
+| `/pipeline` | Pipeline | 5-step wizard: describe → SVG → analyse → STL → FreeCAD wall data export |
+| `/playground` | Playground | Tool API tester: select any tool, edit JSON args, execute, view raw response |
 | `/models` | Models | Uploads vs outputs listing with download |
 | `/logs` | Logs | Live SSE log viewer with filter/export/pause |
 | `/settings` | Settings | LLM provider/model, extrusion defaults, QCAD Pro path |

@@ -22,6 +22,11 @@ All notable changes to the QCAD MCP server and webapp.
 - Total MCP tools: 22 → 26 documented in STATUS.md.
 
 ### Added
+- **Tool Playground** (`/playground`): API tester page with tool selector, JSON arg editor with templates per tool, depot file-name injector, raw response viewer with copy.
+- **Elaborate floorplan presets**: Baroque church (45m nave, apse, transept, 12 columns, 6 chapels), mob compound (walls, towers, villa, pool), art museum (atrium + 4 gallery wings). Plus parametric fallback that parses dimensions/rooms from any text.
+- **QCAD Pro panel** on Dashboard: live status, version, install path, quick links to Demo/Playground/Help.
+- **Batch STL** on BatchPage: run `plan_extrude` across all depot DXF files, STL gallery with download links.
+- **Live FreeCAD panel** on PipelinePage step 5: calls `plan_wall_data`, renders wall segment table, copy-button generates `bim_create_wall(...)` calls.
 - **Full REST tool bridge**: All 28 MCP tools now exposed via `/api/v1/control/tool` (previously only 9). Added `plan_blocks`, `plan_blocks_download`, `qcad_status`, `plan_scripts_search`, `plan_scripts_download`, `plan_beam_analysis`, `plan_measure`, `plan_wall_data`, `plan_dimension`, `plan_text`, `plan_hatch`, `plan_block_insert`, `plan_array`, `plan_script`, `plan_render`, `plan_exec`.
 - **QCAD Pro auto-start**: Backend launches QCAD Pro GUI on startup via `_ensure_qcad_running()`.
 - **Dashboard hero section**: Welcome banner with QCAD Pro status dot, live ezdxf version.
