@@ -1,8 +1,24 @@
 name: CI
-
-on:
-  push:
-    tags: ["v*"]
-  workflow_dispatch:
+on: [push, pull_request]
 
 jobs:
+  lint:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: pip install ruff && ruff check src/ --quiet && ruff format src/ --check --quiet
+      - run: npm --prefix webapp ci && npx --prefix webapp tsc --noEmit
+      - run: npm --prefix webapp ci && npm --prefix webapp run build
+
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+      - run: pip install -e ".[dev]" && pip install pytest pytest-asyncio
+      - run: pytest tests/ -q
