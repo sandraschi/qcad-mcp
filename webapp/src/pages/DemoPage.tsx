@@ -106,6 +106,49 @@ function generateEntities(goal: string): { entities: Entity[]; layers: { name: s
 		entities.push({ type: "text", x: mm(6), y: vy + vh + mm(5), h: 350, text: "GUEST", layer: "Text" });
 		entities.push({ type: "text", x: P/2 - mm(2), y: mm(1), h: 300, text: "GATE", layer: "Text" });
 
+	// Versailles / palace
+	} else if (g.includes("versailles") || (g.includes("palace") && (g.includes("wing") || g.includes("garden") || g.includes("state")))) {
+		const W = mm(200), H = mm(150);
+		// Main palace block
+		entities.push({ type: "rect", x1: 0, y1: 0, x2: W, y2: H, layer: "Walls" });
+		// Central axis (grande perspective)
+		entities.push({ type: "line", x1: W/2, y1: 0, x2: W/2, y2: H + mm(80), layer: "Walls" });
+		// Hall of Mirrors (central gallery)
+		entities.push({ type: "rect", x1: mm(62), y1: mm(30), x2: mm(138), y2: mm(50), layer: "Walls" });
+		// King's wing (north)
+		entities.push({ type: "rect", x1: 0, y1: mm(55), x2: mm(80), y2: mm(95), layer: "Walls" });
+		// Queen's wing (south)
+		entities.push({ type: "rect", x1: 0, y1: mm(55), x2: mm(80), y2: mm(95), layer: "Walls" });
+		// Royal chapel
+		entities.push({ type: "rect", x1: mm(80), y1: mm(95), x2: mm(120), y2: mm(130), layer: "Walls" });
+		// Grand staircase area
+		entities.push({ type: "circle", x: mm(80), y: mm(50), r: mm(5), layer: "Columns" });
+		entities.push({ type: "circle", x: mm(120), y: mm(50), r: mm(5), layer: "Columns" });
+		// State apartments along garden facade
+		for (let i = 0; i < 10; i++) {
+			const sx = mm(10) + i * mm(18);
+			entities.push({ type: "rect", x1: sx, y1: mm(50), x2: sx + mm(14), y2: mm(150), layer: "Walls" });
+		}
+		// Grand Trianon (satellite)
+		entities.push({ type: "rect", x1: W + mm(10), y1: mm(10), x2: W + mm(50), y2: mm(40), layer: "Walls" });
+		// Orangerie
+		entities.push({ type: "rect", x1: mm(20), y1: H + mm(10), x2: mm(70), y2: H + mm(25), layer: "Walls" });
+		// Gardens (path grid)
+		for (let i = 0; i < 5; i++) {
+			entities.push({ type: "line", x1: mm(30 + i * 35), y1: H + mm(30), x2: mm(30 + i * 35), y2: H + mm(80), layer: "Detail" });
+		}
+		// Fountains
+		for (let i = 0; i < 3; i++) {
+			entities.push({ type: "circle", x: mm(60 + i * 50), y: H + mm(50), r: mm(3), layer: "Detail" });
+		}
+		// Labels
+		entities.push({ type: "text", x: mm(70), y: mm(32), h: 500, text: "HALL OF MIRRORS", layer: "Text" });
+		entities.push({ type: "text", x: mm(10), y: mm(70), h: 400, text: "KING'S WING", layer: "Text" });
+		entities.push({ type: "text", x: mm(10), y: mm(60), h: 400, text: "QUEEN'S WING", layer: "Text" });
+		entities.push({ type: "text", x: mm(85), y: mm(105), h: 350, text: "CHAPEL", layer: "Text" });
+		entities.push({ type: "text", x: W + mm(15), y: mm(22), h: 300, text: "TRIANON", layer: "Text" });
+		entities.push({ type: "text", x: mm(25), y: H + mm(12), h: 300, text: "ORANGERIE", layer: "Text" });
+
 	// Museum / gallery
 	} else if (g.includes("museum") || g.includes("gallery") || g.includes("art")) {
 		const W = mm(40), H = mm(35);
@@ -172,6 +215,11 @@ const PRESETS = [
 		label: "Studio Apartment",
 		emoji: "🏠",
 		goal: "Open-plan studio apartment 6m x 5m with a kitchenette corner, bathroom 2m x 1.5m, entrance hallway, and a balcony 3m x 1.5m.",
+	},
+	{
+		label: "Versailles Palace",
+		emoji: "👑",
+		goal: "Versailles-style palace 200m x 150m with central axis, Hall of Mirrors 75m long, king's wing 80m, queen's wing 80m, royal chapel, grand staircase, 20 state apartments, formal gardens with fountains, Orangerie, and Grand Trianon.",
 	},
 	{
 		label: "Office Floor",
