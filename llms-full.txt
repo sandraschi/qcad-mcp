@@ -1,0 +1,188 @@
+# QCAD MCP - Full Server Documentation
+
+## Overview
+
+QCAD MCP is a FastMCP 3.2 server that provides AI-driven 2D CAD automation. It turns natural-language CAD goals into real DXF/DWG drawings, previews, and 3D STL meshes. Runs on port 10966 (backend/REST API) with webapp at port 10967.
+
+Key capabilities: DXF/DWG parsing with ezdxf, SVG/PNG/PDF preview generation, wall extrusion to 3D STL, room/area analysis, DXF creation from primitives, persistent file depot with full CRUD, QCAD Pro ECMAScript bridge for advanced operations (dimensions, hatches, text, measurements, arrays, block insertion), AutoLISP-to-ECMAScript transpilation, CAD block library search, and structural beam analysis.
+
+Two-tier engine: ezdxf 1.4 (pure Python, no binary deps) for core operations, plus optional QCAD Pro 3.x for DWG support, native rendering, and the full ECMAScript API.
+
+## Quick Start
+
+MCP client config (Claude Desktop, Cursor):
+
+```json
+{
+  "mcpServers": {
+    "qcad-mcp": {
+      "command": "uv",
+      "args": ["run", "--directory", "C:\\path\\to\\qcad-mcp", "python", "-m", "qcad_mcp.server", "--mode", "dual", "--port", "10966"],
+      "env": {
+        "QCAD_PRO_PATH": "C:\\Program Files\\QCAD"
+      }
+    }
+  }
+}
+```
+
+Start standalone: `uv run python -m qcad_mcp.server --mode dual --port 10966`
+
+Start with webapp: `powershell -File start.ps1`
+
+## Tools
+
+All 28 tools registered as FastMCP 3.2 @mcp.tool() across 7 modules.
+
+### Core Tools (ezdxf-based, no QCAD Pro required)
+
+- `plan_info(file_name)` -- Read a DXF file from the depot and return metadata: layers, entity counts by type, bounding box, block names, DXF version.
+  Example: await plan_info(file_name="floorplan.dxf")
+
+- `plan_to_svg(file_name, output_name, layers, background)` -- Convert a DXF file to an SVG preview image using ezdxf+matplotlib. Supports optional layer filtering and custom background colour.
+  Example: await plan_to_svg(file_name="floorplan.dxf", layers=["Walls", "Windows"])
+
+- `plan_extrude(file_name, output_name, wall_height, wall_thickness, wall_layers)` -- Extrude walls from a DXF floor plan into a 3D STL mesh. Finds LINE and LWPOLYLINE entities on wall layers, offsets by wall thickness, extrudes vertically, and triangulates. Default wall height 3.0m, thickness 0.3m. Auto-detects layers named "wall", "mauer", "wand", "mur", "parete", "pared".
+  Example: await plan_extrude(file_name="floorplan.dxf", wall_height=2.5, wall_thickness=0.2)
+
+- `plan_export(file_name, format, output_name)` -- Export a DXF file to SVG, PDF, or PNG. Tries QCAD Pro for high-fidelity output first (SVG, PDF), falls back to ezdxf+matplotlib. For PNG, renders via QCAD Pro BMP then converts via Pillow.
+  Example: await plan_export(file_name="floorplan.dxf", format="pdf")
+
+- `plan_analyse(file_name)` -- Analyse a DXF floor plan: detect rooms (closed LWPOLYLINE), calculate areas and perimeters, identify doors/windows (INSERT entities with matching block names like "door", "window" in multiple languages). Returns sorted rooms by area descending.
+  Example: await plan_analyse(file_name="floorplan.dxf")
+
+- `plan_create(filename, entities, layers, description)` -- Create a new DXF file from geometric primitives and store it in the depot. Supports line, rect, circle, text, polyline entity types. Optional layer definitions and metadata description.
+  Example: await plan_create(filename="room.dxf", entities=[{"type": "rect", "x": 0, "y": 0, "w": 10000, "h": 8000, "layer": "Walls"}])
+
+- `plan_depot()` -- List all DXF/DWG files in the persistent CAD depot with metadata (size, modified date, description, tags, entity count). Each file may have a JSON sidecar.
+  Example: await plan_depot()
+
+### Modify Tools (ezdxf-based)
+
+- `plan_convert(file_name, output_name)` -- Convert a CAD file between DWG and DXF formats using QCAD Pro CLI. The converted file is saved to the depot and immediately available for other tools.
+  Example: await plan_convert(file_name="floorplan.dwg", output_name="floorplan.dxf")
+
+- `plan_modify(file_name, operations)` -- Modify entities and layers in a DXF/DWG file. Operations applied in order: delete entities (by type/layer filter), offset lines/polylines by distance, set layer colour, rename layer, freeze/thaw layer, lock/unlock layer, merge layers (move entities from source to target then remove source).
+  Example: await plan_modify(file_name="plan.dxf", operations=[{"op": "delete", "type_filter": "TEXT"}])
+
+### QCAD Pro Tools (requires QCAD Pro 3.x)
+
+- `qcad_status()` -- Check QCAD Pro installation status, version, running state, and install directory. Call this first to determine which QCAD Pro-dependent tools are available.
+  Example: await qcad_status()
+
+- `plan_script(code, file_name, output_name)` -- Execute arbitrary ECMAScript in QCAD Pro against a DXF document. Full access to QCAD + Qt API: RAddObjectsOperation, RLineEntity, RCircleEntity, RLayer, RModifyObjectsOperation, etc. Variables `document` (RDocument) and `di` (RDocumentInterface) are pre-bound. 120s timeout.
+  Example: await plan_script(code="var op=new RAddObjectsOperation(); op.addObject(new RCircleEntity(document, new RCircleData(new RVector(50,50), 25))); op.apply(document);", output_name="circle.dxf")
+
+- `plan_render(file_name, format, output_name)` -- High-fidelity rendering of a DXF/DWG via QCAD Pro's native engine. Supports SVG, PDF, and BMP. Renders hatches, TrueType fonts, dimension styles, and lineweights correctly.
+  Example: await plan_render(file_name="floorplan.dxf", format="pdf", output_name="A1_export.pdf")
+
+- `plan_exec(code, file_name)` -- Quick ECMAScript execution in a temporary QCAD Pro session. No output file is saved. Use for queries, lightweight modifications, or prototyping before committing with plan_script.
+  Example: await plan_exec(code="document.queryAllEntities().length;", file_name="floorplan.dxf")
+
+### Annotation Tools (requires QCAD Pro)
+
+- `plan_dimension(file_name, dimensions, output_name)` -- Add dimension entities to a DXF drawing using QCAD Pro. Supports aligned, rotated, radial, diametric, and angular (3-point) dimension types. Each dimension defined by coordinates and optional layer.
+  Example: await plan_dimension(file_name="floorplan.dxf", dimensions=[{"type": "aligned", "x1": 0, "y1": 0, "x2": 5000, "y2": 0, "xd": 2500, "yd": -500}])
+
+- `plan_measure(file_name)` -- Measure distances, angles, areas, and perimeters of all entities in a DXF drawing via QCAD Pro's geometry engine. Detects lines, arcs, circles, polylines, splines, text, dimensions, hatches, and block references. Returns total line length and total area.
+  Example: await plan_measure(file_name="floorplan.dxf")
+
+- `plan_text(file_name, texts, output_name)` -- Add text annotations to a DXF drawing via QCAD Pro. Supports multi-line text with configurable height, alignment (left/center/right, top/middle/bottom/baseline), rotation, bold, and italic.
+  Example: await plan_text(file_name="floorplan.dxf", texts=[{"text": "Living Room", "x": 2500, "y": 3000, "height": 250, "halign": "center"}])
+
+- `plan_hatch(file_name, hatches, output_name)` -- Add hatch/fill patterns to closed polygon regions via QCAD Pro. Patterns: ANSI31-38, AR-CONC, AR-HBONE, AR-BRSTD, SOLID, EARTH, GRASS, GRAVEL, LINE. Configurable scale, angle, layer, and colour.
+  Example: await plan_hatch(file_name="floorplan.dxf", hatches=[{"points": [[0,0],[5000,0],[5000,4000],[0,4000]], "pattern": "AR-CONC", "scale": 0.5}])
+
+- `plan_block_insert(file_name, inserts, output_name)` -- Insert block references (doors, windows, furniture symbols) into a DXF drawing via QCAD Pro. Blocks must exist in the drawing or be loaded from depot via plan_blocks/download. Supports array parameters (columns, rows, spacing) for repeated insertions.
+  Example: await plan_block_insert(file_name="floorplan.dxf", inserts=[{"block_name": "DOOR", "x": 2000, "y": 0, "rotation": 0}])
+
+- `plan_array(file_name, pattern, count, params, output_name)` -- Create a rectangular or polar array of all entities in a drawing via QCAD Pro. Rectangular: dx/dy spacing. Polar: center point + total angle.
+  Example: await plan_array(file_name="window.dxf", pattern="rectangular", count=4, params={"dx": 1000, "dy": 800})
+
+- `plan_wall_data(file_name, wall_layers, wall_thickness)` -- Extract wall segment coordinates as structured BIM-ready JSON. Reads DXF floor plan and exports wall line segments with start/end coordinates, length, angle, and layer name. LWPOLYLINE entities are decomposed into individual segments. Auto-detects wall layers (contains "wall", "mauer", "wand"). Designed for freecad-mcp BIM tool integration.
+  Example: await plan_wall_data(file_name="floorplan.dxf")
+
+- `plan_beam_analysis(beams, supports, loads)` -- 2D beam structural analysis using direct stiffness FEM. Computes bending moments, shear forces, axial forces, and deflections for planar beam structures. Supports pinned/fixed/roller supports, point loads, and distributed loads. Concrete (E=25000 MPa) and steel (E=210000 MPa) material presets. Uses numpy for matrix assembly/solve.
+  Example: await plan_beam_analysis(beams=[{"x1":0,"y1":0,"x2":5000,"y2":0,"height":400,"width":200,"E":25000}], supports=[{"node_index":0,"location":"start","dof":"x,y"}], loads=[{"type":"point","beam_index":0,"position":0.5,"magnitude":10}])
+
+### Block/Library Tools
+
+- `plan_blocks(query, category, source, limit)` -- Search CAD block libraries (cadblocksfree, biblocad, gallery) for architectural blocks, furniture, doors, windows, and sample floor plans. Sources searched in parallel, results sorted by category.
+  Example: await plan_blocks(query="sofa", category="furniture", source="all", limit=10)
+
+- `plan_blocks_download(title, source, url)` -- Download a CAD block from a library into the local depot. Downloads the DXF file via HTTP, sanitises the title as filename. After download use plan_info or plan_to_svg to inspect.
+  Example: await plan_blocks_download(title="Sofa Collection", source="cadblocksfree", url="https://...")
+
+### Script Library Tools
+
+- `plan_scripts_search(query, category, source, limit)` -- Search QCAD ECMAScript script libraries for reusable CAD scripts. Sources: curated gallery (built-in), GitHub Gist (via API), and QCAD bundled examples. Categories: drawing, modify, dimension, export, utility, block, layer, geometry.
+  Example: await plan_scripts_search(query="dimension", category="drawing", source="gallery")
+
+- `plan_scripts_download(title, source, url)` -- Download an ECMAScript from a library to the local depot. Gallery scripts (gallery://id) are served from the local bundle. Downloaded .js files can be used with plan_script.
+  Example: await plan_scripts_download(title="Door Swing Arc", source="gallery", url="gallery://door_swing.js")
+
+### Agentic Tools
+
+- `plan_agentic(goal, file_name, ctx)` -- Multi-step CAD workflow from a natural-language goal. Uses AI sampling (via ctx.request_sampling) to decompose the goal into QCAD Pro ECMAScript steps, then executes them sequentially. Falls back to template-based generation for common patterns (rectangles, circles) when AI sampling is unavailable. Requires QCAD Pro installed.
+  Example: await plan_agentic(goal="Create a 10m x 8m floor plan with 4 equal rooms, add dimensions on all sides")
+
+- `plan_transpile(lisp_code, output_name, ctx)` -- Translate AutoLISP to QCAD ECMAScript and execute the result. AI-powered transpiler using ctx.request_sampling for best results. Handles entity creation, layer operations, selection sets, math functions, and control flow. Falls back to heuristic translation. Includes a comprehensive AutoLISP-to-ECMAScript mapping reference for the AI.
+  Example: await plan_transpile(lisp_code='(command "_LINE" (list 0 0) (list 100 0) "")')
+
+- `cad_sampling(goal, ctx)` -- Use the host LLM (via MCP sampling) to reason about a CAD problem or plan a multi-step operation. The host's LLM analyzes the goal and returns a structured plan or explanation. Falls back to a static response if sampling is unavailable.
+  Example: await cad_sampling(goal="What wall height should I use for a residential floor plan?")
+
+## Prompts
+
+Three registered @mcp.prompt() templates:
+
+- `cad_expert(topic)` -- Get CAD expertise and tool guidance. Returns a structured prompt listing all tool groups, the file depot location, and the REST API endpoints. Optionally scoped to a specific topic.
+  Example: cad_expert(topic="wall extrusion")
+
+- `cad_analyse_plan(file_name)` -- Analyse a DXF floor plan step by step. Generates a 4-step workflow: plan_info -> plan_to_svg -> plan_analyse -> summarise results. Guides the agent to be precise and structured.
+  Example: cad_analyse_plan(file_name="floorplan.dxf")
+
+- `cad_extrude_3d(file_name, height, thickness)` -- Extrude a DXF floor plan to a 3D STL mesh. Generates a 3-step workflow: plan_extrude -> download -> import into Resonite/Unity3D/Blender.
+  Example: cad_extrude_3d(file_name="floorplan.dxf", height=3.0, thickness=0.3)
+
+## Resources
+
+Two registered @mcp.resource() endpoints:
+
+- `cad://depot` -- List all files in the persistent CAD depot with metadata (name, size_kb, modified date, description, tags, entity count). Returns formatted markdown.
+  Example: resources/read?uri=cad://depot
+
+- `cad://depot/{filename}` -- Get detailed information about a specific file in the depot. Returns JSON with name, size_kb, path, and metadata sidecar.
+  Example: resources/read?uri=cad://depot/floorplan.dxf
+
+## Architecture
+
+Two-tier engine: ezdxf 1.4 (pure Python, no binary dependencies) handles core reading, SVG export, extrusion, room analysis, DXF creation, depot management, and entity/layer modification. QCAD Pro 3.x provides ECMAScript bridge for dimensions, measurements, hatches, text, blocks, arrays, wall data, beam analysis, plan_agentic, plan_transpile, DWG conversion, and native rendering.
+
+Transport: MCP stdio (Claude Desktop) and HTTP (port 10966). REST API at /api/v1/ for file upload/download and depot management. Webapp at port 10967.
+
+Depot: Persistent file storage at %LOCALAPPDATA%/qcad-mcp/depot. All files persist across restarts. Depot CRUD via REST: GET/PUT/DELETE /api/v1/depot/{name}. Output files saved to parallel output directory.
+
+CORS: Configured for tauri://localhost and http://localhost:10967 for webapp access.
+
+## Fleet Integration
+
+QCAD MCP integrates with freecad-mcp via plan_wall_data (exports BIM-ready wall segment coordinates for bim_create_wall) and plan_extrude STL output (importable into freecad-mcp, godot-mcp, resonite-mcp, blender-mcp). Also integrates with inkscape-mcp for SVG post-processing.
+
+## Error Handling
+
+Common errors and recovery:
+
+- "QCAD Pro not installed. Set QCAD_PRO_PATH env var." -- Tools that require QCAD Pro return this error if QCAD_PRO_PATH is not set or invalid. Install QCAD Pro 3.x from qcad.org and set the env var to the install directory (e.g. C:\Program Files\QCAD).
+
+- "File not found in depot: {name}" -- The specified file does not exist in the depot. Upload via POST /api/v1/upload, create via plan_create, or list available files with plan_depot().
+
+- "No wall entities found" -- plan_extrude could not find LINE, LWPOLYLINE, or POLYLINE entities on wall layers. Specify wall_layers explicitly or ensure the DXF uses named layers matching "wall"/"mauer"/"wand".
+
+- SVG rendering failed -- Typically a matplotlib backend issue. Ensure matplotlib is installed with Agg backend support.
+
+- DWG/DXF conversion failed -- Requires QCAD Pro CLI. Verify QCAD_PRO_PATH points to a valid QCAD installation and that qcad.exe or qcadcmd.exe is present.
+
+- "Sampling failed" or "AI sampling unavailable" -- cad_sampling, plan_agentic, and plan_transpile fall back to template/heuristic mode when run without a sampling-capable MCP client (Claude Desktop, Cursor).
+
+- "No beam segments provided" -- plan_beam_analysis requires at least one beam segment dict with x1,y1,x2,y2 coordinates. Use the example format.

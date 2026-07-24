@@ -12,10 +12,13 @@ import {
 	LayoutDashboard,
 	Logs,
 	Play,
+	GitBranch,
 	Ruler,
 	Settings,
 	SlidersHorizontal,
 	Sparkles,
+	ChevronLeft,
+	ChevronRight,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
@@ -31,6 +34,7 @@ const navItems = [
 	{ path: "/blocks", label: "Blocks", icon: Grid3X3 },
 	{ path: "/scripts", label: "Scripts", icon: Code2 },
 	{ path: "/batch", label: "Batch", icon: Play },
+	{ path: "/pipeline", label: "Pipeline", icon: GitBranch },
 	{ path: "/models", label: "Models", icon: FileText },
 	{ path: "/logs", label: "Logs", icon: Logs },
 	{ path: "/settings", label: "Settings", icon: Settings },
@@ -44,15 +48,24 @@ export default function Sidebar({
 	return (
 		<motion.aside
 			animate={{ width: collapsed ? 72 : 240 }}
-			className="flex flex-col bg-[#1e1e26] border-r border-white/10 h-full shrink-0 overflow-hidden"
+			className="flex flex-col bg-[#1e1e26] border-r border-white/10 h-full shrink-0 overflow-hidden relative"
 		>
-			<div className="h-14 flex items-center gap-3 px-4 border-b border-white/10">
+			<div className="h-14 flex items-center gap-3 px-4 border-b border-white/10 overflow-hidden">
 				<Ruler className="text-amber-400 shrink-0" size={22} />
-				{!collapsed && (
-					<span className="text-sm font-bold text-white whitespace-nowrap">
-						QCAD MCP
-					</span>
-				)}
+				<motion.span
+					animate={{ opacity: collapsed ? 0 : 1, width: collapsed ? 0 : "auto" }}
+					className="text-sm font-bold text-white whitespace-nowrap overflow-hidden"
+				>
+					QCAD MCP
+				</motion.span>
+				<button
+					type="button"
+					onClick={onToggle}
+					className="ml-auto p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-all shrink-0"
+					title={collapsed ? "Expand" : "Collapse"}
+				>
+					{collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+				</button>
 			</div>
 			<nav className="flex-1 p-3 space-y-1 overflow-y-auto">
 				{navItems.map((item) => (
@@ -69,19 +82,15 @@ export default function Sidebar({
 						}
 					>
 						<item.icon size={18} className="shrink-0" />
-						{!collapsed && (
-							<span className="whitespace-nowrap">{item.label}</span>
-						)}
+						<motion.span
+							animate={{ opacity: collapsed ? 0 : 1, width: collapsed ? 0 : "auto" }}
+							className="whitespace-nowrap overflow-hidden"
+						>
+							{item.label}
+						</motion.span>
 					</NavLink>
 				))}
 			</nav>
-			<button
-				type="button"
-				onClick={onToggle}
-				className="p-3 text-sm text-slate-400 hover:text-slate-400 border-t border-white/10"
-			>
-				{collapsed ? ">>" : "Collapse"}
-			</button>
 		</motion.aside>
 	);
 }

@@ -1,5 +1,6 @@
-import { CheckCircle, Download, ExternalLink, Grid3X3, Image, Loader2, Search } from "lucide-react";
+import { CheckCircle, Download, ExternalLink, Grid3X3, Loader2, Search } from "lucide-react";
 import { useEffect, useState } from "react";
+import { API_BASE } from "../lib/api";
 
 interface BlockResult {
 	title: string;
@@ -28,7 +29,7 @@ export default function BlocksPage() {
 	const [recent, setRecent] = useState<string[]>([]);
 
 	useEffect(() => {
-		fetch("/api/v1/blocks/categories")
+		fetch(API_BASE + "/api/v1/blocks/categories")
 			.then((r) => r.json())
 			.then((j) => {
 				if (j.categories) setCategories(j.categories);
@@ -46,7 +47,7 @@ export default function BlocksPage() {
 			if (category) params.set("category", category);
 			if (source !== "all") params.set("source", source);
 			params.set("limit", "20");
-			const r = await fetch(`/api/v1/blocks/search?${params}`);
+			const r = await fetch(API_BASE + `/api/v1/blocks/search?${params}`);
 			const j = await r.json();
 			if (j.success) setResults(j.results);
 			else setError(j.error || "Search failed");
@@ -69,7 +70,7 @@ export default function BlocksPage() {
 		}
 		setDownloading(item.title);
 		try {
-			const r = await fetch("/api/v1/blocks/download", {
+			const r = await fetch(API_BASE + "/api/v1/blocks/download", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({

@@ -1,5 +1,6 @@
 import { Box, Download, FileText, Loader2, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { API_BASE } from "../lib/api";
 
 export default function ModelsPage() {
 	const [uploads, setUploads] = useState<{ name: string; size_kb: number }[]>([]);
@@ -9,7 +10,7 @@ export default function ModelsPage() {
 	const load = useCallback(async () => {
 		setLoading(true);
 		try {
-			const r = await fetch("/api/v1/files");
+			const r = await fetch(API_BASE + "/api/v1/files");
 			const j = await r.json();
 			setUploads(j.uploads || []);
 			setOutputs(j.outputs || []);

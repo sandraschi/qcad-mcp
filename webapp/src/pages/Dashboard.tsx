@@ -1,9 +1,15 @@
 import { BarChart3, Box, Database, FileText, Layers, Ruler } from "lucide-react";
 import { useEffect, useState } from "react";
+import { API_BASE } from "../lib/api";
 
 interface StatusData {
 	ezdxf_version: string;
-	qcad_pro_ok: boolean;
+	qcad_pro: {
+		installed: boolean;
+		running: boolean;
+		version: string;
+		install_dir: string;
+	};
 }
 
 export default function Dashboard() {
@@ -14,11 +20,11 @@ export default function Dashboard() {
 	});
 
 	useEffect(() => {
-		fetch("/api/v1/status")
+		fetch(API_BASE + "/api/v1/status")
 			.then((r) => r.json())
 			.then(setStatus)
 			.catch(() => {});
-		fetch("/api/v1/files")
+		fetch(API_BASE + "/api/v1/files")
 			.then((r) => r.json())
 			.then((j) =>
 				setFiles({
@@ -30,26 +36,40 @@ export default function Dashboard() {
 	}, []);
 
 	return (
-		<div className="space-y-6">
-			<h1 className="text-2xl font-bold text-white">Dashboard</h1>
+		<div className="space-y-6" data-testid="dashboard">
+			<div className="bg-gradient-to-br from-amber-500/10 to-transparent border border-amber-500/20 rounded-2xl p-6" data-testid="hero-section">
+				<h1 className="text-2xl font-bold text-white">QCAD MCP</h1>
+				<p className="text-slate-400 mt-1 max-w-2xl">
+					Programmatic 2D CAD server &mdash; parse, analyse, modify, and export DXF/DWG
+					floor plans. Extrude walls to 3D STL, detect rooms, chain with FreeCAD for
+					full BIM pipelines. Powered by ezdxf with optional QCAD Pro for PDF output.
+				</p>
+				<div className="flex gap-4 mt-3 text-sm text-slate-500">
+					<span className="flex items-center gap-1.5">
+						<span className={`w-2 h-2 rounded-full ${status?.qcad_pro?.running ? "bg-green-500" : "bg-red-500"} animate-pulse`} />
+						{status?.qcad_pro?.running ? `QCAD Pro ${status.qcad_pro.version}` : status?.qcad_pro?.installed ? "QCAD Pro not running" : "ezdxf mode"}
+					</span>
+					{status?.ezdxf_version && <span>ezdxf {status.ezdxf_version}</span>}
+				</div>
+			</div>
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-				<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-5 space-y-3">
+				<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-5 space-y-3" data-testid="kpi-server">
 					<div className="flex items-center gap-2 text-amber-400">
 						<Ruler size={18} /> ezdxf Engine
 					</div>
-					<p className="text-sm text-slate-300">{status?.ezdxf_version || "..."}</p>
-					<p className="text-sm text-slate-400">
-						{status?.qcad_pro_ok ? "QCAD Pro detected" : "QCAD Pro: not found (PDF via ezdxf)"}
+					<p className="text-sm text-slate-300" data-testid="kpi-server-version">{status?.ezdxf_version || "..."}</p>
+					<p className="text-sm text-slate-400" data-testid="kpi-qcad">
+						{status?.qcad_pro?.running ? `QCAD Pro ${status.qcad_pro.version} (running)` : status?.qcad_pro?.installed ? "QCAD Pro installed (not running)" : "QCAD Pro: not found (PDF via ezdxf)"}
 					</p>
 				</div>
-				<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-5 space-y-3">
+				<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-5 space-y-3" data-testid="kpi-files">
 					<div className="flex items-center gap-2 text-emerald-400">
 						<FileText size={18} /> Files
 					</div>
-					<p className="text-2xl font-bold text-white">
+					<p className="text-2xl font-bold text-white" data-testid="kpi-uploads">
 						{files.uploads} <span className="text-sm font-normal text-slate-300">uploads</span>
 					</p>
-					<p className="text-2xl font-bold text-white">
+					<p className="text-2xl font-bold text-white" data-testid="kpi-outputs">
 						{files.outputs} <span className="text-sm font-normal text-slate-300">outputs</span>
 					</p>
 				</div>

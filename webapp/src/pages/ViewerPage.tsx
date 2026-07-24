@@ -1,5 +1,6 @@
 import { Eye, EyeOff, Loader2, RotateCw, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
+import { API_BASE } from "../lib/api";
 
 interface PlanViewerInfo {
 	entity_total: number;
@@ -27,12 +28,12 @@ export default function ViewerPage() {
 		try {
 			const fd = new FormData();
 			fd.append("file", file);
-			const r = await fetch("/api/v1/upload", { method: "POST", body: fd });
+			const r = await fetch(API_BASE + "/api/v1/upload", { method: "POST", body: fd });
 			const j = await r.json();
 			if (!j.success) throw new Error(j.detail || "Upload failed");
 
 			// Get layer info
-			const infoR = await fetch("/api/v1/control/tool", {
+			const infoR = await fetch(API_BASE + "/api/v1/control/tool", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -49,7 +50,7 @@ export default function ViewerPage() {
 			}
 
 			// Generate SVG
-			const svgR = await fetch("/api/v1/control/tool", {
+			const svgR = await fetch(API_BASE + "/api/v1/control/tool", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -86,7 +87,7 @@ export default function ViewerPage() {
 		setError("");
 		try {
 			const selLayers = layers.filter((l) => enabledLayers.has(l));
-			const svgR = await fetch("/api/v1/control/tool", {
+			const svgR = await fetch(API_BASE + "/api/v1/control/tool", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({

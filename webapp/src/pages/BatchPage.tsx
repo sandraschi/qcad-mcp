@@ -1,5 +1,6 @@
-import { BarChart3, CheckCircle, FileText, Info, Loader2, Play, XCircle } from "lucide-react";
+import { BarChart3, CheckCircle, FileText, Loader2, Play, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
+import { API_BASE } from "../lib/api";
 
 interface PlanInfoData {
 	entity_total: number;
@@ -28,7 +29,7 @@ export default function BatchPage() {
 	const [error, setError] = useState("");
 
 	useEffect(() => {
-		fetch("/api/v1/files")
+		fetch(API_BASE + "/api/v1/files")
 			.then((r) => r.json())
 			.then((j) => {
 				const all = [...(j.uploads || []), ...(j.outputs || [])].filter((f: { name: string }) =>
@@ -44,7 +45,7 @@ export default function BatchPage() {
 		setError("");
 		setResults(null);
 		try {
-			const r = await fetch("/api/v1/batch", {
+			const r = await fetch(API_BASE + "/api/v1/batch", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tool, args: {} }),

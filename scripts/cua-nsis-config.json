@@ -1,0 +1,13 @@
+{
+    "product_name": "QCAD MCP",
+    "install_dir": "%LOCALAPPDATA%\\QCAD MCP",
+    "operator_exe": "qcad-mcp-native.exe",
+    "backend_process_names": ["qcad-mcp-native", "qcad-mcp-native-backend"],
+    "backend_port": 10966,
+    "health_path": "/api/v1/health",
+    "diagnostics_path": "/api/v1/diagnostics",
+    "feature_smoke_path": "/api/v1/diagnostics",
+    "window_title_re": "QCAD MCP",
+    "nsis_glob": "native/target/release/bundle/nsis/QCAD MCP_*_x64-setup.exe",
+    "uninstall_registry_filter": "*QCAD MCP*"
+}

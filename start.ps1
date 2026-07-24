@@ -1,9 +1,9 @@
-﻿param(
+param(
     [switch]$Headless,
     [switch]$BackendOnly,
     [switch]$FrontendOnly,
-    [switch]$NoBrowser
-)
+    [switch]$NoBrowser,
+    [switch]$ReuseIfRunning)
 
 $WebPort = 10967
 $ApiPort = 10966
@@ -17,9 +17,21 @@ if (-not (Test-Path -LiteralPath $FleetStartPath)) {
 . $FleetStartPath
 $FleetStart = Initialize-FleetStartMode @PSBoundParameters
 Enter-FleetHeadlessConsole -Headless:$Headless -BackendOnly:$BackendOnly
-Stop-FleetPortSquatters -Ports @($WebPort, $ApiPort) -Label "qcad-mcp"
 
-if (-not (Assert-FleetPortsAvailable -Ports @($WebPort, $ApiPort) -Label "qcad-mcp")) { exit 1 }
+$portResolve = @{
+    Ports      = @($WebPort, $ApiPort)
+    Label      = "qcad-mcp"
+    AllowReuse = $ReuseIfRunning
+}
+if ($ReuseIfRunning) {
+    $portResolve.HealthChecks = @{
+        $WebPort = "http://127.0.0.1:$WebPort/"
+        $ApiPort = "http://127.0.0.1:$ApiPort/health"
+    }
+}
+$portState = Resolve-FleetPortConflict @portResolve
+if ($portState.Action -eq 'Blocked') { exit 1 }
+if ($portState.Reuse) { return }
 
 $env:QCAD_MCP_WORK_DIR = "$env:TEMP\qcad_mcp_work"
 $backendCmd = "Set-Location '$ProjectRoot'; uv run --project '$ProjectRoot' python -m qcad_mcp.server --mode dual --host 127.0.0.1 --port $ApiPort"
@@ -45,6 +57,9 @@ if (-not $FleetStart.RunFrontend) {
 
 Push-Location (Join-Path $ProjectRoot "webapp")
 if (-not (Test-Path "node_modules")) { npm install }
+if (-not $FleetStart.SkipBrowser) {
+    Start-Process "http://127.0.0.1:$WebPort"
+}
 Write-Host "Starting Vite frontend on port $WebPort ..." -ForegroundColor Green
 npm run dev -- --port $WebPort --host 127.0.0.1 --strictPort
 

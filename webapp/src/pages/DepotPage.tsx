@@ -25,6 +25,7 @@ import {
 	X,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { API_BASE } from "../lib/api";
 
 type DxfFile = {
 	name: string;
@@ -163,7 +164,7 @@ export default function DepotPage() {
 	const loadFiles = useCallback(async () => {
 		setLoading(true);
 		try {
-			const r = await fetch("/api/v1/depot");
+			const r = await fetch(API_BASE + "/api/v1/depot");
 			const j = await r.json();
 			setFiles(j.files || []);
 		} catch {
@@ -191,7 +192,7 @@ export default function DepotPage() {
 		// Generate preview SVG
 		setGeneratingPreview(name);
 		try {
-			const svgR = await fetch("/api/v1/control/tool", {
+			const svgR = await fetch(API_BASE + "/api/v1/control/tool", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -210,7 +211,7 @@ export default function DepotPage() {
 
 		// Get info
 		try {
-			const infoR = await fetch("/api/v1/control/tool", {
+			const infoR = await fetch(API_BASE + "/api/v1/control/tool", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -231,7 +232,7 @@ export default function DepotPage() {
 		try {
 			const fd = new FormData();
 			fd.append("file", file);
-			const r = await fetch("/api/v1/upload", { method: "POST", body: fd });
+			const r = await fetch(API_BASE + "/api/v1/upload", { method: "POST", body: fd });
 			const j = await r.json();
 			if (!j.success) throw new Error(j.detail || "Upload failed");
 			await loadFiles();
@@ -257,7 +258,7 @@ export default function DepotPage() {
 				color: [7, 5, 3, 2, 6, 1][i % 6],
 			}));
 
-			const r = await fetch("/api/v1/depot/create", {
+			const r = await fetch(API_BASE + "/api/v1/depot/create", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -285,7 +286,7 @@ export default function DepotPage() {
 	const handleRename = async () => {
 		if (!renameTarget || !renameValue) return;
 		try {
-			const r = await fetch(`/api/v1/depot/${encodeURIComponent(renameTarget)}`, {
+			const r = await fetch(API_BASE + `/api/v1/depot/${encodeURIComponent(renameTarget)}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -307,7 +308,7 @@ export default function DepotPage() {
 	const handleDelete = async () => {
 		if (!deleteTarget) return;
 		try {
-			const r = await fetch(`/api/v1/depot/${encodeURIComponent(deleteTarget)}`, { method: "DELETE" });
+			const r = await fetch(API_BASE + `/api/v1/depot/${encodeURIComponent(deleteTarget)}`, { method: "DELETE" });
 			if (!r.ok) {
 				const j = await r.json();
 				throw new Error(j.detail || "Delete failed");
@@ -324,7 +325,7 @@ export default function DepotPage() {
 		if (!selectedFile) return;
 		try {
 			const outName = `${selectedFile.replace(/\.(dxf|dwg)$/i, "")}.${format}`;
-			const r = await fetch("/api/v1/control/tool", {
+			const r = await fetch(API_BASE + "/api/v1/control/tool", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({

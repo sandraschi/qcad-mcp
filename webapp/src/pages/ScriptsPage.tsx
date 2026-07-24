@@ -8,6 +8,7 @@ import {
 	Search,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { API_BASE } from "../lib/api";
 
 interface ScriptResult {
 	title: string;
@@ -38,7 +39,7 @@ export default function ScriptsPage() {
 	const [recent, setRecent] = useState<string[]>([]);
 
 	useEffect(() => {
-		fetch("/api/v1/scripts/categories")
+		fetch(API_BASE + "/api/v1/scripts/categories")
 			.then((r) => r.json())
 			.then((j) => {
 				if (j.categories) setCategories(j.categories);
@@ -56,7 +57,7 @@ export default function ScriptsPage() {
 			if (category) params.set("category", category);
 			if (source !== "all") params.set("source", source);
 			params.set("limit", "20");
-			const r = await fetch(`/api/v1/scripts/search?${params}`);
+			const r = await fetch(API_BASE + `/api/v1/scripts/search?${params}`);
 			const j = await r.json();
 			if (j.success) setResults(j.results);
 			else setError(j.error || "Search failed");
@@ -83,7 +84,7 @@ export default function ScriptsPage() {
 		}
 		setDownloading(item.title);
 		try {
-			const r = await fetch("/api/v1/scripts/download", {
+			const r = await fetch(API_BASE + "/api/v1/scripts/download", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({

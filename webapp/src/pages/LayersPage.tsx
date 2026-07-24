@@ -1,5 +1,6 @@
-import { ExternalLink, Layers, Lock, RotateCw, Save, Snowflake, Sun, Trash2, Unlock } from "lucide-react";
+import { Layers, Lock, Snowflake, Sun, Trash2, Unlock } from "lucide-react";
 import { useEffect, useState } from "react";
+import { API_BASE } from "../lib/api";
 
 interface LayerInfo {
 	name: string;
@@ -17,7 +18,7 @@ export default function LayersPage() {
 	const [status, setStatus] = useState("");
 
 	useEffect(() => {
-		fetch("/api/v1/files")
+		fetch(API_BASE + "/api/v1/files")
 			.then((r) => r.json())
 			.then((j) => {
 				const all = [...(j.uploads || []), ...(j.outputs || [])].filter((f: { name: string }) =>
@@ -34,7 +35,7 @@ export default function LayersPage() {
 		setError("");
 		setLayers([]);
 		try {
-			const r = await fetch(`/api/v1/layers/${encodeURIComponent(fn)}`);
+			const r = await fetch(API_BASE + `/api/v1/layers/${encodeURIComponent(fn)}`);
 			const j = await r.json();
 			if (j.success) setLayers(j.layers);
 			else setError(j.error || "Failed to load layers");
@@ -48,7 +49,7 @@ export default function LayersPage() {
 	const applyOp = async (op: string, layerFilter: string, extra: Record<string, unknown> = {}) => {
 		setStatus(`${op} on '${layerFilter}'...`);
 		try {
-			const r = await fetch(`/api/v1/layers/${encodeURIComponent(selected)}`, {
+			const r = await fetch(API_BASE + `/api/v1/layers/${encodeURIComponent(selected)}`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({

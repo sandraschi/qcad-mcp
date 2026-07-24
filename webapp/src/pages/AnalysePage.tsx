@@ -1,5 +1,6 @@
 import { BarChart3, DoorOpen, Loader2, Ruler, Upload } from "lucide-react";
 import { useState } from "react";
+import { API_BASE } from "../lib/api";
 
 interface RoomResult {
 	layer: string;
@@ -35,11 +36,11 @@ export default function AnalysePage() {
 		try {
 			const fd = new FormData();
 			fd.append("file", file);
-			const r = await fetch("/api/v1/upload", { method: "POST", body: fd });
+			const r = await fetch(API_BASE + "/api/v1/upload", { method: "POST", body: fd });
 			const j = await r.json();
 			if (!j.success) throw new Error(j.detail || "Upload failed");
 
-			const conv = await fetch("/api/v1/control/tool", {
+			const conv = await fetch(API_BASE + "/api/v1/control/tool", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({

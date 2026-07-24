@@ -5,7 +5,8 @@ description = "QCAD MCP server — DXF/DWG floor plans to SVG preview + STL extr
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "fastmcp>=3.4.2",
+    "fastmcp>=3.4.4,<4",
+    "prefab-ui>=0.14.0",
     "ezdxf>=1.0",
     "numpy>=1.24",
     "numpy-stl>=3.0",
@@ -24,6 +25,9 @@ dev = [
     "pytest-asyncio>=0.24",
     "ruff>=0.9",
 ]
+
+[project.scripts]
+qcad-mcp = "qcad_mcp.server:main"
 
 [build-system]
 requires = ["hatchling"]

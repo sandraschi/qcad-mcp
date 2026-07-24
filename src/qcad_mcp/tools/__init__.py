@@ -13,6 +13,7 @@ def register_all(mcp):
     from qcad_mcp.tools.block_tools import register as reg_blocks
     from qcad_mcp.tools.core_tools import register as reg_core
     from qcad_mcp.tools.modify_tools import register as reg_modify
+    from qcad_mcp.tools.prefab_cards import register as reg_prefab
     from qcad_mcp.tools.qcad_tools import register as reg_qcad
     from qcad_mcp.tools.script_tools import register as reg_scripts
 
@@ -23,3 +24,4 @@ def register_all(mcp):
     reg_annot(mcp)
     reg_agentic(mcp)
     reg_scripts(mcp)
+    reg_prefab(mcp)

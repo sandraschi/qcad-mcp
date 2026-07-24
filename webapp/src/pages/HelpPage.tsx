@@ -9,7 +9,6 @@ import {
 	History,
 	Layers,
 	Network,
-	Package,
 	Ruler,
 	Wrench,
 } from "lucide-react";
@@ -248,61 +247,74 @@ export default function HelpPage() {
 					<>
 						<p>
 							<strong className="text-slate-200">7 MCP tools</strong> for 2D CAD
-							operations.
+							operations — all backed by a persistent file depot with full CRUD.
 						</p>
+						<p className="text-slate-500">
+							All files live in <code className="text-amber-400">%LOCALAPPDATA%\qcad-mcp\depot</code> —
+							survives restarts. Upload via the Depot page, create DXF from primitives,
+							or import via the REST API.
+						</p>
+
+						<h3 className="text-slate-200 font-bold text-xs uppercase tracking-wider mt-4">Depot Management</h3>
 						<div className="space-y-2">
 							{[
-								{
-									n: "plan_info",
-									t: "READ",
-									d: "DXF metadata: layers, entity counts, bounding box, blocks",
-								},
-								{
-									n: "plan_to_svg",
-									t: "MUTATE",
-									d: "DXF → SVG preview with layer filtering and background colour",
-								},
-								{
-									n: "plan_extrude",
-									t: "MUTATE",
-									d: "DXF walls → 3D STL mesh. The killer feature for game engines.",
-								},
-								{
-									n: "plan_export",
-									t: "MUTATE",
-									d: "Export DXF to SVG, PNG, or PDF (QCAD Pro optional)",
-								},
-								{
-									n: "plan_analyse",
-									t: "READ",
-									d: "Room detection, area calculation, door/window identification",
-								},
-								{
-									n: "plan_create",
-									t: "MUTATE",
-									d: "Create DXF from primitives (line, rect, circle, text, polyline)",
-								},
-								{
-									n: "plan_depot",
-									t: "READ",
-									d: "List files in the DXF depot with metadata",
-								},
+								{ n: "plan_depot", t: "READ", d: "List all files in the persistent CAD depot with metadata (size, created date, description, tags)" },
+								{ n: "plan_create", t: "MUTATE", d: "Create a new DXF from scratch using geometric primitives — line, rect, circle, text, polyline with layers and colors" },
 							].map((t) => (
-								<div
-									key={t.n}
-									className="bg-white/10 rounded-xl p-3 flex items-start gap-3"
-								>
-									<span
-										className={`text-sm font-bold uppercase px-2 py-0.5 rounded ${t.t === "READ" ? "bg-emerald-500/20 text-emerald-400" : "bg-amber-500/20 text-amber-400"}`}
-									>
-										{t.t}
-									</span>
+								<div key={t.n} className="bg-white/10 rounded-xl p-3 flex items-start gap-3">
+									<span className={`text-sm font-bold uppercase px-2 py-0.5 rounded ${t.t === "READ" ? "bg-emerald-500/20 text-emerald-400" : "bg-amber-500/20 text-amber-400"}`}>{t.t}</span>
 									<div>
 										<code className="text-amber-400 font-bold">{t.n}()</code>
 										<p className="text-sm text-slate-300 mt-0.5">{t.d}</p>
 									</div>
 								</div>
 							))}
+						</div>
+
+						<h3 className="text-slate-200 font-bold text-xs uppercase tracking-wider mt-4">Analysis & Inspection</h3>
+						<div className="space-y-2">
+							{[
+								{ n: "plan_info", t: "READ", d: "DXF metadata: layers, entity counts, bounding box, blocks. Call this first on any uploaded file." },
+								{ n: "plan_analyse", t: "READ", d: "Room detection from closed polylines, area calculation in m², perimeter measurement, door/window identification by block name" },
+							].map((t) => (
+								<div key={t.n} className="bg-white/10 rounded-xl p-3 flex items-start gap-3">
+									<span className={`text-sm font-bold uppercase px-2 py-0.5 rounded ${t.t === "READ" ? "bg-emerald-500/20 text-emerald-400" : "bg-amber-500/20 text-amber-400"}`}>{t.t}</span>
+									<div>
+										<code className="text-amber-400 font-bold">{t.n}()</code>
+										<p className="text-sm text-slate-300 mt-0.5">{t.d}</p>
+									</div>
+								</div>
+							))}
+						</div>
+
+						<h3 className="text-slate-200 font-bold text-xs uppercase tracking-wider mt-4">Export & 3D</h3>
+						<div className="space-y-2">
+							{[
+								{ n: "plan_to_svg", t: "MUTATE", d: "DXF → SVG preview with per-layer filtering and configurable background colour. Used by the Viewer page for real-time previews." },
+								{ n: "plan_extrude", t: "MUTATE", d: "DXF walls → 3D STL mesh. Detects LINE/LWPOLYLINE on wall layers, extrudes vertically with configurable wall height (m) and thickness (m). The killer feature for game engines and 3D printing." },
+								{ n: "plan_export", t: "MUTATE", d: "Export DXF to SVG, PNG, or PDF. Uses ezdxf+matplotlib by default; QCAD Pro gives high-fidelity PDF with correct hatches and fonts." },
+							].map((t) => (
+								<div key={t.n} className="bg-white/10 rounded-xl p-3 flex items-start gap-3">
+									<span className={`text-sm font-bold uppercase px-2 py-0.5 rounded ${t.t === "READ" ? "bg-emerald-500/20 text-emerald-400" : "bg-amber-500/20 text-amber-400"}`}>{t.t}</span>
+									<div>
+										<code className="text-amber-400 font-bold">{t.n}()</code>
+										<p className="text-sm text-slate-300 mt-0.5">{t.d}</p>
+									</div>
+								</div>
+							))}
+						</div>
+
+						<h3 className="text-slate-200 font-bold text-xs uppercase tracking-wider mt-4">REST API — Depot CRUD</h3>
+						<p className="text-sm text-slate-400">
+							The depot is also accessible directly via REST endpoints for integration with other tools:
+						</p>
+						<div className="bg-black/30 rounded-xl p-3 font-mono text-xs space-y-1">
+							<div><span className="text-emerald-400">GET</span>    /api/v1/depot                    <span className="text-slate-500">— list all files</span></div>
+							<div><span className="text-emerald-400">GET</span>    /api/v1/depot/{'{name}'}          <span className="text-slate-500">— download DXF</span></div>
+							<div><span className="text-amber-400">PUT</span>    /api/v1/depot/{'{name}'}          <span className="text-slate-500">— rename/update tags</span></div>
+							<div><span className="text-red-400">DELETE</span> /api/v1/depot/{'{name}'}          <span className="text-slate-500">— delete file + metadata</span></div>
+							<div><span className="text-amber-400">POST</span>   /api/v1/depot/create             <span className="text-slate-500">— create DXF from JSON entities</span></div>
+							<div><span className="text-amber-400">POST</span>   /api/v1/depot/upload             <span className="text-slate-500">— upload DXF/DWG directly</span></div>
 						</div>
 					</>
 				)}
@@ -383,9 +395,14 @@ export default function HelpPage() {
 						<h3 className="text-lg font-bold text-white mb-2">
 							3D &amp; BIM (Cross-Repo)
 						</h3>
-						<p className="text-sm text-slate-300 mb-3">
-							Chain with <strong className="text-slate-200">freecad-mcp</strong>{" "}
-							for full BIM pipeline:
+						<p className="text-sm text-slate-400 mb-3">
+							<strong className="text-slate-200">BIM</strong>{" "}
+							(Building Information Modeling) is the industry standard for
+							architectural design &mdash; parametric walls, slabs, windows, doors, and
+							roofs with material properties, cost data, and IFC exchange. QCAD handles
+							2D drafting; chain with{" "}
+							<strong className="text-slate-200">freecad-mcp</strong> for the full BIM
+							pipeline:
 						</p>
 						<div className="space-y-2 mb-4">
 							{[

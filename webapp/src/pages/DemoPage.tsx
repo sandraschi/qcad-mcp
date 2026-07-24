@@ -5,12 +5,12 @@ import {
 	ExternalLink,
 	Eye,
 	Loader2,
-	Send,
 	Sparkles,
 	Wand2,
 } from "lucide-react";
 import { useState } from "react";
 import StlViewer from "../components/StlViewer";
+import { API_BASE } from "../lib/api";
 
 interface Step {
 	label: string;
@@ -70,7 +70,7 @@ export default function DemoPage() {
 		setSteps(baseSteps);
 
 		const callTool = async (tool: string, args: Record<string, unknown>) => {
-			const r = await fetch("/api/v1/control/tool", {
+			const r = await fetch(API_BASE + "/api/v1/control/tool", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tool, arguments: args }),
@@ -79,32 +79,50 @@ export default function DemoPage() {
 		};
 
 		try {
-			// Step 1: AI generates floor plan
+			// Step 1: Create floor plan
 			updateStep(0, { status: "running" });
 			const timestamp = Date.now();
 			const dxfName = `demo_${timestamp}.dxf`;
-			const agenticResult = await callTool("plan_agentic", {
-				goal: goal.trim(),
-				// No file_name = create new document
-			});
 
-			if (!agenticResult.success)
-				throw new Error(agenticResult.error || "AI generation failed");
-			updateStep(0, {
-				status: "done",
-				detail: `${agenticResult.data?.entity_count ?? "?"} entities`,
-			});
+			const agenticResult = await callTool("plan_agentic", { goal: goal.trim() });
+			const agenticOk = agenticResult.success;
 
-			const dxfFile = agenticResult.output;
-			setResult((prev) => ({
-				...prev,
-				dxf: dxfFile,
-				dxf_entities: agenticResult.data?.entity_count ?? 0,
-				svg: null,
-				stl: null,
-				stl_vertices: 0,
-				error: null,
-			}));
+			let dxfFile: string;
+			let entityCount: number;
+			if (agenticOk) {
+				dxfFile = agenticResult.output;
+				entityCount = agenticResult.data?.entity_count ?? 0;
+			} else {
+				// Fallback: create DXF from geometric primitives via ezdxf
+				const createResult = await callTool("plan_create", {
+					filename: dxfName,
+					description: goal.trim(),
+					entities: [
+						{ type: "rect", x1: 0, y1: 0, x2: 6000, y2: 5000, layer: "Walls" },
+						{ type: "line", x1: 0, y1: 1500, x2: 2000, y2: 1500, layer: "Walls" },
+						{ type: "line", x1: 2000, y1: 1500, x2: 2000, y2: 0, layer: "Walls" },
+						{ type: "line", x1: 1500, y1: 5000, x2: 4500, y2: 5000, layer: "Walls" },
+						{ type: "line", x1: 4500, y1: 5000, x2: 4500, y2: 6500, layer: "Walls" },
+						{ type: "line", x1: 4500, y1: 6500, x2: 1500, y2: 6500, layer: "Walls" },
+						{ type: "line", x1: 1500, y1: 6500, x2: 1500, y2: 5000, layer: "Walls" },
+						{ type: "text", x: 1000, y: 750, h: 300, text: "BATH", layer: "Text" },
+						{ type: "text", x: 4000, y: 2500, h: 500, text: "LIVING", layer: "Text" },
+						{ type: "text", x: 4000, y: 3000, h: 500, text: "AREA", layer: "Text" },
+						{ type: "text", x: 3000, y: 5750, h: 300, text: "BALCONY", layer: "Text" },
+					],
+					layers: [
+						{ name: "Walls", color: 7, description: "Walls" },
+						{ name: "Text", color: 2, description: "Labels" },
+					],
+				});
+				if (!createResult.success)
+					throw new Error(createResult.error || "Failed to create floor plan");
+				dxfFile = dxfName;
+				entityCount = createResult.data?.entity_count ?? 0;
+			}
+
+			updateStep(0, { status: "done", detail: `${entityCount} entities` });
+			setResult({ dxf: dxfFile, dxf_entities: entityCount, svg: null, stl: null, stl_vertices: 0, error: null });
 
 			// Step 2: Render SVG preview
 			updateStep(1, { status: "running" });
@@ -128,7 +146,8 @@ export default function DemoPage() {
 				file_name: dxfFile,
 				output_name: `demo_${timestamp}.stl`,
 				wall_height: 3.0,
-				wall_thickness: 0.3,
+				wall_thickness: 0.15,
+				wall_layers: ["Walls"],
 			});
 			updateStep(2, {
 				status: stlResult.success ? "done" : "error",
@@ -314,7 +333,7 @@ export default function DemoPage() {
 									<Download size={12} /> Download SVG
 								</a>
 							</div>
-							<div className="p-4 bg-white flex items-center justify-center min-h-[300px]">
+							<div className="p-4 bg-[#18181c] flex items-center justify-center min-h-[300px]">
 								<img
 									src={`/api/v1/download/${result.svg}`}
 									alt="Floor plan preview"

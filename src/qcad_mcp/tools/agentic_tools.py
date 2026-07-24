@@ -13,6 +13,7 @@ from pydantic import Field
 from qcad_mcp.config import DEPOT_DIR, OUTPUT_DIR
 from qcad_mcp.helpers import _depot_list, _read_meta
 from qcad_mcp.services import qcad_pro
+from qcad_mcp.tools.lisp_transpiler import transpile as _heuristic_transpile
 
 _README_ONLY = {"readonly": True}
 _MUTATING = {}
@@ -119,87 +120,6 @@ _AUTOLISP_TO_ECMASCRIPT_REFERENCE = """## AutoLISP → QCAD ECMAScript Mapping R
 - All angles in QCAD ECMAScript are in radians, not degrees (use Math.PI/180 for conversion).
 """
 
-
-def _heuristic_transpile(lisp: str) -> str:
-    """Heuristic AutoLISP→ECMAScript translator for common patterns."""
-    if not lisp or not lisp.strip():
-        return ""
-
-    # Pattern: (command "_LINE" (list x1 y1) (list x2 y2) "")
-    line_pattern = re.findall(
-        r'\(command\s+"_LINE"\s+\(list\s+([\d.]+)\s+([\d.]+)\)\s+\(list\s+([\d.]+)\s+([\d.]+)\)\s*""?\s*\)',
-        lisp,
-        re.IGNORECASE,
-    )
-    if line_pattern:
-        lines = []
-        for m in line_pattern:
-            x1, y1, x2, y2 = m
-            lines.append(
-                f"op.addObject(new RLineEntity(document, "
-                f"new RLineData(new RVector({x1},{y1}), new RVector({x2},{y2}))));"
-            )
-        return "var op = new RAddObjectsOperation();\n" + "\n".join(lines) + "\nop.apply(document);"
-
-    # Pattern: (command "_CIRCLE" (list cx cy) radius)
-    circle_pattern = re.findall(
-        r'\(command\s+"_CIRCLE"\s+\(list\s+([\d.]+)\s+([\d.]+)\)\s+([\d.]+)\s*\)',
-        lisp,
-        re.IGNORECASE,
-    )
-    if circle_pattern:
-        circles = []
-        for m in circle_pattern:
-            cx, cy, r = m
-            circles.append(f"op.addObject(new RCircleEntity(document, new RCircleData(new RVector({cx},{cy}), {r})));")
-        return "var op = new RAddObjectsOperation();\n" + "\n".join(circles) + "\nop.apply(document);"
-
-    # Pattern: (defun draw-rect (w h) ... (command "_RECTANG" ...) ...) (draw-rect w h)
-    rect_pattern = re.findall(
-        r'\(defun\s+\S+\s*\((\S+)\s+(\S+)\).*?\(command\s+"_RECTANG".*?\).*?\)',
-        lisp,
-        re.IGNORECASE | re.DOTALL,
-    )
-    vals = re.findall(r"\(draw-rect\s+([\d.]+)\s+([\d.]+)\)", lisp, re.IGNORECASE)
-    if rect_pattern and vals:
-        w, h = vals[0]
-        return f"""var op = new RAddObjectsOperation();
-var w = {w}; var h = {h};
-op.addObject(new RLineEntity(document, new RLineData(new RVector(0,0), new RVector(w,0))));
-op.addObject(new RLineEntity(document, new RLineData(new RVector(w,0), new RVector(w,h))));
-op.addObject(new RLineEntity(document, new RLineData(new RVector(w,h), new RVector(0,h))));
-op.addObject(new RLineEntity(document, new RLineData(new RVector(0,h), new RVector(0,0))));
-op.apply(document);"""
-
-    # Pattern: (command "_TEXT" (list x y) hgt rot "text")
-    text_pattern = re.findall(
-        r'\(command\s+"_TEXT"\s+\(list\s+([\d.]+)\s+([\d.]+)\)\s+([\d.]+)\s+([\d.]+)\s+"([^"]+)"\s*\)',
-        lisp,
-        re.IGNORECASE,
-    )
-    if text_pattern:
-        texts = []
-        for m in text_pattern:
-            x, y, hgt, rot, txt = m
-            texts.append(
-                f"op.addObject(new RTextEntity(document, "
-                f"new RTextData(new RVector({x},{y}), {hgt}, 0, '{txt}', "
-                f"'Standard', RS.HAlignLeft, RS.VAlignBase, RS.UnknownUnit, 0, 0, 0, false, false, {rot}*Math.PI/180, false, false)));"
-            )
-        return "var op = new RAddObjectsOperation();\n" + "\n".join(texts) + "\nop.apply(document);"
-
-    safe_lisp = lisp.replace("\\", "\\\\").replace("`", "\\`")[:300]
-    return f"""// ═══ AutoLISP → ECMAScript (heuristic fallback) ═══
-// Original AutoLISP:
-// {safe_lisp}
-//
-// NOTE: Full translation requires AI sampling. This is a best-effort heuristic.
-// The pattern was not recognized by the heuristic rules.
-// Use plan_transpile with AI sampling enabled for accurate results.
-
-var op = new RAddObjectsOperation();
-// Placeholder: add entities matching the LISP intent
-op.apply(document);"""
 
 
 async def plan_agentic(
@@ -309,9 +229,19 @@ async def plan_transpile(
 ) -> dict:
     """Translate AutoLISP to QCAD ECMAScript and execute the result.
 
-    AI-powered transpiler that maps legacy AutoCAD AutoLISP routines to
-    equivalent QCAD Pro ECMAScript. Handles entity creation, layer
-    operations, selection sets, math functions, and control flow.
+    AI sampling (when a sampling-capable client is connected) asks the
+    connected model to translate the AutoLISP using a reference mapping
+    table — quality depends on that model, not on this code.
+
+    Without sampling, falls back to a real (if limited) heuristic engine:
+    it parses AutoLISP s-expressions properly (not regex matching), handles
+    LINE/CIRCLE/ARC/RECTANG/TEXT/DIMLINEAR/LAYER commands, unrolls `repeat`
+    loops with literal bounds, substitutes `defun` parameters, and translates
+    `ssget`/`sslength` selection-set queries into live document queries.
+    Constructs it can't handle (OFFSET, EXPLODE, FILLET, general recursion,
+    non-selection-set conditionals) are marked inline with
+    `// UNRECOGNIZED: <form>` instead of being silently dropped — a script
+    that's mostly translatable still gets mostly translated.
 
     The translated script is executed via QCAD Pro and the output DXF
     is saved to the output directory.

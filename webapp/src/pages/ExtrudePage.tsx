@@ -1,5 +1,6 @@
 import { Box, Download, Loader2, Settings2, Upload } from "lucide-react";
 import { useState } from "react";
+import { API_BASE } from "../lib/api";
 
 interface ExtrudeData {
 	size_kb: number;
@@ -32,7 +33,7 @@ export default function ExtrudePage() {
 		try {
 			const fd = new FormData();
 			fd.append("file", file);
-			const r = await fetch("/api/v1/upload", { method: "POST", body: fd });
+			const r = await fetch(API_BASE + "/api/v1/upload", { method: "POST", body: fd });
 			const j = await r.json();
 			if (!j.success) throw new Error(j.detail || "Upload failed");
 
@@ -42,7 +43,7 @@ export default function ExtrudePage() {
 			const stlName = `${file.name.replace(/\.(dxf|dwg)$/i, "")}.stl`;
 			const wl = wallLayers.trim() ? wallLayers.split(",").map((s) => s.trim()) : undefined;
 
-			const conv = await fetch("/api/v1/control/tool", {
+			const conv = await fetch(API_BASE + "/api/v1/control/tool", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({

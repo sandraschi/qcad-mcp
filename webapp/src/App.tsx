@@ -12,9 +12,11 @@ import HelpPage from "./pages/HelpPage";
 import LayersPage from "./pages/LayersPage";
 import LogsPage from "./pages/LogsPage";
 import ModelsPage from "./pages/ModelsPage";
+import PipelinePage from "./pages/PipelinePage";
 import ScriptsPage from "./pages/ScriptsPage";
 import SettingsPage from "./pages/SettingsPage";
 import ViewerPage from "./pages/ViewerPage";
+import FloatingChat from "./components/FloatingChat";
 
 export default function App() {
 	return (
@@ -32,11 +34,13 @@ export default function App() {
 				<Route path="/layers" element={<LayersPage />} />
 				<Route path="/batch" element={<BatchPage />} />
 				<Route path="/models" element={<ModelsPage />} />
+				<Route path="/pipeline" element={<PipelinePage />} />
 				<Route path="/logs" element={<LogsPage />} />
 				<Route path="/settings" element={<SettingsPage />} />
 				<Route path="/help" element={<HelpPage />} />
 				<Route path="*" element={<Navigate to="/" replace />} />
 			</Routes>
+			<FloatingChat />
 		</AppLayout>
 	);
 }

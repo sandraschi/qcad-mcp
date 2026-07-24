@@ -1,5 +1,6 @@
 import { Box, Cpu, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
+import { API_BASE } from "../lib/api";
 
 export default function SettingsPage() {
 	const [ollamaUrl, setOllamaUrl] = useState("http://192.168.1.11:11434");
@@ -10,7 +11,7 @@ export default function SettingsPage() {
 	const [status, setStatus] = useState("");
 
 	useEffect(() => {
-		fetch("/api/v1/settings")
+		fetch(API_BASE + "/api/v1/settings")
 			.then((r) => r.json())
 			.then((j) => {
 				if (j.ollama_url) setOllamaUrl(j.ollama_url);
@@ -25,7 +26,7 @@ export default function SettingsPage() {
 	const save = async () => {
 		setStatus("Saving...");
 		try {
-			await fetch("/api/v1/settings", {
+			await fetch(API_BASE + "/api/v1/settings", {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({

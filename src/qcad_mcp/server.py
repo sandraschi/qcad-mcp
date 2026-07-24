@@ -40,6 +40,16 @@ from qcad_mcp.helpers import (
 )
 from qcad_mcp.services import qcad_pro
 from qcad_mcp.tools import register_all
+from qcad_mcp.tools.annotation_tools import (
+    plan_array,
+    plan_beam_analysis,
+    plan_block_insert,
+    plan_dimension,
+    plan_hatch,
+    plan_measure,
+    plan_text,
+    plan_wall_data,
+)
 from qcad_mcp.tools.block_tools import plan_blocks, plan_blocks_download
 from qcad_mcp.tools.core_tools import (
     plan_analyse,
@@ -51,6 +61,7 @@ from qcad_mcp.tools.core_tools import (
     plan_to_svg,
 )
 from qcad_mcp.tools.modify_tools import plan_convert, plan_modify
+from qcad_mcp.tools.qcad_tools import plan_exec, plan_render, plan_script, qcad_status
 from qcad_mcp.tools.script_tools import _SCRIPT_CATEGORIES, plan_scripts_download, plan_scripts_search
 
 logger = logging.getLogger("qcad-mcp")
@@ -62,10 +73,34 @@ _START_TIME = time.time()
 _state: dict = {}
 
 
+def _ensure_qcad_running():
+    if not qcad_pro.is_installed():
+        logger.info("QCAD Pro not installed — skipping auto-start")
+        return False
+    if qcad_pro.is_running():
+        logger.info("QCAD Pro already running")
+        return True
+    qcad_exe = str(qcad_pro._qcad_base_dir() / "qcad.exe")
+    if os.path.isfile(qcad_exe):
+        try:
+            CREATE_NEW_CONSOLE = 0x00000010
+            subprocess.Popen(
+                [qcad_exe],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                creationflags=CREATE_NEW_CONSOLE,
+            )
+            logger.info("QCAD Pro GUI launched: %s", qcad_exe)
+            return True
+        except Exception as e:
+            logger.warning("Failed to start QCAD Pro GUI: %s", e)
+    return False
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _state["qcad_pro_ok"] = qcad_pro.is_installed()
     _state["qcad_pro_path"] = str(qcad_pro._qcad_base_dir())
+    _ensure_qcad_running()
     _state["qcad_pro_running"] = qcad_pro.is_running()
     _state["qcad_pro_version"] = qcad_pro.get_version()
     _state["depot_dir"] = DEPOT_DIR
@@ -181,6 +216,25 @@ async def api_health():
         "compiler": compiler,
         "tool_count": tool_count,
         "uptime_seconds": time.time() - _START_TIME,
+    }
+
+
+@app.get("/api/v1/diagnostics")
+async def api_diagnostics():
+    try:
+        import psutil
+        cpu = psutil.cpu_percent()
+        mem = psutil.virtual_memory().percent
+        disk = psutil.disk_usage("/").percent
+    except ImportError:
+        cpu = mem = disk = None
+    tool_count = sum(1 for _ in mcp._tool_manager.tools.values()) if hasattr(mcp, "_tool_manager") else len(mcp.get_tools())
+    return {
+        "success": True,
+        "backend": {"port": 10966, "status": "running", "uptime": int(time.time() - _START_TIME)},
+        "system": {"cpu_percent": cpu, "memory_percent": mem, "disk_percent": disk},
+        "tools": {"total": tool_count},
+        "cua_status": {"tesseract_available": False, "window_found": False},
     }
 
 
@@ -423,58 +477,72 @@ async def list_files():
 # ── REST Endpoints — Tool Bridge ──────────────────────────────────────────────
 
 
+# Tool dispatch: maps tool name -> (function, param_extractor)
+# param_extractor extracts kwargs from the raw args dict.
+_TOOL_DISPATCH: dict[str, tuple] = {}
+
+def _register_tool(name: str, fn, param_map: dict[str, str] | None = None):
+    """Register a tool for REST dispatch. param_map: arg_key -> function_param_name."""
+    _TOOL_DISPATCH[name] = (fn, param_map or {})
+
+
+def _extract(args: dict, key: str, default=None):
+    """Extract a value from args, trying both key and underscored variants."""
+    return args.get(key, args.get(key.replace("-", "_"), default))
+
+
+# ── Register all REST-accessible tools ─────────────────────────────────────
+
+_register_tool("plan_info", plan_info, {"file_name": "file_name"})
+_register_tool("plan_to_svg", plan_to_svg, {"file_name": "file_name", "output_name": "output_name", "layers": "layers", "background": "background"})
+_register_tool("plan_extrude", plan_extrude, {"file_name": "file_name", "output_name": "output_name", "wall_height": "wall_height", "wall_thickness": "wall_thickness", "wall_layers": "wall_layers"})
+_register_tool("plan_export", plan_export, {"file_name": "file_name", "format": "format", "output_name": "output_name"})
+_register_tool("plan_analyse", plan_analyse, {"file_name": "file_name"})
+_register_tool("plan_create", plan_create, {"filename": "filename", "entities": "entities", "layers": "layers", "description": "description"})
+_register_tool("plan_depot", plan_depot, {})
+_register_tool("plan_convert", plan_convert, {"file_name": "file_name", "output_name": "output_name"})
+_register_tool("plan_modify", plan_modify, {"file_name": "file_name", "operations": "operations"})
+_register_tool("plan_blocks", plan_blocks, {"query": "query", "category": "category", "source": "source", "limit": "limit"})
+_register_tool("plan_blocks_download", plan_blocks_download, {"title": "title", "source": "source", "url": "url"})
+_register_tool("qcad_status", qcad_status, {})
+_register_tool("plan_scripts_search", plan_scripts_search, {"query": "query", "category": "category", "source": "source", "limit": "limit"})
+_register_tool("plan_scripts_download", plan_scripts_download, {"title": "title", "source": "source", "url": "url"})
+_register_tool("plan_beam_analysis", plan_beam_analysis, {"beams": "beams", "supports": "supports", "loads": "loads"})
+_register_tool("plan_measure", plan_measure, {"file_name": "file_name"})
+_register_tool("plan_wall_data", plan_wall_data, {"file_name": "file_name", "wall_layers": "wall_layers", "wall_thickness": "wall_thickness"})
+_register_tool("plan_dimension", plan_dimension, {"file_name": "file_name", "dimensions": "dimensions", "output_name": "output_name"})
+_register_tool("plan_text", plan_text, {"file_name": "file_name", "texts": "texts", "output_name": "output_name"})
+_register_tool("plan_hatch", plan_hatch, {"file_name": "file_name", "hatches": "hatches", "output_name": "output_name"})
+_register_tool("plan_block_insert", plan_block_insert, {"file_name": "file_name", "inserts": "inserts", "output_name": "output_name"})
+_register_tool("plan_array", plan_array, {"file_name": "file_name", "pattern": "pattern", "count": "count", "params": "params", "output_name": "output_name"})
+_register_tool("plan_script", plan_script, {"code": "code", "file_name": "file_name", "output_name": "output_name"})
+_register_tool("plan_render", plan_render, {"file_name": "file_name", "format": "format", "output_name": "output_name"})
+_register_tool("plan_exec", plan_exec, {"code": "code", "file_name": "file_name"})
+
+
 class ToolRequest(BaseModel):
     tool: str = Field(
-        description="Tool name: plan_info, plan_to_svg, plan_extrude, plan_export, plan_analyse, plan_create, plan_depot, plan_convert, plan_modify"
+        description=f"Tool name: {', '.join(sorted(_TOOL_DISPATCH.keys()))}"
     )
     arguments: dict = Field(default_factory=dict, description="Tool arguments as a dict")
 
 
 @app.post("/api/v1/control/tool")
 async def execute_tool(req: ToolRequest):
-    args = req.arguments or {}
     t = req.tool
+    if t not in _TOOL_DISPATCH:
+        raise HTTPException(400, f"Unknown tool: {t}. Available: {', '.join(sorted(_TOOL_DISPATCH.keys()))}")
+    fn, param_map = _TOOL_DISPATCH[t]
+    kwargs = {}
+    for arg_key, param_name in param_map.items():
+        val = _extract(req.arguments, arg_key)
+        if val is not None:
+            kwargs[param_name] = val
+    return await fn(**kwargs)
 
-    if t == "plan_info":
-        return await plan_info(file_name=args.get("file_name", ""))
-    elif t == "plan_to_svg":
-        return await plan_to_svg(
-            file_name=args.get("file_name", ""),
-            output_name=args.get("output_name", "output.svg"),
-            layers=args.get("layers"),
-            background=args.get("background", "white"),
-        )
-    elif t == "plan_extrude":
-        return await plan_extrude(
-            file_name=args.get("file_name", ""),
-            output_name=args.get("output_name", "extruded.stl"),
-            wall_height=args.get("wall_height", 3.0),
-            wall_thickness=args.get("wall_thickness", 0.3),
-            wall_layers=args.get("wall_layers"),
-        )
-    elif t == "plan_export":
-        return await plan_export(
-            file_name=args.get("file_name", ""),
-            format=args.get("format", "svg"),
-            output_name=args.get("output_name", ""),
-        )
-    elif t == "plan_analyse":
-        return await plan_analyse(file_name=args.get("file_name", ""))
-    elif t == "plan_create":
-        return await plan_create(
-            filename=args.get("filename", ""),
-            entities=args.get("entities", []),
-            layers=args.get("layers"),
-            description=args.get("description", ""),
-        )
-    elif t == "plan_depot":
-        return await plan_depot()
-    elif t == "plan_convert":
-        return await plan_convert(file_name=args.get("file_name", ""), output_name=args.get("output_name", ""))
-    elif t == "plan_modify":
-        return await plan_modify(file_name=args.get("file_name", ""), operations=args.get("operations", []))
-    else:
-        raise HTTPException(400, f"Unknown tool: {t}")
+# ── MCP-only tools (need Context) ──────────────────────────────────────────
+# plan_agentic, plan_transpile, cad_sampling use ctx.sample/request_sampling
+# and are only available via MCP protocol, not REST.
 
 
 # ── Log Ring Buffer ──────────────────────────────────────────────────────────

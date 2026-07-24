@@ -3,13 +3,13 @@ import {
 	CheckCircle,
 	Code2,
 	Download,
-	FileText,
 	Layers,
 	Loader2,
 	Send,
 	XCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { API_BASE } from "../lib/api";
 
 interface AgenticResult {
 	success: boolean;
@@ -46,13 +46,13 @@ export default function AgenticPage() {
 	const [qcadOk, setQcadOk] = useState(false);
 
 	useEffect(() => {
-		fetch("/api/v1/status")
+		fetch(API_BASE + "/api/v1/status")
 			.then((r) => r.json())
 			.then((j) => {
 				setQcadOk(j.qcad_pro?.installed ?? false);
 			})
 			.catch(() => {});
-		fetch("/api/v1/files")
+		fetch(API_BASE + "/api/v1/files")
 			.then((r) => r.json())
 			.then((j) => {
 				const all = [...(j.uploads || []), ...(j.outputs || [])].filter(
@@ -69,7 +69,7 @@ export default function AgenticPage() {
 		setError("");
 		setResult(null);
 		try {
-			const r = await fetch("/api/v1/control/tool", {
+			const r = await fetch(API_BASE + "/api/v1/control/tool", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({

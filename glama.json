@@ -1,0 +1,50 @@
+{
+  "$schema": "https://glama.ai/mcp/schema/2026",
+  "name": "qcad-mcp",
+  "description": "2D CAD operations via QCAD — floor plans, DXF conversion, SVG preview, STL extrusion, architecture analysis, structural beam analysis, and natural-language CAD workflows",
+  "repository": "https://github.com/sandraschi/qcad-mcp",
+  "command": "uv",
+  "args": ["run", "--directory", "/path/to/qcad-mcp", "python", "-m", "qcad_mcp.server", "--mode", "dual", "--port", "10966"],
+  "env": {
+    "QCAD_PRO_PATH": "/path/to/qcad"
+  },
+  "tools": [
+    {"name": "plan_info", "description": "Read DXF metadata: layers, entity counts, bounding box, blocks"},
+    {"name": "plan_to_svg", "description": "Convert DXF to SVG preview image with layer filtering"},
+    {"name": "plan_extrude", "description": "Extrude DXF walls to 3D STL mesh"},
+    {"name": "plan_export", "description": "Export DXF to SVG, PDF, or PNG"},
+    {"name": "plan_analyse", "description": "Analyse floor plan: detect rooms, areas, doors, windows"},
+    {"name": "plan_create", "description": "Create DXF from geometric primitives"},
+    {"name": "plan_depot", "description": "List files in persistent CAD depot with metadata"},
+    {"name": "plan_convert", "description": "Convert DWG to DXF or DXF to DWG via QCAD Pro"},
+    {"name": "plan_modify", "description": "Modify entities and layers: delete, offset, rename, freeze, lock, merge"},
+    {"name": "qcad_status", "description": "Check QCAD Pro installation and version status"},
+    {"name": "plan_script", "description": "Execute arbitrary ECMAScript against DXF in QCAD Pro"},
+    {"name": "plan_render", "description": "High-fidelity DXF/DWG rendering via QCAD Pro engine"},
+    {"name": "plan_exec", "description": "Quick ECMAScript execution in temporary QCAD Pro session"},
+    {"name": "plan_dimension", "description": "Add aligned, radial, diametric, angular dimensions"},
+    {"name": "plan_measure", "description": "Measure distances, angles, areas, perimeters via QCAD Pro"},
+    {"name": "plan_text", "description": "Add text annotations with styling via QCAD Pro"},
+    {"name": "plan_hatch", "description": "Add hatch/fill patterns to closed regions via QCAD Pro"},
+    {"name": "plan_block_insert", "description": "Insert block references into DXF via QCAD Pro"},
+    {"name": "plan_array", "description": "Create rectangular or polar arrays of entities via QCAD Pro"},
+    {"name": "plan_wall_data", "description": "Extract wall segment coordinates as BIM-ready JSON"},
+    {"name": "plan_beam_analysis", "description": "2D beam structural analysis using direct stiffness FEM"},
+    {"name": "plan_blocks", "description": "Search CAD block libraries for architectural blocks"},
+    {"name": "plan_blocks_download", "description": "Download CAD blocks to local depot"},
+    {"name": "plan_scripts_search", "description": "Search QCAD ECMAScript script libraries"},
+    {"name": "plan_scripts_download", "description": "Download ECMAScript scripts to local depot"},
+    {"name": "plan_agentic", "description": "Natural-language CAD goal to ECMAScript execution"},
+    {"name": "plan_transpile", "description": "Translate AutoLISP to QCAD ECMAScript and execute"},
+    {"name": "cad_sampling", "description": "Host LLM reasoning for CAD problems via MCP sampling"}
+  ],
+  "prompts": [
+    {"name": "cad_expert", "description": "Get CAD expertise and tool guidance"},
+    {"name": "cad_analyse_plan", "description": "Analyse a DXF floor plan step by step"},
+    {"name": "cad_extrude_3d", "description": "Extrude a DXF floor plan to 3D STL mesh"}
+  ],
+  "resources": [
+    {"uri": "cad://depot", "description": "List all files in the persistent CAD depot"},
+    {"uri": "cad://depot/{filename}", "description": "Get info about a specific depot file"}
+  ]
+}
