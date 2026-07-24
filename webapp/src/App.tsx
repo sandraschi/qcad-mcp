@@ -13,6 +13,7 @@ import LayersPage from "./pages/LayersPage";
 import LogsPage from "./pages/LogsPage";
 import ModelsPage from "./pages/ModelsPage";
 import PipelinePage from "./pages/PipelinePage";
+import PlaygroundPage from "./pages/PlaygroundPage";
 import ScriptsPage from "./pages/ScriptsPage";
 import SettingsPage from "./pages/SettingsPage";
 import ViewerPage from "./pages/ViewerPage";
@@ -35,6 +36,7 @@ export default function App() {
 				<Route path="/batch" element={<BatchPage />} />
 				<Route path="/models" element={<ModelsPage />} />
 				<Route path="/pipeline" element={<PipelinePage />} />
+				<Route path="/playground" element={<PlaygroundPage />} />
 				<Route path="/logs" element={<LogsPage />} />
 				<Route path="/settings" element={<SettingsPage />} />
 				<Route path="/help" element={<HelpPage />} />

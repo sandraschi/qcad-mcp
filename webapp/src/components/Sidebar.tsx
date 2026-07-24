@@ -17,6 +17,7 @@ import {
 	Settings,
 	SlidersHorizontal,
 	Sparkles,
+	Terminal,
 	ChevronLeft,
 	ChevronRight,
 } from "lucide-react";
@@ -38,6 +39,7 @@ const navItems = [
 	{ path: "/models", label: "Models", icon: FileText },
 	{ path: "/logs", label: "Logs", icon: Logs },
 	{ path: "/settings", label: "Settings", icon: Settings },
+	{ path: "/playground", label: "Playground", icon: Terminal },
 	{ path: "/help", label: "Help", icon: HelpCircle },
 ];
 

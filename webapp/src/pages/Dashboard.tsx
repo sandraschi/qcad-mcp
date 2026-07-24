@@ -74,18 +74,21 @@ export default function Dashboard() {
 					</p>
 				</div>
 				<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-5 space-y-3">
-					<div className="flex items-center gap-2 text-indigo-400">
-						<Layers size={18} /> Quick Actions
+					<div className="flex items-center gap-2 text-amber-400">
+						<Layers size={18} /> QCAD Pro
 					</div>
-					<a href="/depot" className="block text-sm text-amber-400 hover:underline">
-						Open CAD Depot
-					</a>
-					<a href="/viewer" className="block text-sm text-amber-400 hover:underline">
-						View Floor Plan
-					</a>
-					<a href="/extrude" className="block text-sm text-amber-400 hover:underline">
-						Extrude to 3D
-					</a>
+					<div className="flex items-center gap-2 text-sm">
+						<span className={`w-2 h-2 rounded-full ${status?.qcad_pro?.running ? "bg-green-500" : "bg-red-500"}`} />
+						<span className="text-slate-300">{status?.qcad_pro?.running ? `Running v${status.qcad_pro.version}` : status?.qcad_pro?.installed ? "Installed — not running" : "Not installed"}</span>
+					</div>
+					{status?.qcad_pro?.running && (
+						<p className="text-xs text-slate-500">Install: {status.qcad_pro.install_dir}</p>
+					)}
+					<div className="flex flex-wrap gap-2 pt-1">
+						<a href="/demo" className="px-3 py-1.5 rounded-xl bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 text-xs font-bold transition-all">AI Demo</a>
+						<a href="/playground" className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 text-xs font-bold transition-all">Playground</a>
+						<a href="/help" className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 text-xs font-bold transition-all">Help</a>
+					</div>
 				</div>
 			</div>
 			<div className="grid grid-cols-2 md:grid-cols-5 gap-3">

@@ -760,7 +760,7 @@ export default function PipelinePage() {
 								)}
 							</div>
 
-							{/* FreeCAD BIM Call Sequence */}
+							{/* FreeCAD BIM Live Panel */}
 							<div className="bg-[#1e1e26] border border-amber-500/20 rounded-2xl p-6 space-y-4">
 								<div className="flex items-center gap-2 text-amber-400">
 									<Send size={18} />
@@ -769,43 +769,62 @@ export default function PipelinePage() {
 									</h2>
 								</div>
 								<p className="text-sm text-slate-400">
-									Execute this sequence via the freecad-mcp server to
-									reconstruct the building as BIM elements:
+									Extract wall segments as BIM-ready JSON and generate
+									freecad-mcp tool calls:
 								</p>
-								<div className="space-y-2">
-									{freecadCallSequence.map((item, i) => (
-										<div
-											key={i}
-											className="flex items-center gap-3 bg-black/40 border border-white/10 rounded-lg px-4 py-2.5"
-										>
-											<Code2 size={14} className="text-amber-400 shrink-0" />
-											<div className="flex-1">
-												<code className="text-sm text-emerald-400 font-mono">
-													{item.tool}
-												</code>
-												<p className="text-xs text-slate-500 mt-0.5">
-													{item.desc}
-												</p>
-											</div>
-											<ChevronRight
-												size={14}
-												className="text-slate-600"
-											/>
+								{state.wall_data.length > 0 && (
+									<>
+										<div className="bg-black/40 border border-white/10 rounded-xl p-3 max-h-[200px] overflow-y-auto">
+											<table className="w-full text-xs">
+												<thead>
+													<tr className="text-slate-400 border-b border-white/10">
+														<th className="text-left py-1 pr-2">Layer</th>
+														<th className="text-left py-1 pr-2">Length</th>
+														<th className="text-left py-1 pr-2">Angle</th>
+														<th className="text-left py-1 pr-2">From</th>
+														<th className="text-left py-1 pr-2">To</th>
+													</tr>
+												</thead>
+												<tbody>
+													{state.wall_data.map((w, i) => (
+														<tr key={i} className="border-b border-white/5 text-slate-300">
+															<td className="py-1 pr-2">{w.layer}</td>
+															<td className="py-1 pr-2">{(w.length_mm / 1000).toFixed(2)}m</td>
+															<td className="py-1 pr-2">{w.angle_deg.toFixed(0)}°</td>
+															<td className="py-1 pr-2 font-mono">{w.x1},{w.y1}</td>
+															<td className="py-1 pr-2 font-mono">{w.x2},{w.y2}</td>
+														</tr>
+													))}
+												</tbody>
+											</table>
 										</div>
-									))}
-								</div>
-								<div className="bg-amber-950/30 border border-amber-500/10 rounded-xl p-4 text-sm text-slate-300 space-y-2">
-									<div className="flex items-center gap-2 text-amber-300">
-										<ExternalLink size={14} />
-										<span className="font-bold">freecad-mcp</span>
+										<button type="button"
+											onClick={() => {
+												const calls = state.wall_data.map((w) =>
+													`bim_create_wall(x1=${w.x1}, y1=${w.y1}, x2=${w.x2}, y2=${w.y2}, height=3.0, thickness=0.3)`);
+												navigator.clipboard.writeText(calls.join("\n"));
+											}}
+											className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold w-fit">
+											<Code2 size={14} /> Copy FreeCAD tool calls
+										</button>
+									</>
+								)}
+								{state.wall_data.length === 0 && state.dxf && (
+									<button type="button"
+										onClick={() => handlePipeline()}
+										className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-sm font-bold w-fit">
+										<Code2 size={14} /> Extract Wall Data
+									</button>
+								)}
+								{!state.dxf && (
+									<div className="bg-amber-950/30 border border-amber-500/10 rounded-xl p-4 text-sm text-slate-300 space-y-2">
+										<div className="flex items-center gap-2 text-amber-300">
+											<ExternalLink size={14} />
+											<span className="font-bold">freecad-mcp</span>
+										</div>
+										<p>Complete steps 1–4 first to generate a DXF with wall data.</p>
 									</div>
-									<p>
-										Install and run freecad-mcp, then use the tools above to
-										create walls, slab, and roof from the extracted coordinates.
-										The wall data JSON contains exact start/end coordinates and
-										lengths for each wall segment.
-									</p>
-								</div>
+								)}
 							</div>
 							<div className="flex justify-end">
 								<button

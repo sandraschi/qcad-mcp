@@ -27,21 +27,156 @@ interface DemoResult {
 	error: string | null;
 }
 
+type Entity = Record<string, unknown>;
+
+function generateEntities(goal: string): { entities: Entity[]; layers: { name: string; color: number; description: string }[] } {
+	const g = goal.toLowerCase();
+	const mm = (m: number) => Math.round(m * 1000);
+
+	const layers: { name: string; color: number; description: string }[] = [
+		{ name: "Walls", color: 7, description: "Wall lines" },
+		{ name: "Columns", color: 8, description: "Structural columns" },
+		{ name: "Doors", color: 3, description: "Door openings" },
+		{ name: "Text", color: 2, description: "Room labels" },
+		{ name: "Dimensions", color: 6, description: "Measurement annotations" },
+		{ name: "Detail", color: 5, description: "Detail elements" },
+	];
+
+	const entities: Entity[] = [];
+
+	// Baroque church
+	if (g.includes("baroque") || g.includes("church") || g.includes("cathedral") || g.includes("basilica")) {
+		const W = mm(45), H = mm(20); // nave dimensions
+		const apseR = mm(6);
+		const transeptW = mm(10), transeptH = mm(28);
+		const chapelW = mm(5), chapelH = mm(5);
+		// Nave
+		entities.push({ type: "rect", x1: 0, y1: 0, x2: W, y2: H, layer: "Walls" });
+		// Apse (semi-circle approximated as rect + text)
+		entities.push({ type: "line", x1: W, y1: H/2 - apseR, x2: W + apseR, y2: H/2 - apseR, layer: "Walls" });
+		entities.push({ type: "line", x1: W + apseR, y1: H/2 - apseR, x2: W + apseR, y2: H/2 + apseR, layer: "Walls" });
+		entities.push({ type: "line", x1: W + apseR, y1: H/2 + apseR, x2: W, y2: H/2 + apseR, layer: "Walls" });
+		// Transept (cross arms)
+		const tx = Math.round(W * 0.4);
+		entities.push({ type: "rect", x1: tx, y1: -transeptH/2 + H/2, x2: tx + transeptW, y2: transeptH/2 + H/2, layer: "Walls" });
+		// Side chapels
+		for (let i = 0; i < 4; i++) {
+			const cx = Math.round(W * 0.15 + i * W * 0.2);
+			entities.push({ type: "rect", x1: cx, y1: H, x2: cx + chapelW, y2: H + chapelH, layer: "Walls" });
+			entities.push({ type: "rect", x1: cx, y1: -chapelH, x2: cx + chapelW, y2: 0, layer: "Walls" });
+		}
+		// Columns along nave
+		for (let i = 0; i < 6; i++) {
+			const cx = Math.round(W * 0.12 + i * W * 0.14);
+			entities.push({ type: "circle", x: cx, y: Math.round(H * 0.25), r: 200, layer: "Columns" });
+			entities.push({ type: "circle", x: cx, y: Math.round(H * 0.75), r: 200, layer: "Columns" });
+		}
+		// Altar
+		entities.push({ type: "rect", x1: W - mm(1), y1: H/2 - mm(1.5), x2: W + mm(1), y2: H/2 + mm(1.5), layer: "Detail" });
+		// Labels
+		entities.push({ type: "text", x: W/2 - mm(3), y: H/2 - mm(1), h: 800, text: "NAVE", layer: "Text" });
+		entities.push({ type: "text", x: W + mm(2), y: H/2 - mm(0.5), h: 400, text: "APSE", layer: "Text" });
+		entities.push({ type: "text", x: tx + mm(1), y: -mm(2), h: 400, text: "TRANSEPT", layer: "Text" });
+		entities.push({ type: "text", x: W/2 - mm(2), y: H + mm(2), h: 400, text: "SIDE CHAPEL", layer: "Text" });
+
+	// Mob compound
+	} else if (g.includes("mob") || g.includes("compound") || g.includes("mafia") || g.includes("estate") || g.includes("villa")) {
+		const P = mm(60), Q = mm(50); // perimeter
+		// Perimeter wall
+		entities.push({ type: "rect", x1: 0, y1: 0, x2: P, y2: Q, layer: "Walls" });
+		// Guard towers at corners
+		entities.push({ type: "rect", x1: -mm(1), y1: -mm(1), x2: mm(3), y2: mm(3), layer: "Detail" });
+		entities.push({ type: "rect", x1: P - mm(2), y1: -mm(1), x2: P + mm(2), y2: mm(3), layer: "Detail" });
+		entities.push({ type: "rect", x1: -mm(1), y1: Q - mm(2), x2: mm(3), y2: Q + mm(2), layer: "Detail" });
+		entities.push({ type: "rect", x1: P - mm(2), y1: Q - mm(2), x2: P + mm(2), y2: Q + mm(2), layer: "Detail" });
+		// Main villa
+		const vx = mm(15), vy = mm(10), vw = mm(20), vh = mm(18);
+		entities.push({ type: "rect", x1: vx, y1: vy, x2: vx + vw, y2: vy + vh, layer: "Walls" });
+		// Pool
+		entities.push({ type: "rect", x1: mm(38), y1: mm(8), x2: mm(52), y2: mm(16), layer: "Detail" });
+		// Guest house
+		entities.push({ type: "rect", x1: mm(5), y1: vy + vh + mm(4), x2: mm(14), y2: vy + vh + mm(10), layer: "Walls" });
+		// Gatehouse at entrance
+		entities.push({ type: "rect", x1: P/2 - mm(3), y1: 0, x2: P/2 + mm(3), y2: mm(4), layer: "Walls" });
+		// Driveway
+		entities.push({ type: "line", x1: P/2, y1: mm(4), x2: P/2, y2: vy, layer: "Detail" });
+		// Labels
+		entities.push({ type: "text", x: vx + mm(4), y: vy + mm(7), h: 700, text: "VILLA", layer: "Text" });
+		entities.push({ type: "text", x: mm(40), y: mm(9), h: 400, text: "POOL", layer: "Text" });
+		entities.push({ type: "text", x: mm(6), y: vy + vh + mm(5), h: 350, text: "GUEST", layer: "Text" });
+		entities.push({ type: "text", x: P/2 - mm(2), y: mm(1), h: 300, text: "GATE", layer: "Text" });
+
+	// Museum / gallery
+	} else if (g.includes("museum") || g.includes("gallery") || g.includes("art")) {
+		const W = mm(40), H = mm(35);
+		entities.push({ type: "rect", x1: 0, y1: 0, x2: W, y2: H, layer: "Walls" });
+		// Central atrium
+		entities.push({ type: "rect", x1: mm(14), y1: mm(10), x2: mm(26), y2: mm(25), layer: "Walls" });
+		// Gallery wings radiating out
+		for (let i = 0; i < 4; i++) {
+			const angle = (i * 90) * Math.PI / 180;
+			const cx = mm(20) + Math.round(Math.cos(angle) * mm(10));
+			const cy = mm(17) + Math.round(Math.sin(angle) * mm(10));
+			entities.push({ type: "rect", x1: cx - mm(3), y1: cy - mm(2), x2: cx + mm(3), y2: cy + mm(2), layer: "Walls" });
+		}
+		entities.push({ type: "text", x: mm(15), y: mm(15), h: 600, text: "ATRIUM", layer: "Text" });
+		entities.push({ type: "text", x: mm(22), y: mm(2), h: 400, text: "WING A", layer: "Text" });
+		entities.push({ type: "text", x: mm(34), y: mm(16), h: 400, text: "WING B", layer: "Text" });
+
+	// Generic: parse dimensions from goal
+	} else {
+		const dimMatch = g.match(/(\d+)\s*(?:m|meter|metre)/g);
+		const nums = dimMatch ? dimMatch.map((s) => parseInt(s.replace(/\D/g, ""))) : [8, 6];
+		const w = mm(nums[0] || 8);
+		const h = mm(nums[1] || nums[0] || 6);
+		const roomCount = Math.min(Math.max(parseInt(g.match(/(\d+)\s*(?:bed|room|bath)/)?.[1] || "4"), 1), 12);
+
+		entities.push({ type: "rect", x1: 0, y1: 0, x2: w, y2: h, layer: "Walls" });
+		// Subdivide into rooms
+		const cols = Math.ceil(Math.sqrt(roomCount));
+		const rows = Math.ceil(roomCount / cols);
+		for (let r = 0; r < rows; r++) {
+			for (let c = 0; c < cols; c++) {
+				if (r * cols + c >= roomCount) break;
+				const rx = Math.round(w * c / cols), ry = Math.round(h * r / rows);
+				const rw = Math.round(w * (c + 1) / cols) - rx;
+				const rh = Math.round(h * (r + 1) / rows) - ry;
+				if (r > 0) entities.push({ type: "line", x1: rx, y1: ry, x2: rx + rw, y2: ry, layer: "Walls" });
+				if (c > 0) entities.push({ type: "line", x1: rx, y1: ry, x2: rx, y2: ry + rh, layer: "Walls" });
+				entities.push({ type: "text", x: rx + Math.round(rw * 0.2), y: ry + Math.round(rh * 0.4), h: Math.min(rw, rh) / 3, text: `ROOM ${r * cols + c + 1}`, layer: "Text" });
+			}
+		}
+		entities.push({ type: "text", x: Math.round(w * 0.3), y: Math.round(h * 0.85), h: 250, text: `${nums[0] || 8}m x ${nums[1] || nums[0] || 6}m`, layer: "Dimensions" });
+	}
+
+	return { entities, layers };
+}
+
 const PRESETS = [
+	{
+		label: "Baroque Church",
+		emoji: "⛪",
+		goal: "Baroque church with 45m nave, semi-circular apse, 28m transept crossing, 6 side chapels, 12 columns along the nave, altar at the east end, and a dome crossing.",
+	},
+	{
+		label: "Mob Compound",
+		emoji: "🏰",
+		goal: "Mob compound 60m x 50m with perimeter wall, 4 corner guard towers, a 20m x 18m main villa with pool, guest house, gatehouse, and driveway.",
+	},
+	{
+		label: "Art Museum",
+		emoji: "🏛️",
+		goal: "Modern art museum 40m x 35m with a central atrium, 4 radiating gallery wings, sculpture garden, and cafe.",
+	},
 	{
 		label: "Studio Apartment",
 		emoji: "🏠",
-		goal: "Create an open-plan studio apartment 6m x 5m with a kitchenette corner, bathroom 2m x 1.5m, entrance hallway, and a balcony 3m x 1.5m on the south wall. Add dimensions and room labels.",
+		goal: "Open-plan studio apartment 6m x 5m with a kitchenette corner, bathroom 2m x 1.5m, entrance hallway, and a balcony 3m x 1.5m.",
 	},
 	{
 		label: "Office Floor",
 		emoji: "🏢",
-		goal: "Create an office floor plan 20m x 15m with 6 private offices 3m x 3m along the north wall, an open-plan workspace 12m x 8m, two meeting rooms 4m x 4m, kitchen, and two bathrooms. Add grid lines and dimensions.",
-	},
-	{
-		label: "Cafe Layout",
-		emoji: "☕",
-		goal: "Create a cafe layout 8m x 10m with a serving counter 4m wide, 6 tables for 4 people, 4 tables for 2 people, a bar area with 8 stools, and a small outdoor terrace 3m x 8m. Add furniture labels.",
+		goal: "Office floor plan 20m x 15m with 6 private offices 3m x 3m, an open-plan workspace 12m x 8m, two meeting rooms, kitchen, two bathrooms.",
 	},
 ];
 
@@ -93,27 +228,13 @@ export default function DemoPage() {
 				dxfFile = agenticResult.output;
 				entityCount = agenticResult.data?.entity_count ?? 0;
 			} else {
-				// Fallback: create DXF from geometric primitives via ezdxf
+				// Fallback: generate rich geometry from goal description
+				const { entities, layers } = generateEntities(goal.trim());
 				const createResult = await callTool("plan_create", {
 					filename: dxfName,
 					description: goal.trim(),
-					entities: [
-						{ type: "rect", x1: 0, y1: 0, x2: 6000, y2: 5000, layer: "Walls" },
-						{ type: "line", x1: 0, y1: 1500, x2: 2000, y2: 1500, layer: "Walls" },
-						{ type: "line", x1: 2000, y1: 1500, x2: 2000, y2: 0, layer: "Walls" },
-						{ type: "line", x1: 1500, y1: 5000, x2: 4500, y2: 5000, layer: "Walls" },
-						{ type: "line", x1: 4500, y1: 5000, x2: 4500, y2: 6500, layer: "Walls" },
-						{ type: "line", x1: 4500, y1: 6500, x2: 1500, y2: 6500, layer: "Walls" },
-						{ type: "line", x1: 1500, y1: 6500, x2: 1500, y2: 5000, layer: "Walls" },
-						{ type: "text", x: 1000, y: 750, h: 300, text: "BATH", layer: "Text" },
-						{ type: "text", x: 4000, y: 2500, h: 500, text: "LIVING", layer: "Text" },
-						{ type: "text", x: 4000, y: 3000, h: 500, text: "AREA", layer: "Text" },
-						{ type: "text", x: 3000, y: 5750, h: 300, text: "BALCONY", layer: "Text" },
-					],
-					layers: [
-						{ name: "Walls", color: 7, description: "Walls" },
-						{ name: "Text", color: 2, description: "Labels" },
-					],
+					entities,
+					layers,
 				});
 				if (!createResult.success)
 					throw new Error(createResult.error || "Failed to create floor plan");
@@ -147,7 +268,7 @@ export default function DemoPage() {
 				output_name: `demo_${timestamp}.stl`,
 				wall_height: 3.0,
 				wall_thickness: 0.15,
-				wall_layers: ["Walls"],
+				wall_layers: ["Walls", "Columns"],
 			});
 			updateStep(2, {
 				status: stlResult.success ? "done" : "error",
