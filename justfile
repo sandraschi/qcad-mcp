@@ -75,10 +75,6 @@ check: lint test
 test:
     uv run pytest
 
-# Build an MCPB portable bundle from tool definitions
-mcpb-pack:
-    uvx mcpb build --server qcad_mcp.server:mcp --output qcad-mcp.mcpb
-
 # Register this MCP server with a client (stdio)
 install-mcp:
     uv run python -m qcad_mcp.server --mode stdio
