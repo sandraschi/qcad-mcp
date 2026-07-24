@@ -120,6 +120,33 @@ start.ps1        # kills zombies, starts backend + frontend, opens browser
 }
 ```
 
+## Raster → DXF Pipeline (Planned)
+
+Scanning a floorplan print into a working DXF is straightforward:
+
+```
+Book/magazine page → scanner (300-600 DPI)          inkscape-mcp
+                         ↓                          (Trace Bitmap)
+                    Potrace / Inkscape                    ↓
+                         ↓                          QCAD MCP
+                    Raw vector DXF                    (plan_modify)
+                         ↓
+                    Clean up in QCAD / plan_modify
+```
+
+| Step | Tool | What it does |
+|------|------|-------------|
+| Scan | Any scanner | 300-600 DPI, grayscale or B&W, save as PNG/TIFF |
+| Vectorize | **inkscape-mcp** `trace_bitmap()` or potrace CLI | Converts raster lines to SVG paths |
+| Convert | SVG → DXF (via potrace or ezdxf) | Opens in any CAD program |
+| Clean | **qcad-mcp** `plan_modify` | Merge short segments, delete stray marks, re-layer, re-dimension |
+
+Two approaches:
+1. **inkscape-mcp** route — send the scanned PNG to inkscape-mcp's `trace_bitmap()` tool, get back SVG with proper path geometry. The SVG imports cleanly into QCAD as workable entities.
+2. **potrace in qcad-mcp** — add a `plan_raster_to_dxf(file_name)` tool that wraps potrace + ezdxf. Self-contained, no external server needed.
+
+Either way, the result goes through `plan_modify` for cleanup (delete noise, merge wall segments, re-assign layers, re-add dimensions). The baroque church preset in the Demo page proves the parametric geometry works — scanning would let you capture *actual* existing buildings.
+
 ## QCAD Pro Pricing — €50? Really?
 
 QCAD Professional sells for **€50.40** for a single-user license — lifetime, no subscription. That looks absurd next to AutoCAD at $2,000+/year, but RibbonSoft's revenue model is more nuanced:
