@@ -22,6 +22,9 @@ All notable changes to the QCAD MCP server and webapp.
 - Total MCP tools: 22 → 26 documented in STATUS.md.
 
 ### Added
+- **Versailles palace preset** (Demo page): 200m x 150m palace with Hall of Mirrors, King's/Queen's wings, royal chapel, grand staircase, 10 state apartments, Grand Trianon, Orangerie, formal gardens with fountains.
+- **Floorplan sources doc** (`docs/floorplan-sources.md`): free, paid, and historic floorplan sources with raster→DXF pipeline description.
+- **SOTA LLM provider detection** (Settings page): probes Ollama/LM Studio/vLLL on mount, provider status indicators (green/red/spinner), switchable provider dropdown, model list fetched from detected provider, localStorage persistence.
 - **Tool Playground** (`/playground`): API tester page with tool selector, JSON arg editor with templates per tool, depot file-name injector, raw response viewer with copy.
 - **Elaborate floorplan presets**: Baroque church (45m nave, apse, transept, 12 columns, 6 chapels), mob compound (walls, towers, villa, pool), art museum (atrium + 4 gallery wings). Plus parametric fallback that parses dimensions/rooms from any text.
 - **QCAD Pro panel** on Dashboard: live status, version, install path, quick links to Demo/Playground/Help.

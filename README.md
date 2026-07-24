@@ -99,6 +99,7 @@ All CAD files are stored in a persistent depot at `%LOCALAPPDATA%\qcad-mcp\depot
 | `/logs` | Logs | Live SSE log viewer with filter/export/pause |
 | `/settings` | Settings | LLM provider/model, extrusion defaults, QCAD Pro path |
 | `/help` | Help | 10-tabbed reference: QCAD, ezdxf, tools, pipeline, formats, fleet |
+| `docs/floorplan-sources.md` | — | Free, paid, and historic floorplan sources + raster→DXF pipeline |
 
 ## Quick Start
 
