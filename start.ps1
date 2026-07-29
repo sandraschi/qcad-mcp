@@ -1,66 +1,37 @@
+﻿# Fleet unified launcher - do not edit logic here.
+# Change fleet-start.config.ps1 at the repo root instead.
 param(
     [switch]$Headless,
     [switch]$BackendOnly,
     [switch]$FrontendOnly,
     [switch]$NoBrowser,
-    [switch]$ReuseIfRunning)
+    [switch]$ReuseIfRunning
+)
 
-$WebPort = 10967
-$ApiPort = 10966
-$ProjectRoot = $PSScriptRoot
-
-$FleetStartPath = Join-Path $ProjectRoot "scripts\FleetStartMode.ps1"
-if (-not (Test-Path -LiteralPath $FleetStartPath)) {
-    Write-Host "ERROR: Missing vendored launcher helper: $FleetStartPath" -ForegroundColor Red
+$ErrorActionPreference = 'Stop'
+$ReposRoot = if ($env:FLEET_REPOS_ROOT) { $env:FLEET_REPOS_ROOT } else { 'D:\Dev\repos' }
+$EnginePath = Join-Path $ReposRoot 'mcp-central-docs\scripts\Invoke-FleetWebappStart.ps1'
+if (-not (Test-Path -LiteralPath $EnginePath)) {
+    Write-Host "ERROR: Missing fleet start engine: $EnginePath" -ForegroundColor Red
     exit 1
 }
-. $FleetStartPath
-$FleetStart = Initialize-FleetStartMode @PSBoundParameters
-Enter-FleetHeadlessConsole -Headless:$Headless -BackendOnly:$BackendOnly
+. $EnginePath
 
-$portResolve = @{
-    Ports      = @($WebPort, $ApiPort)
-    Label      = "qcad-mcp"
-    AllowReuse = $ReuseIfRunning
-}
-if ($ReuseIfRunning) {
-    $portResolve.HealthChecks = @{
-        $WebPort = "http://127.0.0.1:$WebPort/"
-        $ApiPort = "http://127.0.0.1:$ApiPort/health"
-    }
-}
-$portState = Resolve-FleetPortConflict @portResolve
-if ($portState.Action -eq 'Blocked') { exit 1 }
-if ($portState.Reuse) { return }
-
-$env:QCAD_MCP_WORK_DIR = "$env:TEMP\qcad_mcp_work"
-$backendCmd = "Set-Location '$ProjectRoot'; uv run --project '$ProjectRoot' python -m qcad_mcp.server --mode dual --host 127.0.0.1 --port $ApiPort"
-Write-Host "Starting QCAD MCP backend on port $ApiPort ..." -ForegroundColor Cyan
-Start-Process powershell -ArgumentList "-NoExit", "-Command", $backendCmd -WindowStyle Normal
-
-$healthUrl = "http://127.0.0.1:$ApiPort/api/v1/status"
-$attempt = 0
-while ($attempt -lt 40) {
-    try {
-        $null = Invoke-WebRequest -Uri $healthUrl -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop
-        Write-Host "Backend ready at $healthUrl" -ForegroundColor Green
+$configCandidates = @(
+    (Join-Path $PSScriptRoot 'fleet-start.config.ps1'),
+    (Join-Path (Split-Path -Parent $PSScriptRoot) 'fleet-start.config.ps1')
+)
+$configPath = $null
+foreach ($candidate in $configCandidates) {
+    if (Test-Path -LiteralPath $candidate) {
+        $configPath = $candidate
         break
-    } catch {
-        Start-Sleep -Seconds 2
-        $attempt++
     }
 }
-
-if (-not $FleetStart.RunFrontend) {
-    while ($true) { Start-Sleep -Seconds 60 }
+if (-not $configPath) {
+    Write-Host 'ERROR: Missing fleet-start.config.ps1 (repo root or beside start.ps1).' -ForegroundColor Red
+    exit 1
 }
 
-Push-Location (Join-Path $ProjectRoot "webapp")
-if (-not (Test-Path "node_modules")) { npm install }
-if (-not $FleetStart.SkipBrowser) {
-    Start-Process "http://127.0.0.1:$WebPort"
-}
-Write-Host "Starting Vite frontend on port $WebPort ..." -ForegroundColor Green
-npm run dev -- --port $WebPort --host 127.0.0.1 --strictPort
-
+Start-FleetWebapp @PSBoundParameters -ConfigPath $configPath -LauncherRoot $PSScriptRoot
 
