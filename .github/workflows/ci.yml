@@ -11,7 +11,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: "20" }
       - run: pip install ruff && ruff check src/ --quiet && ruff format src/ --check --quiet
-      - run: npm --prefix webapp ci && npx --prefix webapp tsc --noEmit
+      - run: npm --prefix webapp ci && npx --prefix webapp tsc --noEmit -p webapp/tsconfig.json
       - run: npm --prefix webapp ci && npm --prefix webapp run build
 
   test:
