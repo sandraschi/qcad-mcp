@@ -622,8 +622,16 @@ op.apply(document);
 
 async def plan_wall_data(
     file_name: Annotated[str, Field(description="DXF/DWG filename in the depot.")],
-    wall_layers: Annotated[str, Field(default="", description="Comma-separated layer names containing walls. Empty = auto-detect layers with 'wall', 'mauer', or 'wand' in the name.")] = "",
-    wall_thickness: Annotated[float, Field(default=0.3, description="Default wall thickness in metres if not otherwise specified.")] = 0.3,
+    wall_layers: Annotated[
+        str,
+        Field(
+            default="",
+            description="Comma-separated layer names containing walls. Empty = auto-detect layers with 'wall', 'mauer', or 'wand' in the name.",
+        ),
+    ] = "",
+    wall_thickness: Annotated[
+        float, Field(default=0.3, description="Default wall thickness in metres if not otherwise specified.")
+    ] = 0.3,
 ) -> dict:
     """Extract wall segment coordinates as structured BIM-ready JSON.
 
@@ -734,24 +742,41 @@ print(JSON.stringify({{
 
 
 async def plan_beam_analysis(
-    beams: Annotated[list[dict], Field(description="""List of 2D beam segments. Each dict:
+    beams: Annotated[
+        list[dict],
+        Field(
+            description="""List of 2D beam segments. Each dict:
 - x1, y1, x2, y2: start and end coordinates (mm)
 - height: beam section height in mm (default 300)
 - width: beam section width in mm (default 200)
 - E: elastic modulus in MPa (default 25000 = concrete, 210000 = steel)
-""")],
-    supports: Annotated[list[dict], Field(default_factory=list, description="""List of supports. Each dict:
+"""
+        ),
+    ],
+    supports: Annotated[
+        list[dict],
+        Field(
+            default_factory=list,
+            description="""List of supports. Each dict:
 - node_index: beam segment index (0-based) to place support
 - location: 'start' or 'end' of the segment
 - dof: comma-separated restrained DOFs: 'x,y,rz' for fixed, 'x,y' for pinned, 'y' for roller
-""")],
-    loads: Annotated[list[dict], Field(default_factory=list, description="""List of loads. Each dict:
+""",
+        ),
+    ],
+    loads: Annotated[
+        list[dict],
+        Field(
+            default_factory=list,
+            description="""List of loads. Each dict:
 - type: 'point' (kN) or 'distributed' (kN/m)
 - beam_index: beam segment index (0-based)
 - magnitude: force in kN (positive = downward for y-direction)
 - For point loads: position (0 to 1, fraction along beam)
 - For distributed loads: uniform over full beam length
-""")],
+""",
+        ),
+    ],
 ) -> dict:
     """2D beam structural analysis using direct stiffness FEM.
 
@@ -957,7 +982,10 @@ async def plan_beam_analysis(
     try:
         U_free = np.linalg.solve(K_constrained, F_constrained)
     except np.linalg.LinAlgError:
-        return {"success": False, "error": "Stiffness matrix is singular — check supports. At least 3 restraints needed for 2D stability."}
+        return {
+            "success": False,
+            "error": "Stiffness matrix is singular — check supports. At least 3 restraints needed for 2D stability.",
+        }
 
     U = np.zeros(n_dof)
     for idx, dof in enumerate(free_dofs):
@@ -1026,18 +1054,20 @@ async def plan_beam_analysis(
         S = h * w**2 / 6  # section modulus (mm³)
         stress_moment = abs(M_max) / S if S > 0 else 0  # MPa
 
-        beam_results.append({
-            "beam_index": i,
-            "length_m": round(L / 1000, 3),
-            "max_moment_kNm": round(M_max / 1e6, 2),
-            "max_shear_kN": round(V_max / 1000, 2),
-            "axial_force_kN": round(axial / 1000, 2),
-            "max_deflection_mm": round(max_defl, 2),
-            "max_stress_mpa": round(stress_moment, 2),
-            "material_mpa": E_val,
-            "section_mm": f"{w}x{h}",
-            "ok": stress_moment < E_val / 15,  # rough safety check
-        })
+        beam_results.append(
+            {
+                "beam_index": i,
+                "length_m": round(L / 1000, 3),
+                "max_moment_kNm": round(M_max / 1e6, 2),
+                "max_shear_kN": round(V_max / 1000, 2),
+                "axial_force_kN": round(axial / 1000, 2),
+                "max_deflection_mm": round(max_defl, 2),
+                "max_stress_mpa": round(stress_moment, 2),
+                "material_mpa": E_val,
+                "section_mm": f"{w}x{h}",
+                "ok": stress_moment < E_val / 15,  # rough safety check
+            }
+        )
 
     # Reactions
     reactions = []
@@ -1045,11 +1075,13 @@ async def plan_beam_analysis(
         node = const // 3
         dof_local = const % 3
         label = ["Fx", "Fy", "Mz"][dof_local]
-        reactions.append({
-            "node": node,
-            "dof": label,
-            "reaction_N": round(float(U[const] * penalty * 1e-20), 1),
-        })
+        reactions.append(
+            {
+                "node": node,
+                "dof": label,
+                "reaction_N": round(float(U[const] * penalty * 1e-20), 1),
+            }
+        )
 
     return {
         "success": True,

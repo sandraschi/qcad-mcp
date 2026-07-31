@@ -16,6 +16,7 @@ _README_ONLY = {"readonly": True}
 
 _MUTATING = {}
 
+
 async def qcad_status() -> dict:
     """Check QCAD Pro installation status, version, and capabilities.
 

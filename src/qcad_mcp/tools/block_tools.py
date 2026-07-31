@@ -18,6 +18,7 @@ _README_ONLY = {"readonly": True}
 
 _MUTATING = {}
 
+
 async def plan_blocks(
     query: Annotated[str, Field(default="", description="Search query (empty = browse all in category).")] = "",
     category: Annotated[
@@ -69,7 +70,6 @@ async def plan_blocks_download(
     await plan_blocks_download(title="Sofa Collection", source="cadblocksfree", url="https://...")
     """
     from qcad_mcp.config import DEPOT_DIR
-
 
     if not url:
         return {"success": False, "error": "No download URL provided. Browse the source website."}

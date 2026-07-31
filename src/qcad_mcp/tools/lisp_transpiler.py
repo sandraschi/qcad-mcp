@@ -22,13 +22,14 @@ FILLET, etc.). Those fall through to the honest "UNRECOGNIZED" marker.
 import math
 import re
 
-
 # ---------------------------------------------------------------------------
 # Tokenizer + reader: turn AutoLISP source into nested Python lists
 # ---------------------------------------------------------------------------
 
+
 class Sym(str):
     """A bare symbol, distinct from a quoted string (both are `str` otherwise)."""
+
     pass
 
 
@@ -127,6 +128,7 @@ def is_call(form, name):
 # Compile-time arithmetic evaluator (numbers + `list` pairs only)
 # ---------------------------------------------------------------------------
 
+
 class Unresolved(Exception):
     """Raised when an expression can't be constant-folded at compile time."""
 
@@ -188,6 +190,7 @@ def fmt_num(n):
 # Arc-through-3-points math (real geometry, not a guess)
 # ---------------------------------------------------------------------------
 
+
 def circle_through_3_points(p1, p2, p3):
     """Given 3 (x,y) points, return (center, radius, angle1, angle2, reversed)
     describing the arc from p1 to p3 passing through p2, matching AutoCAD's
@@ -227,13 +230,14 @@ def circle_through_3_points(p1, p2, p3):
 # Code generator: walk forms, emit QCAD ECMAScript statements
 # ---------------------------------------------------------------------------
 
+
 class Codegen:
     def __init__(self):
-        self.entity_lines = []      # lines inside the geometry RAddObjectsOperation
-        self.layer_lines = []       # lines inside a separate layer-creation operation
-        self.pre_lines = []         # raw statements needing no operation wrapper (print/query)
+        self.entity_lines = []  # lines inside the geometry RAddObjectsOperation
+        self.layer_lines = []  # lines inside a separate layer-creation operation
+        self.pre_lines = []  # raw statements needing no operation wrapper (print/query)
         self.warnings = []
-        self.funcs = {}             # name -> (params, body)
+        self.funcs = {}  # name -> (params, body)
 
     def emit_entity(self, line):
         self.entity_lines.append(line)
@@ -262,11 +266,7 @@ class Codegen:
         args = form[2:]
         try:
             if cmd == "LINE":
-                pts = [
-                    ceval(a, env)
-                    for a in args
-                    if not (isinstance(a, str) and not isinstance(a, Sym) and a == "")
-                ]
+                pts = [ceval(a, env) for a in args if not (isinstance(a, str) and not isinstance(a, Sym) and a == "")]
                 for i in range(len(pts) - 1):
                     (x1, y1), (x2, y2) = pts[i], pts[i + 1]
                     self.emit_entity(
@@ -298,10 +298,18 @@ class Codegen:
                 p2 = ceval(args[1], env)
                 x1, y1 = p1
                 x2, y2 = p2
-                self.emit_entity(f"op.addObject(new RLineEntity(document, new RLineData(new RVector({fmt_num(x1)},{fmt_num(y1)}), new RVector({fmt_num(x2)},{fmt_num(y1)}))));")
-                self.emit_entity(f"op.addObject(new RLineEntity(document, new RLineData(new RVector({fmt_num(x2)},{fmt_num(y1)}), new RVector({fmt_num(x2)},{fmt_num(y2)}))));")
-                self.emit_entity(f"op.addObject(new RLineEntity(document, new RLineData(new RVector({fmt_num(x2)},{fmt_num(y2)}), new RVector({fmt_num(x1)},{fmt_num(y2)}))));")
-                self.emit_entity(f"op.addObject(new RLineEntity(document, new RLineData(new RVector({fmt_num(x1)},{fmt_num(y2)}), new RVector({fmt_num(x1)},{fmt_num(y1)}))));")
+                self.emit_entity(
+                    f"op.addObject(new RLineEntity(document, new RLineData(new RVector({fmt_num(x1)},{fmt_num(y1)}), new RVector({fmt_num(x2)},{fmt_num(y1)}))));"
+                )
+                self.emit_entity(
+                    f"op.addObject(new RLineEntity(document, new RLineData(new RVector({fmt_num(x2)},{fmt_num(y1)}), new RVector({fmt_num(x2)},{fmt_num(y2)}))));"
+                )
+                self.emit_entity(
+                    f"op.addObject(new RLineEntity(document, new RLineData(new RVector({fmt_num(x2)},{fmt_num(y2)}), new RVector({fmt_num(x1)},{fmt_num(y2)}))));"
+                )
+                self.emit_entity(
+                    f"op.addObject(new RLineEntity(document, new RLineData(new RVector({fmt_num(x1)},{fmt_num(y2)}), new RVector({fmt_num(x1)},{fmt_num(y1)}))));"
+                )
                 return
             if cmd == "TEXT":
                 pt = ceval(args[0], env)
@@ -345,7 +353,9 @@ class Codegen:
                             if vals[j] == "N":
                                 break
                             j += 1
-                        self.emit_layer(f'op2.addObject(new RLayer(document, "{name}", false, false, new RColor({color})));')
+                        self.emit_layer(
+                            f'op2.addObject(new RLayer(document, "{name}", false, false, new RColor({color})));'
+                        )
                         emitted = True
                     i += 1
                 if emitted:

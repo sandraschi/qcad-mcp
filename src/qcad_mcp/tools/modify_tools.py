@@ -80,14 +80,14 @@ async def plan_modify(
 ) -> dict:
     """Modify entities and layers in a DXF/DWG file.
 
-        Operations are applied in order. The file is saved back to the depot.
+    Operations are applied in order. The file is saved back to the depot.
 
-        ## Return Format
-        {"success": bool, "operations": int, "summary": [str, ...]}
+    ## Return Format
+    {"success": bool, "operations": int, "summary": [str, ...]}
 
-        ## Examples
-        await plan_modify(file_name="plan.dxf", operations=[{"op": "layer-set-color", "layer_filter": "Walls", "color": 7}])
-        await plan_modify(file_name="plan.dxf", operations=[{"op": "delete", "type_filter": "TEXT"}])
+    ## Examples
+    await plan_modify(file_name="plan.dxf", operations=[{"op": "layer-set-color", "layer_filter": "Walls", "color": 7}])
+    await plan_modify(file_name="plan.dxf", operations=[{"op": "delete", "type_filter": "TEXT"}])
     """
     doc, err = _load_dxf(file_name)
     if doc is None:

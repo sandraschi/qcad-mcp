@@ -86,7 +86,8 @@ def _ensure_qcad_running():
             CREATE_NEW_CONSOLE = 0x00000010
             subprocess.Popen(
                 [qcad_exe],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
                 creationflags=CREATE_NEW_CONSOLE,
             )
             logger.info("QCAD Pro GUI launched: %s", qcad_exe)
@@ -123,10 +124,10 @@ app = FastAPI(lifespan=lifespan)
 _QCAD_TAURI = os.environ.get("QCAD_TAURI", "").lower() in ("1", "true", "yes")
 app.add_middleware(
     CORSMiddleware,
-        allow_origins=[
-            "http://127.0.0.1:10967",
-            "http://localhost:10967",
-            "http://goliath:10967",
+    allow_origins=[
+        "http://127.0.0.1:10967",
+        "http://localhost:10967",
+        "http://goliath:10967",
         "http://tauri.localhost",
         "https://tauri.localhost",
         "tauri://localhost",
@@ -142,13 +143,13 @@ mcp = FastMCP.from_fastapi(app, name="QCAD MCP")
 _bridge_proxies = []
 bridge_urls = os.getenv("MCP_BRIDGE_URLS", "")
 for url in bridge_urls.split(","):
-        url = url.strip()
-        if url:
-            try:
-                mcp.add_provider(create_proxy(url))
-                _bridge_proxies.append(url)
-            except Exception:
-                logger.warning("Failed to register MCP bridge proxy for %s", url)
+    url = url.strip()
+    if url:
+        try:
+            mcp.add_provider(create_proxy(url))
+            _bridge_proxies.append(url)
+        except Exception:
+            logger.warning("Failed to register MCP bridge proxy for %s", url)
 
 # ── MCP Tools ────────────────────────────────────────────────────────────────
 
@@ -184,8 +185,10 @@ async def api_health():
     docker_ok = False
     try:
         r = subprocess.run(
-            ["docker", "info", "--format", "{{.ServerVersion}}"],  # noqa: S607
-            capture_output=True, text=True, timeout=5,
+            ["docker", "info", "--format", "{{.ServerVersion}}"],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         docker_ok = r.returncode == 0 and bool(r.stdout.strip())
     except Exception:
@@ -204,7 +207,9 @@ async def api_health():
         except Exception:
             logger.debug("Compiler probe failed for: %s", exe)
             continue
-    tool_count = sum(1 for _ in mcp._tool_manager.tools.values()) if hasattr(mcp, "_tool_manager") else len(mcp.get_tools())
+    tool_count = (
+        sum(1 for _ in mcp._tool_manager.tools.values()) if hasattr(mcp, "_tool_manager") else len(mcp.get_tools())
+    )
     return {
         "status": "ok" if qcad_ok else "degraded",
         "qcad_ok": qcad_ok,
@@ -223,12 +228,15 @@ async def api_health():
 async def api_diagnostics():
     try:
         import psutil
+
         cpu = psutil.cpu_percent()
         mem = psutil.virtual_memory().percent
         disk = psutil.disk_usage("/").percent
     except ImportError:
         cpu = mem = disk = None
-    tool_count = sum(1 for _ in mcp._tool_manager.tools.values()) if hasattr(mcp, "_tool_manager") else len(mcp.get_tools())
+    tool_count = (
+        sum(1 for _ in mcp._tool_manager.tools.values()) if hasattr(mcp, "_tool_manager") else len(mcp.get_tools())
+    )
     return {
         "success": True,
         "backend": {"port": 10966, "status": "running", "uptime": int(time.time() - _START_TIME)},
@@ -481,6 +489,7 @@ async def list_files():
 # param_extractor extracts kwargs from the raw args dict.
 _TOOL_DISPATCH: dict[str, tuple] = {}
 
+
 def _register_tool(name: str, fn, param_map: dict[str, str] | None = None):
     """Register a tool for REST dispatch. param_map: arg_key -> function_param_name."""
     _TOOL_DISPATCH[name] = (fn, param_map or {})
@@ -494,36 +503,80 @@ def _extract(args: dict, key: str, default=None):
 # ── Register all REST-accessible tools ─────────────────────────────────────
 
 _register_tool("plan_info", plan_info, {"file_name": "file_name"})
-_register_tool("plan_to_svg", plan_to_svg, {"file_name": "file_name", "output_name": "output_name", "layers": "layers", "background": "background"})
-_register_tool("plan_extrude", plan_extrude, {"file_name": "file_name", "output_name": "output_name", "wall_height": "wall_height", "wall_thickness": "wall_thickness", "wall_layers": "wall_layers"})
+_register_tool(
+    "plan_to_svg",
+    plan_to_svg,
+    {"file_name": "file_name", "output_name": "output_name", "layers": "layers", "background": "background"},
+)
+_register_tool(
+    "plan_extrude",
+    plan_extrude,
+    {
+        "file_name": "file_name",
+        "output_name": "output_name",
+        "wall_height": "wall_height",
+        "wall_thickness": "wall_thickness",
+        "wall_layers": "wall_layers",
+    },
+)
 _register_tool("plan_export", plan_export, {"file_name": "file_name", "format": "format", "output_name": "output_name"})
 _register_tool("plan_analyse", plan_analyse, {"file_name": "file_name"})
-_register_tool("plan_create", plan_create, {"filename": "filename", "entities": "entities", "layers": "layers", "description": "description"})
+_register_tool(
+    "plan_create",
+    plan_create,
+    {"filename": "filename", "entities": "entities", "layers": "layers", "description": "description"},
+)
 _register_tool("plan_depot", plan_depot, {})
 _register_tool("plan_convert", plan_convert, {"file_name": "file_name", "output_name": "output_name"})
 _register_tool("plan_modify", plan_modify, {"file_name": "file_name", "operations": "operations"})
-_register_tool("plan_blocks", plan_blocks, {"query": "query", "category": "category", "source": "source", "limit": "limit"})
+_register_tool(
+    "plan_blocks", plan_blocks, {"query": "query", "category": "category", "source": "source", "limit": "limit"}
+)
 _register_tool("plan_blocks_download", plan_blocks_download, {"title": "title", "source": "source", "url": "url"})
 _register_tool("qcad_status", qcad_status, {})
-_register_tool("plan_scripts_search", plan_scripts_search, {"query": "query", "category": "category", "source": "source", "limit": "limit"})
+_register_tool(
+    "plan_scripts_search",
+    plan_scripts_search,
+    {"query": "query", "category": "category", "source": "source", "limit": "limit"},
+)
 _register_tool("plan_scripts_download", plan_scripts_download, {"title": "title", "source": "source", "url": "url"})
 _register_tool("plan_beam_analysis", plan_beam_analysis, {"beams": "beams", "supports": "supports", "loads": "loads"})
 _register_tool("plan_measure", plan_measure, {"file_name": "file_name"})
-_register_tool("plan_wall_data", plan_wall_data, {"file_name": "file_name", "wall_layers": "wall_layers", "wall_thickness": "wall_thickness"})
-_register_tool("plan_dimension", plan_dimension, {"file_name": "file_name", "dimensions": "dimensions", "output_name": "output_name"})
+_register_tool(
+    "plan_wall_data",
+    plan_wall_data,
+    {"file_name": "file_name", "wall_layers": "wall_layers", "wall_thickness": "wall_thickness"},
+)
+_register_tool(
+    "plan_dimension",
+    plan_dimension,
+    {"file_name": "file_name", "dimensions": "dimensions", "output_name": "output_name"},
+)
 _register_tool("plan_text", plan_text, {"file_name": "file_name", "texts": "texts", "output_name": "output_name"})
 _register_tool("plan_hatch", plan_hatch, {"file_name": "file_name", "hatches": "hatches", "output_name": "output_name"})
-_register_tool("plan_block_insert", plan_block_insert, {"file_name": "file_name", "inserts": "inserts", "output_name": "output_name"})
-_register_tool("plan_array", plan_array, {"file_name": "file_name", "pattern": "pattern", "count": "count", "params": "params", "output_name": "output_name"})
+_register_tool(
+    "plan_block_insert",
+    plan_block_insert,
+    {"file_name": "file_name", "inserts": "inserts", "output_name": "output_name"},
+)
+_register_tool(
+    "plan_array",
+    plan_array,
+    {
+        "file_name": "file_name",
+        "pattern": "pattern",
+        "count": "count",
+        "params": "params",
+        "output_name": "output_name",
+    },
+)
 _register_tool("plan_script", plan_script, {"code": "code", "file_name": "file_name", "output_name": "output_name"})
 _register_tool("plan_render", plan_render, {"file_name": "file_name", "format": "format", "output_name": "output_name"})
 _register_tool("plan_exec", plan_exec, {"code": "code", "file_name": "file_name"})
 
 
 class ToolRequest(BaseModel):
-    tool: str = Field(
-        description=f"Tool name: {', '.join(sorted(_TOOL_DISPATCH.keys()))}"
-    )
+    tool: str = Field(description=f"Tool name: {', '.join(sorted(_TOOL_DISPATCH.keys()))}")
     arguments: dict = Field(default_factory=dict, description="Tool arguments as a dict")
 
 
@@ -539,6 +592,7 @@ async def execute_tool(req: ToolRequest):
         if val is not None:
             kwargs[param_name] = val
     return await fn(**kwargs)
+
 
 # ── MCP-only tools (need Context) ──────────────────────────────────────────
 # plan_agentic, plan_transpile, cad_sampling use ctx.sample/request_sampling

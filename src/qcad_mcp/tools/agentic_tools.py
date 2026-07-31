@@ -121,7 +121,6 @@ _AUTOLISP_TO_ECMASCRIPT_REFERENCE = """## AutoLISP → QCAD ECMAScript Mapping R
 """
 
 
-
 async def plan_agentic(
     goal: Annotated[
         str,
@@ -454,9 +453,12 @@ Wall height: {height}m, wall thickness: {thickness}m"""
         if not os.path.isfile(path):
             return f"File '{filename}' not found in depot."
         size_kb = round(os.path.getsize(path) / 1024, 1)
-        return json.dumps({
-            "name": filename,
-            "size_kb": size_kb,
-            "path": path,
-            "meta": meta,
-        }, indent=2)
+        return json.dumps(
+            {
+                "name": filename,
+                "size_kb": size_kb,
+                "path": path,
+                "meta": meta,
+            },
+            indent=2,
+        )
