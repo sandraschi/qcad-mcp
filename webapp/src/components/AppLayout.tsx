@@ -1,10 +1,36 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ExternalLink, Maximize2, Minimize2, RefreshCw } from "lucide-react";
+import { ExternalLink, Maximize2, Minimize2, Moon, RefreshCw, Sun } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import { useConnection } from "../store/connection";
 import { useZoom } from "../hooks/useZoom";
 import { API_BASE } from "../lib/api";
+
+// EXPERIMENTAL light mode (invert hack). Not fleet standard - see index.css.
+// Toggling `.dark` off the root flips the invert filter; persisted so the
+// choice survives reloads. Delete this + the CSS block to revert.
+const THEME_KEY = "qcad-light-mode";
+
+function useExperimentalTheme() {
+	const [light, setLight] = useState(() => {
+		try {
+			return localStorage.getItem(THEME_KEY) === "1";
+		} catch {
+			return false;
+		}
+	});
+
+	useEffect(() => {
+		document.documentElement.classList.toggle("dark", !light);
+		try {
+			localStorage.setItem(THEME_KEY, light ? "1" : "0");
+		} catch {
+			// ignore storage errors
+		}
+	}, [light]);
+
+	return { light, toggle: () => setLight((v) => !v) };
+}
 
 const PAGE_TITLES: Record<string, string> = {
 	"/": "Dashboard",
@@ -29,6 +55,7 @@ const BACKOFF = [1, 2, 4, 8, 16, 30];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
 	useZoom();
+	const { light, toggle } = useExperimentalTheme();
 	const [collapsed, setCollapsed] = useState(false);
 	const { state, lastError } = useConnection();
 	const location = useLocation();
@@ -85,6 +112,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 					<h2 className="text-sm font-bold text-white tracking-wide">{pageTitle}</h2>
 				</div>
 				<div className="flex items-center gap-3">
+					<button type="button" onClick={toggle} title={light ? "Switch to dark (experimental light mode)" : "Switch to light (experimental, ugly)"} aria-label="Toggle light mode (experimental)" className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-all">
+						{light ? <Moon size={14} /> : <Sun size={14} />}
+					</button>
 					<button type="button" onClick={() => window.open(window.location.href, "_blank")} title="Pop Out" className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-all">
 						<ExternalLink size={14} />
 					</button>

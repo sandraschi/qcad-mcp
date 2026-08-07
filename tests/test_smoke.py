@@ -11,10 +11,12 @@ def test_server_state_init():
 
 def test_ezdxf_importable():
     import ezdxf
+
     assert ezdxf.__version__ is not None
 
 
 def test_work_dirs_exist():
     from qcad_mcp.server import DEPOT_DIR, OUTPUT_DIR
+
     assert os.path.exists(DEPOT_DIR)
     assert os.path.exists(OUTPUT_DIR)

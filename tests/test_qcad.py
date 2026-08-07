@@ -33,16 +33,19 @@ def mechanical_bracket():
 
 def test_server_state_init():
     from qcad_mcp.server import _state
+
     assert isinstance(_state, dict)
 
 
 def test_ezdxf_importable():
     import ezdxf
+
     assert ezdxf.__version__ is not None
 
 
 def test_work_dirs_exist():
     from qcad_mcp.server import DEPOT_DIR, OUTPUT_DIR
+
     assert os.path.exists(DEPOT_DIR)
     assert os.path.exists(OUTPUT_DIR)
 
@@ -61,12 +64,14 @@ class TestFixtures:
 
     def test_fixtures_parse(self, simple_floorplan):
         import ezdxf
+
         doc = ezdxf.readfile(simple_floorplan)
         assert doc is not None
         assert len(doc.modelspace()) > 0
 
     def test_simple_floorplan_structure(self, simple_floorplan):
         import ezdxf
+
         doc = ezdxf.readfile(simple_floorplan)
         msp = doc.modelspace()
         lines = list(msp.query("LINE"))
@@ -77,18 +82,21 @@ class TestFixtures:
 
     def test_office_layout_has_grid(self, office_layout):
         import ezdxf
+
         doc = ezdxf.readfile(office_layout)
         lines = list(doc.modelspace().query("LINE LWPOLYLINE"))
         assert len(lines) >= 7, f"Expected 7+ grid lines (outer shell + partitions), got {len(lines)}"
 
     def test_mechanical_bracket_has_circles(self, mechanical_bracket):
         import ezdxf
+
         doc = ezdxf.readfile(mechanical_bracket)
         circles = list(doc.modelspace().query("CIRCLE"))
         assert len(circles) == 2, f"Expected 2 holes, got {len(circles)}"
 
     def test_annotation_only_has_text(self):
         import ezdxf
+
         path = os.path.join(FIXTURE_DIR, "annotation_only.dxf")
         doc = ezdxf.readfile(path)
         texts = list(doc.modelspace().query("TEXT"))
@@ -104,6 +112,7 @@ class TestPlanInfo:
     @pytest.mark.asyncio
     async def test_info_simple_floorplan(self, simple_floorplan):
         from qcad_mcp.server import plan_info
+
         result = await plan_info(file_name=simple_floorplan)
         assert result.get("success"), f"plan_info failed: {result}"
         data = result.get("data", {})
@@ -114,6 +123,7 @@ class TestPlanInfo:
     @pytest.mark.asyncio
     async def test_info_office(self, office_layout):
         from qcad_mcp.server import plan_info
+
         result = await plan_info(file_name=office_layout)
         assert result.get("success")
         data = result["data"]
@@ -123,6 +133,7 @@ class TestPlanInfo:
     @pytest.mark.asyncio
     async def test_info_mechanical(self, mechanical_bracket):
         from qcad_mcp.server import plan_info
+
         result = await plan_info(file_name=mechanical_bracket)
         assert result.get("success")
         layer_names = [l.get("name", "") for l in result.get("data", {}).get("layers", [])]
@@ -138,12 +149,14 @@ class TestPlanAnalyse:
     @pytest.mark.asyncio
     async def test_analyse_floorplan(self, simple_floorplan):
         from qcad_mcp.server import plan_analyse
+
         result = await plan_analyse(file_name=simple_floorplan)
         assert result.get("success"), f"plan_analyse failed: {result}"
 
     @pytest.mark.asyncio
     async def test_analyse_office(self, office_layout):
         from qcad_mcp.server import plan_analyse
+
         result = await plan_analyse(file_name=office_layout)
         assert result.get("success")
 
@@ -157,6 +170,7 @@ class TestPlanToSvg:
     @pytest.mark.asyncio
     async def test_svg_floorplan(self, simple_floorplan):
         from qcad_mcp.server import plan_to_svg
+
         result = await plan_to_svg(file_name=simple_floorplan)
         assert result.get("success"), f"plan_to_svg failed: {result}"
         assert result.get("output", "").endswith(".svg")
@@ -164,6 +178,7 @@ class TestPlanToSvg:
     @pytest.mark.asyncio
     async def test_svg_with_layer_filter(self, simple_floorplan):
         from qcad_mcp.server import plan_to_svg
+
         result = await plan_to_svg(file_name=simple_floorplan, layers=["Walls"])
         assert result.get("success")
 
@@ -177,6 +192,7 @@ class TestPlanExtrude:
     @pytest.mark.asyncio
     async def test_extrude_floorplan(self, simple_floorplan):
         from qcad_mcp.server import plan_extrude
+
         result = await plan_extrude(file_name=simple_floorplan, wall_height=3.0, wall_thickness=0.3)
         if not result.get("success"):
             pytest.skip(f"No walls detected (expected for test file): {result.get('error')}")
@@ -185,6 +201,7 @@ class TestPlanExtrude:
     @pytest.mark.asyncio
     async def test_extrude_office(self, office_layout):
         from qcad_mcp.server import plan_extrude
+
         result = await plan_extrude(file_name=office_layout, wall_height=3.0, wall_thickness=0.3)
         if not result.get("success"):
             pytest.skip(f"No walls detected: {result.get('error')}")
@@ -200,6 +217,7 @@ class TestPlanCreate:
     @pytest.fixture(autouse=True)
     def clean_depot(self):
         from qcad_mcp.server import DEPOT_DIR
+
         for f in os.listdir(DEPOT_DIR):
             p = os.path.join(DEPOT_DIR, f)
             if os.path.isfile(p) and f.endswith(".dxf"):
@@ -209,19 +227,23 @@ class TestPlanCreate:
     @pytest.mark.asyncio
     async def test_create_rect(self):
         from qcad_mcp.server import plan_create
+
         result = await plan_create(
             filename="test_create_rect.dxf",
             entities=[{"type": "rect", "layer": "Walls", "x": 0, "y": 0, "w": 1000, "h": 800}],
         )
         assert result.get("success"), f"plan_create failed: {result}"
         import ezdxf
+
         from qcad_mcp.server import DEPOT_DIR
+
         doc = ezdxf.readfile(os.path.join(DEPOT_DIR, result["filename"]))
         assert len(list(doc.modelspace())) >= 1
 
     @pytest.mark.asyncio
     async def test_create_multi_entity(self):
         from qcad_mcp.server import plan_create
+
         result = await plan_create(
             filename="test_multi.dxf",
             entities=[
@@ -232,13 +254,16 @@ class TestPlanCreate:
         )
         assert result.get("success"), f"plan_create failed: {result}"
         import ezdxf
+
         from qcad_mcp.server import DEPOT_DIR
+
         doc = ezdxf.readfile(os.path.join(DEPOT_DIR, result["filename"]))
         assert len(list(doc.modelspace())) == 3
 
     @pytest.mark.asyncio
     async def test_create_line(self):
         from qcad_mcp.server import plan_create
+
         result = await plan_create(
             filename="test_line.dxf",
             entities=[{"type": "line", "layer": "Walls", "x1": 0, "y1": 0, "x2": 100, "y2": 100}],
@@ -256,6 +281,7 @@ class TestPlanDepot:
     @pytest.mark.asyncio
     async def test_depot_has_created_files(self):
         from qcad_mcp.server import plan_depot
+
         result = await plan_depot()
         assert result.get("success")
         names = [f["name"] for f in result.get("data", {}).get("files", [])]

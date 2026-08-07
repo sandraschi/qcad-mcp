@@ -1,5 +1,6 @@
 """Generate test DXF fixture files for qcad-mcp tests."""
-import os, shutil
+
+import os
 
 FIXTURE_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
 
@@ -7,6 +8,7 @@ FIXTURE_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
 def make_simple_floorplan():
     """A 10x8m floor plan with 4 rooms, 1 door, 1 window."""
     import ezdxf
+
     doc = ezdxf.new("R2010")
     msp = doc.modelspace()
 
@@ -33,8 +35,9 @@ def make_simple_floorplan():
     msp.add_blockref("WINDOW", (2000, 8000), dxfattribs={"layer": "Windows"})
 
     # Furniture
-    msp.add_lwpolyline([(100, 100), (2000, 100), (2000, 500), (100, 500), (100, 100)],
-                        dxfattribs={"layer": "Furniture"})
+    msp.add_lwpolyline(
+        [(100, 100), (2000, 100), (2000, 500), (100, 500), (100, 100)], dxfattribs={"layer": "Furniture"}
+    )
 
     doc.layers.add("Walls", color=7)
     doc.layers.add("Doors", color=3)
@@ -49,12 +52,12 @@ def make_simple_floorplan():
 def make_office_layout():
     """A 20x15m open office layout with cubicles."""
     import ezdxf
+
     doc = ezdxf.new("R2010")
     msp = doc.modelspace()
 
     # Outer shell
-    msp.add_lwpolyline([(0, 0), (20000, 0), (20000, 15000), (0, 15000), (0, 0)],
-                        dxfattribs={"layer": "Walls"})
+    msp.add_lwpolyline([(0, 0), (20000, 0), (20000, 15000), (0, 15000), (0, 0)], dxfattribs={"layer": "Walls"})
     # Interior partitions
     for x in range(4000, 20000, 4000):
         msp.add_line((x, 0), (x, 12000), dxfattribs={"layer": "Partitions"})
@@ -79,12 +82,14 @@ def make_office_layout():
 def make_mechanical_part():
     """Simple mechanical bracket."""
     import ezdxf
+
     doc = ezdxf.new("R2000")
     msp = doc.modelspace()
 
-    msp.add_lwpolyline([(0, 0), (100, 0), (100, 50), (80, 50), (80, 20),
-                         (20, 20), (20, 50), (0, 50), (0, 0)],
-                        dxfattribs={"layer": "Profile"})
+    msp.add_lwpolyline(
+        [(0, 0), (100, 0), (100, 50), (80, 50), (80, 20), (20, 20), (20, 50), (0, 50), (0, 0)],
+        dxfattribs={"layer": "Profile"},
+    )
     msp.add_circle((50, 25), 8, dxfattribs={"layer": "Holes"})
     msp.add_circle((50, 25), 4, dxfattribs={"layer": "Holes"})
     msp.add_text("MCP-001", height=5, dxfattribs={"layer": "Labels", "insert": (10, 55)})
@@ -101,6 +106,7 @@ def make_mechanical_part():
 def make_annotation_only():
     """DXF with text and dimensions only (no geometry)."""
     import ezdxf
+
     doc = ezdxf.new("R2000")
     msp = doc.modelspace()
     msp.add_text("TEST PLAN - NOT FOR CONSTRUCTION", height=50, dxfattribs={"layer": "Text", "insert": (1000, 5000)})

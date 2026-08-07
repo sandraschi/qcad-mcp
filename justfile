@@ -1,4 +1,4 @@
-set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
+set windows-shell := ["powershell.exe", "-NoProfile", "-Command"]
 import 'scripts/just/fleet.just'
 
 export NAME := "QCAD MCP"
@@ -11,7 +11,7 @@ export HOST := "0.0.0.0"
 default:
     @just --list
 
-# ── Lifecycle ─────────────────────────────────────────────────────────────────
+# --- Lifecycle ---
 
 # Synchronise all dependencies and dev extras
 bootstrap:
@@ -29,7 +29,7 @@ clean:
 setup: clean bootstrap
     Write-Host "QCAD MCP ready." -ForegroundColor Green
 
-# ── Operation ─────────────────────────────────────────────────────────────────
+# --- Operation ---
 
 # Start the QCAD MCP server (Unified Gateway, dual mode)
 serve mode="dual" port=PORT:
@@ -44,13 +44,13 @@ web:
     Set-Location '{{justfile_directory()}}\webapp'
     cmd /c npm run dev
 
-# ── Development ───────────────────────────────────────────────────────────────
+# --- Development ---
 
 # Start server with auto-reload
 dev port=PORT:
     uv run uvicorn qcad_mcp.server:app --reload --port {{port}} --host {{HOST}}
 
-# ── Quality ───────────────────────────────────────────────────────────────────
+# --- Quality ---
 
 # Execute linting (ruff + biome + tsc)
 lint:
@@ -69,7 +69,7 @@ fix:
 # Fast quality check (lint + tests)
 check: lint test
 
-# ── Testing ───────────────────────────────────────────────────────────────────
+# --- Testing ---
 
 # Run the complete test suite
 test:
@@ -83,23 +83,19 @@ install-mcp:
 llms-txt:
     uv run python -m qcad_mcp.utils.llms_txt
 
-# ── Diagnostics ───────────────────────────────────────────────────────────────
+# --- Diagnostics ---
 
 # Check QCAD MCP status
 health:
     curl http://localhost:10966/api/v1/status
 
-# ── Native (Tauri) ────────────────────────────────────────────────────────────
+# --- Native  Tauri ---
 
 # Build Tauri native desktop app (Rust + WebView2)
 build-native:
     Set-Location '{{justfile_directory()}}\native'
     $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
     .\build.ps1
-
-# Run CUA smoke test against installed NSIS app
-cua-nsis-test:
-    C:\Windows\py.exe scripts/cua-smoke.py
 
 # Build Tauri native app (debug)
 build-native-debug:
@@ -108,7 +104,7 @@ build-native-debug:
     npx @tauri-apps/cli build --debug
 
 tauri-sidecar:
-    pwsh -NoLogo -File '{{justfile_directory()}}\native\build-sidecar.ps1'
+    powershell.exe -NoProfile -File '{{justfile_directory()}}\native\build-sidecar.ps1'
 
 tauri-build:
     Set-Location '{{justfile_directory()}}\native'
@@ -121,7 +117,7 @@ tauri-dev:
     npm install
     npx @tauri-apps/cli dev
 
-# ── Playwright E2E ─────────────────────────────────────────────────────
+# --- Playwright E2E ---
 
 # Install Playwright Chromium browser
 e2e-install:
@@ -132,3 +128,5 @@ e2e-install:
 e2e:
     cd {{REPO}}\webapp
     npx playwright test
+
+# Bootstrap: install dev deps + pre-commit hook
