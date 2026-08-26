@@ -50,6 +50,11 @@ from qcad_mcp.tools.annotation_tools import (
     plan_text,
     plan_wall_data,
 )
+from qcad_mcp.tools.bim_tools import (
+    plan_auto_dimension,
+    plan_building_meta,
+    plan_to_ifc_data,
+)
 from qcad_mcp.tools.block_tools import plan_blocks, plan_blocks_download
 from qcad_mcp.tools.core_tools import (
     plan_analyse,
@@ -75,7 +80,7 @@ _state: dict = {}
 
 def _ensure_qcad_running():
     if not qcad_pro.is_installed():
-        logger.info("QCAD Pro not installed — skipping auto-start")
+        logger.info("QCAD Pro not installed - skipping auto-start")
         return False
     if qcad_pro.is_running():
         logger.info("QCAD Pro already running")
@@ -108,7 +113,7 @@ async def lifespan(app: FastAPI):
     _state["output_dir"] = OUTPUT_DIR
     _state["ezdxf_version"] = _get_ezdxf_version()
     logger.info(
-        "QCAD MCP startup — ezdxf %s, QCAD Pro %s (%s), depot: %s",
+        "QCAD MCP startup - ezdxf %s, QCAD Pro %s (%s), depot: %s",
         _state["ezdxf_version"],
         _state["qcad_pro_version"] or "not installed",
         "running" if _state.get("qcad_pro_running") else "not running",
@@ -353,7 +358,7 @@ async def update_layers(filename: str, body: dict):
     return result
 
 
-# ── REST Endpoints — Depot CRUD ─────────────────────────────────────────────
+# ── REST Endpoints - Depot CRUD ─────────────────────────────────────────────
 
 
 @app.get("/api/v1/depot")
@@ -413,7 +418,7 @@ async def depot_delete(filename: str):
     return {"success": True, "filename": filename}
 
 
-# ── REST Endpoints — DXF Creation ────────────────────────────────────────────
+# ── REST Endpoints - DXF Creation ────────────────────────────────────────────
 
 
 class CreateDxfRequest(BaseModel):
@@ -436,7 +441,7 @@ async def depot_create(req: CreateDxfRequest):
     raise HTTPException(400, result.get("error", "Creation failed"))
 
 
-# ── REST Endpoints — Upload/Download Legacy ─────────────────────────────────
+# ── REST Endpoints - Upload/Download Legacy ─────────────────────────────────
 
 
 @app.post("/api/v1/upload")
@@ -458,12 +463,21 @@ async def upload_file(file: UploadFile):
 
 
 @app.get("/api/v1/download/{filename}")
+@app.get("/api/v1/case-files/{filename}")
+@app.get("/api/v1/outputs/{filename}")
 async def download_file(filename: str):
     path = os.path.join(OUTPUT_DIR, filename)
     if not os.path.isfile(path):
-        raise HTTPException(404, f"File {filename} not found.")
+        raise HTTPException(404, f"File {filename} not found in output directory.")
     ext = Path(filename).suffix.lower()
-    media_types = {".svg": "image/svg+xml", ".stl": "application/sla", ".pdf": "application/pdf", ".png": "image/png"}
+    media_types = {
+        ".svg": "image/svg+xml",
+        ".stl": "application/sla",
+        ".pdf": "application/pdf",
+        ".png": "image/png",
+        ".dxf": "application/dxf",
+        ".json": "application/json",
+    }
     return FileResponse(path, media_type=media_types.get(ext, "application/octet-stream"), filename=filename)
 
 
@@ -482,7 +496,7 @@ async def list_files():
     return {"uploads": uploads, "outputs": outputs}
 
 
-# ── REST Endpoints — Tool Bridge ──────────────────────────────────────────────
+# ── REST Endpoints - Tool Bridge ──────────────────────────────────────────────
 
 
 # Tool dispatch: maps tool name -> (function, param_extractor)
@@ -573,6 +587,21 @@ _register_tool(
 _register_tool("plan_script", plan_script, {"code": "code", "file_name": "file_name", "output_name": "output_name"})
 _register_tool("plan_render", plan_render, {"file_name": "file_name", "format": "format", "output_name": "output_name"})
 _register_tool("plan_exec", plan_exec, {"code": "code", "file_name": "file_name"})
+_register_tool(
+    "plan_auto_dimension",
+    plan_auto_dimension,
+    {"file_name": "file_name", "wall_layers": "wall_layers", "offset": "offset", "output_name": "output_name"},
+)
+_register_tool(
+    "plan_building_meta",
+    plan_building_meta,
+    {"file_name": "file_name", "level_name": "level_name", "elevation": "elevation"},
+)
+_register_tool(
+    "plan_to_ifc_data",
+    plan_to_ifc_data,
+    {"file_name": "file_name", "wall_layers": "wall_layers", "wall_height": "wall_height", "wall_thickness": "wall_thickness"},
+)
 
 
 class ToolRequest(BaseModel):
@@ -764,6 +793,11 @@ def main():
     parser.add_argument("--host", default="0.0.0.0")  # noqa: S104
     parser.add_argument("--port", type=int, default=10966)
     args = parser.parse_args()
+
+    import os as _os
+    if _os.getenv("QCAD_TAURI") == "1":
+        args.mode = "http"
+        args.port = int(_os.getenv("MCP_PORT", args.port))
 
     if args.mode == "stdio":
         asyncio.run(_run_stdio())
