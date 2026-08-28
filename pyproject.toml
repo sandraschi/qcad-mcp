@@ -1,7 +1,7 @@
 [project]
 name = "qcad-mcp"
 version = "0.3.0"
-description = "QCAD MCP server â€” DXF/DWG floor plans to SVG preview + STL extrusion via MCP tools and REST API"
+description = "QCAD 2D CAD automation: DXF/DWG floor plans to SVG and STL, via MCP tools and REST"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -62,4 +62,5 @@ dev = [
     "pyinstaller>=6.21.0",
     "pytest>=9.0.3",
     "pytest-asyncio>=1.3.0",
+    "pywin32>=311",
 ]
