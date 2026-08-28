@@ -1,0 +1,20 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.sandraschi/qcad-mcp",
+  "description": "QCAD MCP server - DXF/DWG floor plans to SVG preview + STL extrusion via MCP tools and REST API",
+  "version": "0.3.0",
+  "repository": {
+    "url": "https://github.com/sandraschi/qcad-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/sandraschi/qcad-mcp/releases/download/v0.3.0/qcad-mcp-v0.3.0.mcpb",
+      "fileSha256": "a5e0bcf53d288a85c8661f8923a1117a0b8b172f7b174941f7413932d4213511",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
