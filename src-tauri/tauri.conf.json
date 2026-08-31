@@ -1,0 +1,43 @@
+{
+    "$schema": "https://schema.tauri.app/config/2",
+    "productName": "Qcad MCP",
+    "version": "0.1.0",
+    "identifier": "com.sandraschi.qcad-mcp",
+    "build": {
+        "frontendDist": "../webapp/dist"
+    },
+    "app": {
+        "windows": [
+            {
+                "label": "main",
+                "title": "Qcad MCP",
+                "width": 1280,
+                "height": 860,
+                "minWidth": 700,
+                "minHeight": 500,
+                "resizable": true
+            }
+        ],
+        "security": {
+            "csp": "default-src 'self'; connect-src 'self' http://127.0.0.1:10966 ipc: http://ipc.localhost; img-src 'self' data: http://127.0.0.1:10966; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'"
+        }
+    },
+    "bundle": {
+        "active": true,
+        "targets": ["nsis"],
+        "icon": ["icons/icon.png", "icons/icon.ico"],
+        "resources": [
+            "resources/qcad-mcp-backend.exe"],
+        "windows": {
+            "webviewInstallMode": {
+                "type": "skip"
+            },
+            "nsis": {
+                "installMode": "currentUser",
+                "installerHooks": "./windows/hooks.nsh"
+            }
+        }
+    },
+    "plugins": {}
+}
+
