@@ -6,7 +6,7 @@
     "qcad-mcp-native",
     "qcad-mcp-native-backend"
   ],
-  "backend_port": 10966,
+  "backend_port": 11966,
   "health_path": "/api/v1/health",
   "diagnostics_path": "/api/v1/diagnostics",
   "feature_smoke_path": "/api/v1/diagnostics",
