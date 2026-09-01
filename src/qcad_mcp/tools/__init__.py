@@ -1,4 +1,4 @@
-"""QCAD MCP tools — portmanteau registration for FastMCP 3.2.
+"""QCAD MCP tools - portmanteau registration for FastMCP 3.2.
 
 [RATIONALALE] Consolidates 22 tools across 7 modules into a single register_all()
 entry point. Each module's register() function fires @mcp.tool decorators at
@@ -10,6 +10,7 @@ tool modules would need manual import by operators.
 def register_all(mcp):
     from qcad_mcp.tools.agentic_tools import register as reg_agentic
     from qcad_mcp.tools.annotation_tools import register as reg_annot
+    from qcad_mcp.tools.bim_tools import register as reg_bim
     from qcad_mcp.tools.block_tools import register as reg_blocks
     from qcad_mcp.tools.core_tools import register as reg_core
     from qcad_mcp.tools.modify_tools import register as reg_modify
@@ -24,4 +25,5 @@ def register_all(mcp):
     reg_annot(mcp)
     reg_agentic(mcp)
     reg_scripts(mcp)
+    reg_bim(mcp)
     reg_prefab(mcp)

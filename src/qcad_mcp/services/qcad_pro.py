@@ -1,5 +1,5 @@
 """
-QCAD Pro service — detection, CLI execution, ECMAScript bridge.
+QCAD Pro service - detection, CLI execution, ECMAScript bridge.
 
 Supports three modes:
   1. Headless script execution via qcadcmd.com -no-gui -autostart
@@ -102,7 +102,7 @@ def render(input_path: str, output_path: str, fmt: str, timeout: int = 120) -> d
     Args:
         input_path: Absolute path to input DXF/DWG file.
         output_path: Absolute path to output file.
-        fmt: Format — "svg", "pdf", or "bmp".
+        fmt: Format - "svg", "pdf", or "bmp".
         timeout: Subprocess timeout in seconds.
 
     Returns:
@@ -149,7 +149,7 @@ def convert(input_path: str, output_path: str, fmt: str = "DXF", timeout: int = 
     Args:
         input_path: Absolute path to input file.
         output_path: Absolute path to output file.
-        fmt: Target format — "DXF" or "DWG".
+        fmt: Target format - "DXF" or "DWG".
         timeout: Subprocess timeout in seconds.
 
     Returns:
@@ -184,7 +184,7 @@ def convert(input_path: str, output_path: str, fmt: str = "DXF", timeout: int = 
 
 
 SCRIPT_TEMPLATE = r"""
-// ═══ QCAD MCP Bridge — Auto-Generated ECMAScript ═══
+// ═══ QCAD MCP Bridge - Auto-Generated ECMAScript ═══
 // Session: {session_id}
 // Timestamp: {timestamp}
 // ═════════════════════════════════════════════════════
@@ -269,7 +269,7 @@ def run_script(
         escaped = input_file.replace("\\", "/")
         import_block = f'di.importFile("{escaped}");'
     else:
-        import_block = "// No input file — starting from empty document."
+        import_block = "// No input file - starting from empty document."
 
     if output_file:
         output_dir = os.path.dirname(output_file)
@@ -353,7 +353,7 @@ def _parse_script_output(stdout: str) -> dict | None:
 
 
 EXEC_TEMPLATE = r"""
-// ═══ QCAD MCP Exec — Quick Code Runner ═══
+// ═══ QCAD MCP Exec - Quick Code Runner ═══
 qApp.applicationName = "QcadMcpExec";
 
 var storage = new RMemoryStorage();

@@ -96,7 +96,10 @@ def _load_dxf(file_name: str):
     """
     import ezdxf
 
-    path = os.path.join(DEPOT_DIR, file_name)
+    if os.path.isfile(file_name):
+        path = file_name
+    else:
+        path = os.path.join(DEPOT_DIR, file_name)
     if not os.path.isfile(path):
         return None, f"File '{file_name}' not found in depot."
 

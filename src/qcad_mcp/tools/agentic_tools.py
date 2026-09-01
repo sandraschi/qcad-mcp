@@ -159,8 +159,8 @@ async def plan_agentic(
 Goal: {goal}
 
 Context: The script runs in QCAD Pro headless. Variables available:
-- `document` (RDocument) — the drawing
-- `di` (RDocumentInterface) — for import/export
+- `document` (RDocument) - the drawing
+- `di` (RDocumentInterface) - for import/export
 - RAddObjectsOperation, RLineEntity, RLineData, RVector, RCircleEntity, RCircleData,
   RDimAlignedEntity, RDimAlignedData, RLayer, RModifyObjectsOperation, RColor, etc.
 
@@ -170,7 +170,7 @@ Return ONLY the ECMAScript code between ```javascript and ``` markers. No explan
 
 Key rules:
 1. Combine all entities into a single RAddObjectsOperation before calling op.apply()
-2. RVector(x, y) — x and y are numbers. 1 unit = 1mm by convention.
+2. RVector(x, y) - x and y are numbers. 1 unit = 1mm by convention.
 3. For dimensions: RDimAlignedData(extPoint1, extPoint2, dimLinePos)
 4. RLineData(startVector, endVector)
 5. RCircleData(centerVector, radius)
@@ -230,7 +230,7 @@ async def plan_transpile(
 
     AI sampling (when a sampling-capable client is connected) asks the
     connected model to translate the AutoLISP using a reference mapping
-    table — quality depends on that model, not on this code.
+    table - quality depends on that model, not on this code.
 
     Without sampling, falls back to a real (if limited) heuristic engine:
     it parses AutoLISP s-expressions properly (not regex matching), handles
@@ -239,7 +239,7 @@ async def plan_transpile(
     `ssget`/`sslength` selection-set queries into live document queries.
     Constructs it can't handle (OFFSET, EXPLODE, FILLET, general recursion,
     non-selection-set conditionals) are marked inline with
-    `// UNRECOGNIZED: <form>` instead of being silently dropped — a script
+    `// UNRECOGNIZED: <form>` instead of being silently dropped - a script
     that's mostly translatable still gets mostly translated.
 
     The translated script is executed via QCAD Pro and the output DXF
