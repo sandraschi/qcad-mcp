@@ -153,33 +153,30 @@ fn watch_backend_stream<R: std::io::Read + Send + 'static>(stream: R, app: AppHa
 }
 
 pub fn spawn_backend(app: AppHandle, state: &BackendProcess) -> Result<String, String> {
-    log_line(&app, "spawn_backend called");
     stop_managed_child(state);
-    log_line(&app, "free_port starting");
-    let fp = free_port(BACKEND_PORT);
-    log_line(&app, &format!("free_port returned {fp}"));
-    if !fp {
-        let msg = format!("Could not free port {BACKEND_PORT} after 10s");
+    if !free_port(BACKEND_PORT) {
+        let msg = format!("Could not free port {BACKEND_PORT}");
         log_line(&app, &msg);
         return Err(msg);
     }
-    log_line(&app, "materialize starting");
     let backend_path = materialize_backend(&app)?;
-    log_line(&app, &format!("materialized {} on port {}", backend_path.display(), BACKEND_PORT));
+    log_line(&app, &format!("spawning {} on port {}", backend_path.display(), BACKEND_PORT));
+
     let mut command = Command::new(&backend_path);
-    command.env(ENV_PORT, BACKEND_PORT.to_string()).env(ENV_HOST, "127.0.0.1").env(ENV_TAURI, "1").stdout(Stdio::null()).stderr(Stdio::null());
+    command.env(ENV_PORT, BACKEND_PORT.to_string()).env(ENV_HOST, "127.0.0.1").env(ENV_TAURI, "1").stdout(Stdio::piped()).stderr(Stdio::piped());
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         command.creation_flags(CREATE_NO_WINDOW);
     }
-    log_line(&app, "spawn starting");
     let mut child = command.spawn().map_err(|e| format!("Failed to spawn {}: {e}", backend_path.display()))?;
-    log_line(&app, "spawn returned ok");
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
-    state.0.lock().unwrap().replace(child);
+    // Use try_lock so a concurrent spawn/exit can't deadlock the main thread.
+    if let Ok(mut guard) = state.0.try_lock() {
+        guard.replace(child);
+    }
     if let Some(out) = stdout { let handle = app.clone(); thread::spawn(move || watch_backend_stream(out, handle)); }
     if let Some(err) = stderr { let handle = app.clone(); thread::spawn(move || watch_backend_stream(err, handle)); }
     let addr = SocketAddr::from_str(&format!("127.0.0.1:{BACKEND_PORT}")).unwrap();
