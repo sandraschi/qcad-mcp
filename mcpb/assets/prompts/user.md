@@ -71,7 +71,7 @@ await plan_depot()
 Upload via the REST API:
 
 ```bash
-curl -X POST -F "file=@floorplan.dxf" http://localhost:10966/api/v1/upload
+curl -X POST -F "file=@floorplan.dxf" http://localhost:11966/api/v1/upload
 ```
 
 Or use `plan_create` to make one from scratch:
@@ -142,7 +142,7 @@ await plan_to_svg(
 The SVG is saved to `%LOCALAPPDATA%\qcad-mcp\output\output.svg` (or your custom name). Access it via:
 
 ```
-http://localhost:10966/api/v1/download/output.svg
+http://localhost:11966/api/v1/download/output.svg
 ```
 
 Layer filtering is useful for debugging — if the extrusion fails, render just the wall layers to check they contain valid LINE/LWPOLYLINE entities. SVG background colours: use `"white"` for print-style previews, `"black"` or `"#1a1a1a"` for web-style dark mode.
@@ -851,42 +851,42 @@ The ECMAScript API gives you access to QCAD Pro's full entity model. Key classes
 
 ## REST API Reference
 
-All REST endpoints are available at `http://localhost:10966/api/v1/`.
+All REST endpoints are available at `http://localhost:11966/api/v1/`.
 
 ### Depot Management
 
 ```bash
 # List all files
-curl http://localhost:10966/api/v1/depot
+curl http://localhost:11966/api/v1/depot
 
 # Upload a file
-curl -X POST -F "file=@floorplan.dxf" http://localhost:10966/api/v1/upload
+curl -X POST -F "file=@floorplan.dxf" http://localhost:11966/api/v1/upload
 
 # Download a file
-curl http://localhost:10966/api/v1/download/floorplan.dxf -o floorplan.dxf
+curl http://localhost:11966/api/v1/download/floorplan.dxf -o floorplan.dxf
 
 # Update metadata
 curl -X PUT -H "Content-Type: application/json" \
   -d '{"description": "Office floor plan rev 3", "tags": ["office", "ground-floor"]}' \
-  http://localhost:10966/api/v1/depot/floorplan.dxf
+  http://localhost:11966/api/v1/depot/floorplan.dxf
 
 # Delete a file
-curl -X DELETE http://localhost:10966/api/v1/depot/floorplan.dxf
+curl -X DELETE http://localhost:11966/api/v1/depot/floorplan.dxf
 ```
 
 ### Server Status
 
 ```bash
 # Health check
-curl http://localhost:10966/health
+curl http://localhost:11966/health
 
 # Full status with QCAD Pro availability
-curl http://localhost:10966/api/v1/status
+curl http://localhost:11966/api/v1/status
 ```
 
 ### Webapp
 
-The QCAD MCP webapp (port 10967) provides a graphical interface for all CAD operations. Access it at `http://localhost:10967` after starting the server with HTTP transport. The React dashboard includes:
+The QCAD MCP webapp (port 11967) provides a graphical interface for all CAD operations. Access it at `http://localhost:11967` after starting the server with HTTP transport. The React dashboard includes:
 
 - **File Browser**: Browse, upload, download, and delete depot files with metadata
 - **SVG Preview**: Visualise DXF drawings directly in the browser with layer selection
@@ -983,3 +983,4 @@ A: QCAD MCP is primarily a 2D tool. 3D DXF entities (3DFACE, 3DSOLID, MESH) are 
 
 **Q: How do I share files between qcad-mcp and freecad-mcp?**
 A: Two pipelines exist: (1) plan_extrude produces STL files in the output directory that freecad-mcp's mesh_to_solid can read; (2) plan_wall_data produces structured JSON wall data that can be iterated to call freecad-mcp's bim_create_wall for each segment. Ensure both servers can access the same depot directory or transfer files via HTTP download/upload.
+

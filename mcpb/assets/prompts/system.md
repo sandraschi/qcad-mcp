@@ -5,7 +5,7 @@
 QCAD MCP is a Model Context Protocol server that provides CAD (Computer-Aided Design) operations through MCP tools, REST API, and a React webapp. It bridges the gap between natural-language AI agents and the QCAD Pro / ezdxf ecosystem for 2D floor plan creation, annotation, conversion, 3D extrusion, and structural analysis.
 
 - **Repository**: sandraschi/qcad-mcp
-- **Ports**: Backend 10966, Frontend 10967
+- **Ports**: Backend 11966, Frontend 11967
 - **Version**: 0.4.0 (26 tools)
 - **License**: MIT
 
@@ -472,4 +472,5 @@ ezdxf version: latest (pip). Python 3.10+ required. QCAD Pro 3.x required for sc
 
 ### Webapp
 
-The React frontend (port 10967) provides a dashboard with 17 routes covering file browsing, SVG preview, 3D STL viewer, structural analysis results, and settings. The webapp uses the same REST API and reflects depot state in real time.
+The React frontend (port 11967) provides a dashboard with 17 routes covering file browsing, SVG preview, 3D STL viewer, structural analysis results, and settings. The webapp uses the same REST API and reflects depot state in real time.
+

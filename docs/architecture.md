@@ -26,12 +26,12 @@ DXF/DWG Upload
 ```
 ┌──────────────────────────────────────────────────┐
 │                  MCP Client / Webapp              │
-│              (Claude Desktop, Vite :10967)        │
+│              (Claude Desktop, Vite :11967)        │
 └──────────┬───────────────────────────────────────┘
            │ SSE / REST
            ▼
 ┌──────────────────────────────────────────────────┐
-│        FastAPI + FastMCP 3.2 (:10966)             │
+│        FastAPI + FastMCP 3.2 (:11966)             │
 │                                                    │
 │  ┌──────────────────────────────────────────┐     │
 │  │         Core Engine: ezdxf                │     │
@@ -119,5 +119,6 @@ This produces higher-quality PDF output than the ezdxf+matplotlib fallback, and 
 
 | Port | Service | Protocol |
 |:---|:---|:---|
-| **10966** | FastAPI + FastMCP SSE | HTTP, SSE |
-| **10967** | Vite dev server | HTTP (proxies `/api` → 10966) |
+| **11966** | FastAPI + FastMCP SSE | HTTP, SSE |
+| **11967** | Vite dev server | HTTP (proxies `/api` → 11966) |
+

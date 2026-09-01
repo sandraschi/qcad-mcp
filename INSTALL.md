@@ -47,7 +47,7 @@ If you prefer not to use `just`:
    uv run python -m qcad_mcp.server
 
    # HTTP mode (for web dashboard)
-   uv run uvicorn qcad_mcp.server:app --port 10966
+   uv run uvicorn qcad_mcp.server:app --port 11966
    ```
 
 4. (optional) Start the frontend:
@@ -57,7 +57,7 @@ If you prefer not to use `just`:
    npm run dev
    ```
 
-5. Open `http://localhost:10966` or the frontend URL.
+5. Open `http://localhost:11966` or the frontend URL.
 
 ---
 
@@ -73,3 +73,4 @@ If you prefer not to use `just`:
 ---
 
 *See the main [README](README.md) for feature overview and documentation.*
+

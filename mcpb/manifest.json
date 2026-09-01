@@ -2,21 +2,14 @@
   "manifest_version": "0.2",
   "name": "qcad-mcp",
   "version": "0.3.0",
-  "description": "QCAD MCP server — DXF/DWG floor plans to SVG preview + STL extrusion via MCP tools and REST API",
-  "author": {
-    "name": "sandraschi"
-  },
+  "description": "QCAD MCP server - DXF/DWG floor plans to SVG preview + STL extrusion via MCP tools and REST API",
+  "author": { "name": "sandraschi" },
   "server": {
     "type": "python",
     "entry_point": "run_server.py",
     "mcp_config": {
       "command": "uv",
-      "args": [
-        "run",
-        "--directory",
-        "${PWD}",
-        "run_server.py"
-      ],
+      "args": ["run","--directory","${PWD}","run_server.py"],
       "env": {
         "PYTHONPATH": "${PWD}/src",
         "PYTHONUNBUFFERED": "1"
@@ -24,9 +17,35 @@
     }
   },
   "tools": [
-    {
-      "name": "qcad-mcp",
-      "description": "QCAD MCP server — DXF/DWG floor plans to SVG preview + STL extrusion via MCP tools and REST API"
-    }
+    { "name": "api_status", "description": "Server status including QCAD Pro and ezdxf info." },
+    { "name": "api_health", "description": "Health endpoint with component status." },
+    { "name": "api_diagnostics", "description": "api_diagnostics" },
+    { "name": "blocks_categories", "description": "List CAD block categories." },
+    { "name": "blocks_search", "description": "Search CAD block libraries via REST." },
+    { "name": "blocks_download", "description": "Download a CAD block to the depot via REST." },
+    { "name": "scripts_categories", "description": "List ECMAScript script categories." },
+    { "name": "scripts_search", "description": "Search ECMAScript libraries via REST." },
+    { "name": "scripts_download", "description": "Download an ECMAScript to the depot via REST." },
+    { "name": "batch_run", "description": "batch_run" },
+    { "name": "get_layers", "description": "Get layers for a DXF/DWG file." },
+    { "name": "update_layers", "description": "Modify layers on a file." },
+    { "name": "depot_list", "description": "depot_list" },
+    { "name": "depot_get", "description": "depot_get" },
+    { "name": "depot_rename", "description": "depot_rename" },
+    { "name": "depot_delete", "description": "depot_delete" },
+    { "name": "depot_create", "description": "depot_create" },
+    { "name": "upload_file", "description": "upload_file" },
+    { "name": "download_file", "description": "download_file" },
+    { "name": "list_files", "description": "list_files" },
+    { "name": "execute_tool", "description": "execute_tool" },
+    { "name": "stream_logs", "description": "stream_logs" },
+    { "name": "llm_providers", "description": "llm_providers" },
+    { "name": "llm_chat", "description": "llm_chat" },
+    { "name": "get_settings", "description": "get_settings" },
+    { "name": "update_settings", "description": "update_settings" },
+    { "name": "chat_completion", "description": "chat_completion" },
+    { "name": "Building_1", "description": "Building_1" },
+    { "name": "Level_0", "description": "Level_0" },
+    { "name": "walls", "description": "walls" }
   ]
 }

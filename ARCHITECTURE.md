@@ -92,7 +92,7 @@ The bridge wraps user ECMAScript in a template that imports the input file, runs
 
 ## Webapp
 
-Fleet-standard Vite + React layout on port 10967:
+Fleet-standard Vite + React layout on port 11967:
 
 | Page | Purpose |
 |------|---------|
@@ -130,8 +130,9 @@ qcad-mcp plan_extrude → STL
 | Item | Value |
 |------|-------|
 | **Repo** | `D:\Dev\repos\qcad-mcp` |
-| **Ports** | Backend 10966, Frontend 10967 |
+| **Ports** | Backend 11966, Frontend 11967 |
 | **Version** | 0.3.0 |
 | **Python engine** | `ezdxf` (MIT, free) |
 | **Pro engine** | QCAD Pro 3.x (~€42, for ECMAScript bridge + DWG) |
 | **Linting** | Ruff (Python), Biome (TSX), tsc (TypeScript) |
+

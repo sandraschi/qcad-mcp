@@ -14,7 +14,7 @@
 |--:|--|
 | **You might use this if…** | You want your AI to process floor plans programmatically, convert DXF to 3D for Resonite/Unity3D, maintain a persistent CAD file depot, or automate drafting workflows. |
 | **What it connects to** | `ezdxf` (free Python engine) for all parsing + rendering + extrusion + analysis |
-| **Ports** | Backend **10966**, Dashboard **10967** |
+| **Ports** | Backend **11966**, Dashboard **11967** |
 | **Start** | `just bootstrap` then `start.ps1` |
 
 ## MCP Tools
@@ -114,7 +114,7 @@ start.ps1        # kills zombies, starts backend + frontend, opens browser
 {
   "mcpServers": {
     "qcad": {
-      "url": "http://localhost:10966/sse",
+      "url": "http://localhost:11966/sse",
       "transport": "sse"
     }
   }
@@ -188,3 +188,4 @@ RibbonSoft is a Swiss **GmbH** (limited company) based in Sarnen, not retirees. 
 ## License
 
 MIT — see [LICENSE](LICENSE).
+

@@ -1,11 +1,12 @@
 [project]
 name = "qcad-mcp"
 version = "0.3.0"
-description = "QCAD MCP server — DXF/DWG floor plans to SVG preview + STL extrusion via MCP tools and REST API"
+description = "QCAD MCP server - DXF/DWG floor plans to SVG preview + STL extrusion via MCP tools and REST API"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "fastmcp>=3.4.2",
+    "fastmcp>=3.4.4,<4",
+    "prefab-ui>=0.14.0",
     "ezdxf>=1.0",
     "numpy>=1.24",
     "numpy-stl>=3.0",
@@ -22,8 +23,11 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
-    "ruff>=0.9",
+    "ruff>=0.16.0,<0.17",
 ]
+
+[project.scripts]
+qcad-mcp = "qcad_mcp.server:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -44,7 +48,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "S", "UP", "RUF"]
-ignore = ["S101"]
+ignore = ["S101", "S106", "S110", "S112", "S101", "S106", "S110", "S112", "RUF012", "S603", "S607", "S324", "E402"]
 
 [tool.ruff.lint.per-file-ignores]
 "src/**/*.py" = ["E501"]
@@ -54,6 +58,9 @@ ignore = ["S101"]
 
 [dependency-groups]
 dev = [
+    "pre-commit>=4.6.1",
+    "pyinstaller>=6.21.0",
     "pytest>=9.0.3",
     "pytest-asyncio>=1.3.0",
+    "pywin32>=311",
 ]

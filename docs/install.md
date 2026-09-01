@@ -53,8 +53,8 @@ just bootstrap   # uv sync && cd webapp && npm install
 start.ps1
 
 # Or separately:
-just serve       # backend on :10966
-just web         # frontend on :10967
+just serve       # backend on :11966
+just web         # frontend on :11967
 
 # MCP stdio mode (no webapp):
 just stdio
@@ -63,7 +63,8 @@ just stdio
 ## Verify
 
 ```powershell
-just health       # curl http://localhost:10966/api/v1/status
+just health       # curl http://localhost:11966/api/v1/status
 ```
 
-Open `http://localhost:10967` for the dashboard.
+Open `http://localhost:11967` for the dashboard.
+

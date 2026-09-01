@@ -4,7 +4,7 @@
   "description": "2D CAD operations via QCAD — floor plans, DXF conversion, SVG preview, STL extrusion, architecture analysis, structural beam analysis, and natural-language CAD workflows",
   "repository": "https://github.com/sandraschi/qcad-mcp",
   "command": "uv",
-  "args": ["run", "--directory", "/path/to/qcad-mcp", "python", "-m", "qcad_mcp.server", "--mode", "dual", "--port", "10966"],
+  "args": ["run", "--directory", "/path/to/qcad-mcp", "python", "-m", "qcad_mcp.server", "--mode", "dual", "--port", "11966"],
   "env": {
     "QCAD_PRO_PATH": "/path/to/qcad"
   },
@@ -48,3 +48,4 @@
     {"uri": "cad://depot/{filename}", "description": "Get info about a specific depot file"}
   ]
 }
+

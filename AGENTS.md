@@ -4,8 +4,8 @@
 QCAD MCP server — DXF/DWG floor plans to SVG preview + STL extrusion via MCP tools and REST API
 
 ## Ports
-- Backend: **10966** (FastAPI + MCP HTTP `/mcp`)
-- Frontend: **10967** (Vite React SPA)
+- Backend: **11966** (FastAPI + MCP HTTP `/mcp`)
+- Frontend: **11967** (Vite React SPA)
 
 ## Key Commands
 - `just serve` — start backend (dual transport)
@@ -24,3 +24,4 @@ QCAD MCP server — DXF/DWG floor plans to SVG preview + STL extrusion via MCP t
 - `pyproject.toml` — build config and entry points
 - `CLAUDE.md` — Claude Code context
 - `webapp/src/pages/` — 16 React pages (Dashboard, Demo, Depot, Viewer, etc.)
+

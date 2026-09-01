@@ -1,6 +1,6 @@
 # QCAD MCP
 
-> AI-driven 2D CAD automation — DXF/DWG parsing, SVG preview, STL extrusion, room analysis, DXF creation, persistent file depot with full CRUD. FastMCP 3.2 server on port 10966.
+> AI-driven 2D CAD automation — DXF/DWG parsing, SVG preview, STL extrusion, room analysis, DXF creation, persistent file depot with full CRUD. FastMCP 3.2 server on port 11966.
 
 ## Tools
 - `plan_info` — DXF metadata: layers, entity counts, bounding box, blocks
@@ -30,8 +30,8 @@
 - Core: ezdxf 1.4 (pure Python, no binary deps)
 - Optional: QCAD Pro for ECMAScript bridge, native rendering, DWG
 - Persistent depot: %LOCALAPPDATA%\qcad-mcp\depot
-- REST API: http://localhost:10966/api/v1/
-- Webapp: http://localhost:10967
+- REST API: http://localhost:11966/api/v1/
+- Webapp: http://localhost:11967
 
 ## Full Reference
 See [llms-full.txt](llms-full.txt) for the complete tool reference including all annotation tools, QCAD Pro integration, MCP prompts, resources, and fleet architecture.
@@ -42,3 +42,4 @@ See [llms-full.txt](llms-full.txt) for the complete tool reference including all
 - Architecture: ARCHITECTURE.md
 - ezdxf: https://ezdxf.readthedocs.io
 - QCAD: https://www.qcad.org
+

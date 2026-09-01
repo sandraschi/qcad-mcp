@@ -2,7 +2,7 @@
 
 ## Overview
 
-QCAD MCP is a FastMCP 3.2 server that provides AI-driven 2D CAD automation. It turns natural-language CAD goals into real DXF/DWG drawings, previews, and 3D STL meshes. Runs on port 10966 (backend/REST API) with webapp at port 10967.
+QCAD MCP is a FastMCP 3.2 server that provides AI-driven 2D CAD automation. It turns natural-language CAD goals into real DXF/DWG drawings, previews, and 3D STL meshes. Runs on port 11966 (backend/REST API) with webapp at port 11967.
 
 Key capabilities: DXF/DWG parsing with ezdxf, SVG/PNG/PDF preview generation, wall extrusion to 3D STL, room/area analysis, DXF creation from primitives, persistent file depot with full CRUD, QCAD Pro ECMAScript bridge for advanced operations (dimensions, hatches, text, measurements, arrays, block insertion), AutoLISP-to-ECMAScript transpilation, CAD block library search, and structural beam analysis.
 
@@ -17,7 +17,7 @@ MCP client config (Claude Desktop, Cursor):
   "mcpServers": {
     "qcad-mcp": {
       "command": "uv",
-      "args": ["run", "--directory", "C:\\path\\to\\qcad-mcp", "python", "-m", "qcad_mcp.server", "--mode", "dual", "--port", "10966"],
+      "args": ["run", "--directory", "C:\\path\\to\\qcad-mcp", "python", "-m", "qcad_mcp.server", "--mode", "dual", "--port", "11966"],
       "env": {
         "QCAD_PRO_PATH": "C:\\Program Files\\QCAD"
       }
@@ -26,7 +26,7 @@ MCP client config (Claude Desktop, Cursor):
 }
 ```
 
-Start standalone: `uv run python -m qcad_mcp.server --mode dual --port 10966`
+Start standalone: `uv run python -m qcad_mcp.server --mode dual --port 11966`
 
 Start with webapp: `powershell -File start.ps1`
 
@@ -159,11 +159,11 @@ Two registered @mcp.resource() endpoints:
 
 Two-tier engine: ezdxf 1.4 (pure Python, no binary dependencies) handles core reading, SVG export, extrusion, room analysis, DXF creation, depot management, and entity/layer modification. QCAD Pro 3.x provides ECMAScript bridge for dimensions, measurements, hatches, text, blocks, arrays, wall data, beam analysis, plan_agentic, plan_transpile, DWG conversion, and native rendering.
 
-Transport: MCP stdio (Claude Desktop) and HTTP (port 10966). REST API at /api/v1/ for file upload/download and depot management. Webapp at port 10967.
+Transport: MCP stdio (Claude Desktop) and HTTP (port 11966). REST API at /api/v1/ for file upload/download and depot management. Webapp at port 11967.
 
 Depot: Persistent file storage at %LOCALAPPDATA%/qcad-mcp/depot. All files persist across restarts. Depot CRUD via REST: GET/PUT/DELETE /api/v1/depot/{name}. Output files saved to parallel output directory.
 
-CORS: Configured for tauri://localhost and http://localhost:10967 for webapp access.
+CORS: Configured for tauri://localhost and http://localhost:11967 for webapp access.
 
 ## Fleet Integration
 
@@ -186,3 +186,4 @@ Common errors and recovery:
 - "Sampling failed" or "AI sampling unavailable" -- cad_sampling, plan_agentic, and plan_transpile fall back to template/heuristic mode when run without a sampling-capable MCP client (Claude Desktop, Cursor).
 
 - "No beam segments provided" -- plan_beam_analysis requires at least one beam segment dict with x1,y1,x2,y2 coordinates. Use the example format.
+

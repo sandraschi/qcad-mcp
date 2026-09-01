@@ -4,7 +4,7 @@ import 'scripts/just/fleet.just'
 export NAME := "QCAD MCP"
 export DESC := "DXF/DWG floor plans to SVG + STL via MCP tools"
 export VER  := "0.3.0"
-export PORT := "10966"
+export PORT := "11966"
 export HOST := "0.0.0.0"
 
 # Open the interactive recipe dashboard in the browser
@@ -87,29 +87,23 @@ llms-txt:
 
 # Check QCAD MCP status
 health:
-    curl http://localhost:10966/api/v1/status
+    curl http://localhost:11966/api/v1/status
 
 # --- Native  Tauri ---
 
 # Build Tauri native desktop app (Rust + WebView2)
 build-native:
-    Set-Location '{{justfile_directory()}}\native'
-    $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
-    .\build.ps1
+    $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"; powershell.exe -NoProfile -File "{{justfile_directory()}}\native\build.ps1"
 
 # Build Tauri native app (debug)
 build-native-debug:
-    Set-Location '{{justfile_directory()}}\native'
-    $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
-    npx @tauri-apps/cli build --debug
+    $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"; Set-Location '{{justfile_directory()}}\native'; npx @tauri-apps/cli build --debug
 
 tauri-sidecar:
     powershell.exe -NoProfile -File '{{justfile_directory()}}\native\build-sidecar.ps1'
 
 tauri-build:
-    Set-Location '{{justfile_directory()}}\native'
-    $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
-    .\build.ps1
+    $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"; powershell.exe -NoProfile -File "{{justfile_directory()}}\native\build.ps1"
 
 tauri-dev:
     Set-Location '{{justfile_directory()}}\native'
@@ -121,12 +115,13 @@ tauri-dev:
 
 # Install Playwright Chromium browser
 e2e-install:
-    cd {{REPO}}\webapp
+    Set-Location '{{justfile_directory()}}\webapp'
     npx playwright install chromium
 
 # Run Playwright E2E smoke tests (start backend first: just serve)
 e2e:
-    cd {{REPO}}\webapp
+    Set-Location '{{justfile_directory()}}\webapp'
     npx playwright test
 
 # Bootstrap: install dev deps + pre-commit hook
+

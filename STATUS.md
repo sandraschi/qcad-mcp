@@ -3,7 +3,7 @@
 **Status**: v0.3.0 — 28+ tools, zero lint errors, 39 tests, SOTA annotations.
 
 **Repo**: `D:\Dev\repos\qcad-mcp`
-**Ports**: Backend 10966, Frontend 10967
+**Ports**: Backend 11966, Frontend 11967
 
 ## MCP Tools (26)
 
@@ -96,7 +96,7 @@
 ## Cross-Repo Pipeline
 
 ```
-qcad-mcp (port 10966)          freecad-mcp (port 10944)
+qcad-mcp (port 11966)          freecad-mcp (port 10944)
          │                              │
 plan_extrude → walls.stl ──────→ mesh_to_solid → FCStd
          │                              │
@@ -119,3 +119,4 @@ plan_wall_data → wall segments ─→ bim_create_wall per segment
 - [ ] AI-assisted dimensioning: detect walls automatically, add dimensions
 - [ ] Multi-page DXF support (architectural sets with multiple floor levels)
 - [ ] IFC export from wall data (via freecad-mcp bridge)
+

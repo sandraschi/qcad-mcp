@@ -6,7 +6,7 @@ Cross-repo automated CAD pipeline: natural language to 2D floor plans to 3D BIM 
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        qcad-mcp (port 10966)                       │
+│                        qcad-mcp (port 11966)                       │
 │                                                                     │
 │  plan_agentic("3-story apartment...")  ──→ DXF floor plan          │
 │  plan_to_svg                           ──→ SVG 2D preview           │
@@ -118,7 +118,7 @@ Or import the IFC from step 7 into any BIM software.
 
 | Repo | Pipeline | Port |
 |------|----------|------|
-| **qcad-mcp** | NL→DXF→SVG→STL→wall data | 10966 |
+| **qcad-mcp** | NL→DXF→SVG→STL→wall data | 11966 |
 | **freecad-mcp** | STL→solid→BIM→IFC | 10944 |
 | **resonite-mcp** | STL→XR world | 10978 |
 | **unity3d-mcp** | STL→game engine | 10710 |
@@ -148,3 +148,4 @@ Or import the IFC from step 7 into any BIM software.
 | `bim_create_column` | params | FCStd column |
 | `bim_export_ifc` | FCStd | IFC file |
 | `bim_import_ifc` | IFC | FCStd |
+
