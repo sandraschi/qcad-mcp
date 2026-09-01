@@ -78,6 +78,17 @@ _START_TIME = time.time()
 _state: dict = {}
 
 
+def _tool_count() -> int:
+    """Count registered FastMCP tools robustly across versions."""
+    tm = getattr(mcp, "_tool_manager", None)
+    if tm is not None and hasattr(tm, "tools"):
+        return len(tm.tools)
+    try:
+        return len(mcp.list_tools())
+    except Exception:
+        return 0
+
+
 def _ensure_qcad_running():
     if not qcad_pro.is_installed():
         logger.info("QCAD Pro not installed - skipping auto-start")
@@ -85,6 +96,11 @@ def _ensure_qcad_running():
     if qcad_pro.is_running():
         logger.info("QCAD Pro already running")
         return True
+    # Tauri sidecar: skip GUI launch — runs headless in a non-interactive session
+    # where spawning a GUI child hangs the piped-stdout backend.
+    if os.environ.get("QCAD_TAURI") == "1" or os.environ.get("QCAD_MCP_TAURI") == "1":
+        logger.info("QCAD_TAURI=1 - skipping QCAD Pro GUI auto-launch (headless sidecar)")
+        return False
     qcad_exe = str(qcad_pro._qcad_base_dir() / "qcad.exe")
     if os.path.isfile(qcad_exe):
         try:
@@ -130,9 +146,9 @@ _QCAD_TAURI = os.environ.get("QCAD_TAURI", "").lower() in ("1", "true", "yes")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://127.0.0.1:10967",
-        "http://localhost:10967",
-        "http://goliath:10967",
+        "http://127.0.0.1:11967",
+        "http://localhost:11967",
+        "http://goliath:11967",
         "http://tauri.localhost",
         "https://tauri.localhost",
         "tauri://localhost",
@@ -212,9 +228,7 @@ async def api_health():
         except Exception:
             logger.debug("Compiler probe failed for: %s", exe)
             continue
-    tool_count = (
-        sum(1 for _ in mcp._tool_manager.tools.values()) if hasattr(mcp, "_tool_manager") else len(mcp.get_tools())
-    )
+    tool_count = _tool_count()
     return {
         "status": "ok" if qcad_ok else "degraded",
         "qcad_ok": qcad_ok,
@@ -239,12 +253,10 @@ async def api_diagnostics():
         disk = psutil.disk_usage("/").percent
     except ImportError:
         cpu = mem = disk = None
-    tool_count = (
-        sum(1 for _ in mcp._tool_manager.tools.values()) if hasattr(mcp, "_tool_manager") else len(mcp.get_tools())
-    )
+    tool_count = _tool_count()
     return {
         "success": True,
-        "backend": {"port": 10966, "status": "running", "uptime": int(time.time() - _START_TIME)},
+        "backend": {"port": 11966, "status": "running", "uptime": int(time.time() - _START_TIME)},
         "system": {"cpu_percent": cpu, "memory_percent": mem, "disk_percent": disk},
         "tools": {"total": tool_count},
         "cua_status": {"tesseract_available": False, "window_found": False},
@@ -600,7 +612,12 @@ _register_tool(
 _register_tool(
     "plan_to_ifc_data",
     plan_to_ifc_data,
-    {"file_name": "file_name", "wall_layers": "wall_layers", "wall_height": "wall_height", "wall_thickness": "wall_thickness"},
+    {
+        "file_name": "file_name",
+        "wall_layers": "wall_layers",
+        "wall_height": "wall_height",
+        "wall_thickness": "wall_thickness",
+    },
 )
 
 
@@ -787,17 +804,29 @@ async def _run_stdio():
 
 def main():
     import argparse
+    import sys as _sys
+
+    _is_tauri = os.environ.get("QCAD_TAURI") == "1" or os.environ.get("QCAD_MCP_TAURI") == "1"
+    if _is_tauri:
+        try:
+            if hasattr(_sys.stdout, "isatty"):
+                _sys.stdout.isatty = lambda: False  # type: ignore[method-assign]
+            if hasattr(_sys.stderr, "isatty"):
+                _sys.stderr.isatty = lambda: False  # type: ignore[method-assign]
+        except Exception:
+            pass
 
     parser = argparse.ArgumentParser(description="QCAD MCP Server")
     parser.add_argument("--mode", choices=["stdio", "http", "dual"], default="stdio")
     parser.add_argument("--host", default="0.0.0.0")  # noqa: S104
-    parser.add_argument("--port", type=int, default=10966)
+    parser.add_argument("--port", type=int, default=11966)
     args = parser.parse_args()
 
-    import os as _os
-    if _os.getenv("QCAD_TAURI") == "1":
+    if _is_tauri and args.mode == "stdio":
+        logger.warning("QCAD_TAURI=1 set — forcing --mode http (was stdio) to protect sidecar stdout")
         args.mode = "http"
-        args.port = int(_os.getenv("MCP_PORT", args.port))
+        args.host = os.environ.get("MCP_HOST", args.host)
+        args.port = int(os.environ.get("MCP_PORT", str(args.port)))
 
     if args.mode == "stdio":
         asyncio.run(_run_stdio())
