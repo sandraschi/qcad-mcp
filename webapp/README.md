@@ -1,6 +1,6 @@
 # qcad-mcp Webapp
 
-Vite + React 19 dashboard for QCAD MCP. Fleet ports **10967** (frontend) proxying to **10966** (backend).
+Vite + React 19 dashboard for QCAD MCP. Fleet ports **11967** (frontend) proxying to **11966** (backend).
 
 ## Pages
 
@@ -33,10 +33,10 @@ Vite + React 19 dashboard for QCAD MCP. Fleet ports **10967** (frontend) proxyin
 ```powershell
 cd webapp
 npm install
-npm run dev          # :10967, proxies /api → :10966
+npm run dev          # :11967, proxies /api → :11966
 ```
 
-The Vite proxy forwards `/api/*` to `http://127.0.0.1:10966`.
+The Vite proxy forwards `/api/*` to `http://127.0.0.1:11966`.
 
 ## Production Build
 
@@ -44,3 +44,4 @@ The Vite proxy forwards `/api/*` to `http://127.0.0.1:10966`.
 npm run build        # outputs to dist/
 npm run preview      # serve dist/ locally
 ```
+

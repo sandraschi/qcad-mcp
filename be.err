@@ -1,0 +1,34 @@
+[09/01/26 18:22:08] WARNING  OpenAPI schema has no paths defined. parser.py:668
+2026-09-01 18:22:08,693 - qcad-mcp - INFO - Starting QCAD MCP on 127.0.0.1:11966
+INFO:     Started server process [87840]
+INFO:     Waiting for application startup.
+2026-09-01 18:22:08,889 - qcad-mcp - INFO - QCAD Pro GUI launched: C:\Program Files\QCAD\qcad.exe
+2026-09-01 18:22:09,060 - qcad-mcp - INFO - QCAD MCP startup - ezdxf unknown, QCAD Pro 3.32.9 (running), depot: C:\Users\sandr\AppData\Local\qcad-mcp\depot
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:11966 (Press CTRL+C to quit)
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "uvicorn\protocols\http\httptools_impl.py", line 421, in run_asgi
+  File "uvicorn\middleware\proxy_headers.py", line 56, in __call__
+  File "fastapi\applications.py", line 1159, in __call__
+  File "starlette\applications.py", line 90, in __call__
+  File "starlette\middleware\errors.py", line 186, in __call__
+  File "starlette\middleware\errors.py", line 164, in __call__
+  File "starlette\middleware\cors.py", line 88, in __call__
+  File "starlette\middleware\exceptions.py", line 63, in __call__
+  File "starlette\_exception_handler.py", line 53, in wrapped_app
+  File "starlette\_exception_handler.py", line 42, in wrapped_app
+  File "fastapi\middleware\asyncexitstack.py", line 18, in __call__
+  File "starlette\routing.py", line 660, in __call__
+  File "starlette\routing.py", line 680, in app
+  File "starlette\routing.py", line 276, in handle
+  File "fastapi\routing.py", line 134, in app
+  File "starlette\_exception_handler.py", line 53, in wrapped_app
+  File "starlette\_exception_handler.py", line 42, in wrapped_app
+  File "fastapi\routing.py", line 120, in app
+  File "fastapi\routing.py", line 674, in app
+  File "fastapi\routing.py", line 328, in run_endpoint_function
+  File "C:\Users\sandr\AppData\Local\Temp\_MEI799842\qcad_mcp\server.py", line 216, in api_health
+    sum(1 for _ in mcp._tool_manager.tools.values()) if hasattr(mcp, "_tool_manager") else len(mcp.get_tools())
+                                                                                               ^^^^^^^^^^^^^
+AttributeError: 'FastMCP' object has no attribute 'get_tools'. Did you mean: 'get_tool'?

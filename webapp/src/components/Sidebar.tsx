@@ -3,23 +3,23 @@ import {
 	BarChart3,
 	Bot,
 	Box,
+	ChevronLeft,
+	ChevronRight,
 	Code2,
 	Database,
 	FileText,
+	GitBranch,
 	Grid3X3,
 	HelpCircle,
 	Layers,
 	LayoutDashboard,
 	Logs,
 	Play,
-	GitBranch,
 	Ruler,
 	Settings,
 	SlidersHorizontal,
 	Sparkles,
 	Terminal,
-	ChevronLeft,
-	ChevronRight,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
@@ -43,10 +43,7 @@ const navItems = [
 	{ path: "/help", label: "Help", icon: HelpCircle },
 ];
 
-export default function Sidebar({
-	collapsed,
-	onToggle,
-}: { collapsed: boolean; onToggle: () => void }) {
+export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
 	return (
 		<motion.aside
 			animate={{ width: collapsed ? 72 : 240 }}

@@ -1702,6 +1702,7 @@ dev = [
     { name = "pyinstaller" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "pywin32" },
 ]
 
 [package.metadata]
@@ -1730,6 +1731,7 @@ dev = [
     { name = "pyinstaller", specifier = ">=6.21.0" },
     { name = "pytest", specifier = ">=9.0.3" },
     { name = "pytest-asyncio", specifier = ">=1.3.0" },
+    { name = "pywin32", specifier = ">=311" },
 ]
 
 [[package]]

@@ -30,12 +30,7 @@ export default function StlViewer({ url }: Props) {
 		const scene = new Scene();
 		scene.background = null;
 
-		const camera = new PerspectiveCamera(
-			45,
-			mount.clientWidth / mount.clientHeight,
-			1,
-			100000,
-		);
+		const camera = new PerspectiveCamera(45, mount.clientWidth / mount.clientHeight, 1, 100000);
 		camera.position.set(15000, 10000, 15000);
 		camera.lookAt(0, 0, 0);
 
@@ -118,9 +113,7 @@ export default function StlViewer({ url }: Props) {
 		>
 			{loading && (
 				<div className="absolute inset-0 flex items-center justify-center bg-black/20 z-10">
-					<div className="text-amber-400 text-sm animate-pulse">
-						Loading 3D model...
-					</div>
+					<div className="text-amber-400 text-sm animate-pulse">Loading 3D model...</div>
 				</div>
 			)}
 			{error && (

@@ -1,13 +1,4 @@
-import {
-	Bot,
-	CheckCircle,
-	Code2,
-	Download,
-	Layers,
-	Loader2,
-	Send,
-	XCircle,
-} from "lucide-react";
+import { Bot, CheckCircle, Code2, Download, Layers, Loader2, Send, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { API_BASE } from "../lib/api";
 
@@ -40,9 +31,7 @@ export default function AgenticPage() {
 	const [running, setRunning] = useState(false);
 	const [result, setResult] = useState<AgenticResult | null>(null);
 	const [error, setError] = useState("");
-	const [history, setHistory] = useState<
-		Array<{ goal: string; output: string }>
-	>([]);
+	const [history, setHistory] = useState<Array<{ goal: string; output: string }>>([]);
 	const [qcadOk, setQcadOk] = useState(false);
 
 	useEffect(() => {
@@ -55,8 +44,8 @@ export default function AgenticPage() {
 		fetch(API_BASE + "/api/v1/files")
 			.then((r) => r.json())
 			.then((j) => {
-				const all = [...(j.uploads || []), ...(j.outputs || [])].filter(
-					(f: { name: string }) => f.name.match(/\.(dxf|dwg)$/i),
+				const all = [...(j.uploads || []), ...(j.outputs || [])].filter((f: { name: string }) =>
+					f.name.match(/\.(dxf|dwg)$/i),
 				);
 				setFiles(all);
 			})
@@ -80,10 +69,7 @@ export default function AgenticPage() {
 			const j: AgenticResult = await r.json();
 			if (j.success) {
 				setResult(j);
-				setHistory((prev) => [
-					{ goal: goal.trim(), output: j.output || "" },
-					...prev.slice(0, 9),
-				]);
+				setHistory((prev) => [{ goal: goal.trim(), output: j.output || "" }, ...prev.slice(0, 9)]);
 			} else {
 				setError(j.error || "Agentic execution failed");
 			}
@@ -100,13 +86,8 @@ export default function AgenticPage() {
 				<Bot className="text-amber-400" /> AI CAD Agent
 			</h1>
 			<p className="text-sm text-slate-300">
-				Describe a CAD operation in natural language. The agent generates and
-				executes ECMAScript via QCAD Pro.{" "}
-				{!qcadOk && (
-					<span className="text-red-400">
-						QCAD Pro not detected — install it for full capabilities.
-					</span>
-				)}
+				Describe a CAD operation in natural language. The agent generates and executes ECMAScript via QCAD Pro.{" "}
+				{!qcadOk && <span className="text-red-400">QCAD Pro not detected — install it for full capabilities.</span>}
 			</p>
 
 			<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -145,16 +126,10 @@ export default function AgenticPage() {
 							disabled={!goal.trim() || running}
 							className="flex items-center gap-2 px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-sm font-bold"
 						>
-							{running ? (
-								<Loader2 size={14} className="animate-spin" />
-							) : (
-								<Send size={14} />
-							)}
+							{running ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
 							{running ? "Executing..." : "Execute"}
 						</button>
-						<span className="text-xs text-slate-500 ml-auto">
-							Ctrl+Enter to run
-						</span>
+						<span className="text-xs text-slate-500 ml-auto">Ctrl+Enter to run</span>
 					</div>
 
 					{error && (
@@ -167,9 +142,7 @@ export default function AgenticPage() {
 				{/* Examples + History */}
 				<div className="space-y-4">
 					<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-2">
-						<h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">
-							Quick Examples
-						</h3>
+						<h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Quick Examples</h3>
 						{EXAMPLES.map((ex, i) => (
 							<button
 								type="button"
@@ -185,9 +158,7 @@ export default function AgenticPage() {
 
 					{history.length > 0 && (
 						<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-2">
-							<h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">
-								Recent
-							</h3>
+							<h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Recent</h3>
 							{history.map((h, i) => (
 								<button
 									type="button"
@@ -209,28 +180,19 @@ export default function AgenticPage() {
 				<div className="space-y-4">
 					<div className="grid grid-cols-4 gap-3">
 						<div className="bg-[#1e1e26] border border-emerald-500/20 rounded-2xl p-4 text-center">
-							<CheckCircle
-								size={20}
-								className="mx-auto mb-1 text-emerald-400"
-							/>
-							<p className="text-2xl font-bold text-white">
-								{result.data?.steps ?? 1}
-							</p>
+							<CheckCircle size={20} className="mx-auto mb-1 text-emerald-400" />
+							<p className="text-2xl font-bold text-white">{result.data?.steps ?? 1}</p>
 							<p className="text-xs text-slate-400">Steps Executed</p>
 						</div>
 						<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 text-center">
 							<Layers size={20} className="mx-auto mb-1 text-amber-400" />
-							<p className="text-2xl font-bold text-white">
-								{result.data?.entity_count ?? "—"}
-							</p>
+							<p className="text-2xl font-bold text-white">{result.data?.entity_count ?? "—"}</p>
 							<p className="text-xs text-slate-400">Entities Created</p>
 						</div>
 						<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 text-center">
 							<Code2 size={20} className="mx-auto mb-1 text-amber-400" />
 							<p className="text-xs text-slate-400 mt-1">Generated Script</p>
-							<p className="text-sm text-slate-300 mt-1">
-								{result.data?.plan?.[0]?.source ?? "ai"} &rarr; QCAD Pro
-							</p>
+							<p className="text-sm text-slate-300 mt-1">{result.data?.plan?.[0]?.source ?? "ai"} &rarr; QCAD Pro</p>
 						</div>
 						<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 text-center flex flex-col items-center justify-center">
 							{result.output ? (
@@ -269,10 +231,7 @@ export default function AgenticPage() {
 			{!result && !running && !error && (
 				<div className="text-center py-12 text-slate-400">
 					<Bot size={48} className="mx-auto mb-4 opacity-30" />
-					<p>
-						Describe a CAD goal above. The agent will generate and execute QCAD
-						ECMAScript.
-					</p>
+					<p>Describe a CAD goal above. The agent will generate and execute QCAD ECMAScript.</p>
 				</div>
 			)}
 		</div>

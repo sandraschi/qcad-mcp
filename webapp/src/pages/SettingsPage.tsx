@@ -16,11 +16,14 @@ const PROVIDERS: ProviderInfo[] = [
 
 async function probeProvider(p: ProviderInfo): Promise<"detected" | "not_found"> {
 	try {
-		const probe = p.name === "Ollama"
-			? await fetch(`${p.base}:${p.port}/api/tags`, { signal: AbortSignal.timeout(3000) })
-			: await fetch(`${p.base}:${p.port}/v1/models`, { signal: AbortSignal.timeout(3000) });
+		const probe =
+			p.name === "Ollama"
+				? await fetch(`${p.base}:${p.port}/api/tags`, { signal: AbortSignal.timeout(3000) })
+				: await fetch(`${p.base}:${p.port}/v1/models`, { signal: AbortSignal.timeout(3000) });
 		return probe.ok ? "detected" : "not_found";
-	} catch { return "not_found"; }
+	} catch {
+		return "not_found";
+	}
 }
 
 async function fetchModels(p: ProviderInfo): Promise<string[]> {
@@ -33,7 +36,9 @@ async function fetchModels(p: ProviderInfo): Promise<string[]> {
 		const r = await fetch(`${p.base}:${p.port}/v1/models`, { signal: AbortSignal.timeout(5000) });
 		const j = await r.json();
 		return (j.data || []).map((m: { id: string }) => m.id);
-	} catch { return []; }
+	} catch {
+		return [];
+	}
 }
 
 export default function SettingsPage() {
@@ -54,14 +59,18 @@ export default function SettingsPage() {
 	// Probe all providers on mount
 	useEffect(() => {
 		const results: Record<string, "probing" | "detected" | "not_found"> = {};
-		PROVIDERS.forEach((p) => { results[p.name] = "probing"; });
+		PROVIDERS.forEach((p) => {
+			results[p.name] = "probing";
+		});
 		setProviderStatus({ ...results });
 
-		Promise.all(PROVIDERS.map(async (p) => {
-			const r = await probeProvider(p);
-			results[p.name] = r;
-			setProviderStatus({ ...results });
-		})).then(() => {
+		Promise.all(
+			PROVIDERS.map(async (p) => {
+				const r = await probeProvider(p);
+				results[p.name] = r;
+				setProviderStatus({ ...results });
+			}),
+		).then(() => {
 			setProbing(false);
 			if (!selectedProvider) {
 				const first = PROVIDERS.find((p) => results[p.name] === "detected");
@@ -103,10 +112,18 @@ export default function SettingsPage() {
 			await fetch(API_BASE + "/api/v1/settings", {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ ollama_url: ollamaUrl, model, qcad_pro_path: qcadProPath, default_wall_height: wallHeight, default_wall_thickness: wallThickness }),
+				body: JSON.stringify({
+					ollama_url: ollamaUrl,
+					model,
+					qcad_pro_path: qcadProPath,
+					default_wall_height: wallHeight,
+					default_wall_thickness: wallThickness,
+				}),
 			});
 			setStatus("Saved.");
-		} catch { setStatus("Error saving."); }
+		} catch {
+			setStatus("Error saving.");
+		}
 	};
 
 	const detectedProviders = PROVIDERS.filter((p) => providerStatus[p.name] === "detected");
@@ -134,8 +151,14 @@ export default function SettingsPage() {
 							{providerStatus[p.name] === "not_found" && <XCircle size={14} className="text-slate-600" />}
 							<span className="text-slate-300">{p.name}</span>
 							<span className="text-slate-500">:{p.port}</span>
-							<span className={`text-xs ${providerStatus[p.name] === "detected" ? "text-emerald-400" : providerStatus[p.name] === "probing" ? "text-amber-400" : "text-slate-600"}`}>
-								{providerStatus[p.name] === "probing" ? "Probing..." : providerStatus[p.name] === "detected" ? "Detected" : "Not found"}
+							<span
+								className={`text-xs ${providerStatus[p.name] === "detected" ? "text-emerald-400" : providerStatus[p.name] === "probing" ? "text-amber-400" : "text-slate-600"}`}
+							>
+								{providerStatus[p.name] === "probing"
+									? "Probing..."
+									: providerStatus[p.name] === "detected"
+										? "Detected"
+										: "Not found"}
 							</span>
 						</div>
 					))}
@@ -151,11 +174,17 @@ export default function SettingsPage() {
 							data-testid="llm-provider-select"
 							className="w-full bg-[#18181c] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500"
 						>
-							{detectedProviders.map((p) => <option key={p.name} value={p.name}>{p.name} (:{(PROVIDERS.find((pr) => pr.name === p.name) || p).port})</option>)}
+							{detectedProviders.map((p) => (
+								<option key={p.name} value={p.name}>
+									{p.name} (:{(PROVIDERS.find((pr) => pr.name === p.name) || p).port})
+								</option>
+							))}
 						</select>
 					) : (
 						<div className="text-sm text-slate-500 italic bg-[#18181c] rounded-xl px-4 py-2.5 border border-white/10">
-							{probing ? "Probing for local LLM providers..." : "No local LLM detected. Install Ollama or LM Studio to enable AI features."}
+							{probing
+								? "Probing for local LLM providers..."
+								: "No local LLM detected. Install Ollama or LM Studio to enable AI features."}
 						</div>
 					)}
 				</div>
@@ -171,10 +200,16 @@ export default function SettingsPage() {
 								data-testid="llm-model-select"
 								className="w-full bg-[#18181c] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500"
 							>
-								{availableModels.map((m) => <option key={m} value={m}>{m}</option>)}
+								{availableModels.map((m) => (
+									<option key={m} value={m}>
+										{m}
+									</option>
+								))}
 							</select>
 						) : (
-							<div className="text-sm text-slate-500 italic bg-[#18181c] rounded-xl px-4 py-2.5 border border-white/10">Fetching models...</div>
+							<div className="text-sm text-slate-500 italic bg-[#18181c] rounded-xl px-4 py-2.5 border border-white/10">
+								Fetching models...
+							</div>
 						)}
 					</div>
 				)}
@@ -184,13 +219,19 @@ export default function SettingsPage() {
 					<>
 						<label className="block text-sm text-slate-400">
 							Ollama / LMStudio URL
-							<input value={ollamaUrl} onChange={(e) => setOllamaUrl(e.target.value)}
-								className="mt-1 w-full bg-[#18181c] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500" />
+							<input
+								value={ollamaUrl}
+								onChange={(e) => setOllamaUrl(e.target.value)}
+								className="mt-1 w-full bg-[#18181c] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500"
+							/>
 						</label>
 						<label className="block text-sm text-slate-400">
 							Model
-							<input value={model} onChange={(e) => setModel(e.target.value)}
-								className="mt-1 w-full bg-[#18181c] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500" />
+							<input
+								value={model}
+								onChange={(e) => setModel(e.target.value)}
+								className="mt-1 w-full bg-[#18181c] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500"
+							/>
 						</label>
 					</>
 				)}
@@ -205,13 +246,25 @@ export default function SettingsPage() {
 				<div className="grid grid-cols-2 gap-4">
 					<label className="block text-sm text-slate-400">
 						Default Wall Height (m)
-						<input type="number" step="0.1" min="0.5" value={wallHeight} onChange={(e) => setWallHeight(Number.parseFloat(e.target.value) || 3)}
-							className="mt-1 w-full bg-[#18181c] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500" />
+						<input
+							type="number"
+							step="0.1"
+							min="0.5"
+							value={wallHeight}
+							onChange={(e) => setWallHeight(Number.parseFloat(e.target.value) || 3)}
+							className="mt-1 w-full bg-[#18181c] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500"
+						/>
 					</label>
 					<label className="block text-sm text-slate-400">
 						Default Wall Thickness (m)
-						<input type="number" step="0.05" min="0.05" value={wallThickness} onChange={(e) => setWallThickness(Number.parseFloat(e.target.value) || 0.3)}
-							className="mt-1 w-full bg-[#18181c] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500" />
+						<input
+							type="number"
+							step="0.05"
+							min="0.05"
+							value={wallThickness}
+							onChange={(e) => setWallThickness(Number.parseFloat(e.target.value) || 0.3)}
+							className="mt-1 w-full bg-[#18181c] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500"
+						/>
 					</label>
 				</div>
 			</div>
@@ -224,14 +277,25 @@ export default function SettingsPage() {
 				</div>
 				<label className="block text-sm text-slate-400">
 					Path to qcad.exe
-					<input value={qcadProPath} onChange={(e) => setQcadProPath(e.target.value)} placeholder="C:\Program Files\QCAD\qcad.exe"
-						className="mt-1 w-full bg-[#18181c] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500" />
+					<input
+						value={qcadProPath}
+						onChange={(e) => setQcadProPath(e.target.value)}
+						placeholder="C:\Program Files\QCAD\qcad.exe"
+						className="mt-1 w-full bg-[#18181c] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500"
+					/>
 				</label>
-				<p className="text-sm text-slate-400">QCAD Pro (Swiss-made, ~€50) enables dwg2pdf and dwg2svg with perfect hatches, text, and dimension rendering.</p>
+				<p className="text-sm text-slate-400">
+					QCAD Pro (Swiss-made, ~€50) enables dwg2pdf and dwg2svg with perfect hatches, text, and dimension rendering.
+				</p>
 			</div>
 
-			<button type="button" onClick={save}
-				className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold">Save Settings</button>
+			<button
+				type="button"
+				onClick={save}
+				className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold"
+			>
+				Save Settings
+			</button>
 			{status && <p className="text-sm text-slate-400">{status}</p>}
 		</div>
 	);

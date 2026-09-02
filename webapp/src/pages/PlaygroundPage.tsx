@@ -3,24 +3,64 @@ import { useCallback, useEffect, useState } from "react";
 import { API_BASE } from "../lib/api";
 
 const TOOLS = [
-	"plan_info", "plan_to_svg", "plan_extrude", "plan_export", "plan_analyse",
-	"plan_measure", "plan_create", "plan_depot", "plan_convert", "plan_modify",
-	"plan_dimension", "plan_text", "plan_hatch", "plan_block_insert", "plan_array",
-	"plan_wall_data", "plan_beam_analysis",
-	"plan_blocks", "plan_blocks_download", "plan_scripts_search", "plan_scripts_download",
-	"plan_script", "plan_render", "plan_exec", "qcad_status",
+	"plan_info",
+	"plan_to_svg",
+	"plan_extrude",
+	"plan_export",
+	"plan_analyse",
+	"plan_measure",
+	"plan_create",
+	"plan_depot",
+	"plan_convert",
+	"plan_modify",
+	"plan_dimension",
+	"plan_text",
+	"plan_hatch",
+	"plan_block_insert",
+	"plan_array",
+	"plan_wall_data",
+	"plan_beam_analysis",
+	"plan_blocks",
+	"plan_blocks_download",
+	"plan_scripts_search",
+	"plan_scripts_download",
+	"plan_script",
+	"plan_render",
+	"plan_exec",
+	"qcad_status",
 ];
 
 const ARG_TEMPLATES: Record<string, string> = {
 	plan_info: JSON.stringify({ file_name: "studio_apt.dxf" }, null, 2),
 	plan_to_svg: JSON.stringify({ file_name: "studio_apt.dxf", output_name: "preview.svg" }, null, 2),
-	plan_extrude: JSON.stringify({ file_name: "studio_apt.dxf", output_name: "extruded.stl", wall_height: 3.0, wall_thickness: 0.15, wall_layers: ["Walls"] }, null, 2),
+	plan_extrude: JSON.stringify(
+		{
+			file_name: "studio_apt.dxf",
+			output_name: "extruded.stl",
+			wall_height: 3.0,
+			wall_thickness: 0.15,
+			wall_layers: ["Walls"],
+		},
+		null,
+		2,
+	),
 	plan_export: JSON.stringify({ file_name: "studio_apt.dxf", format: "svg", output_name: "export.svg" }, null, 2),
 	plan_analyse: JSON.stringify({ file_name: "studio_apt.dxf" }, null, 2),
 	plan_blocks: JSON.stringify({ query: "door", limit: 5 }, null, 2),
 	plan_depot: "{}",
 	qcad_status: "{}",
-	plan_beam_analysis: JSON.stringify({ beams: [{ x1: 0, y1: 0, x2: 4000, y2: 0, label: "B1" }], supports: [{ x: 0, y: 0, type: "pinned" }, { x: 4000, y: 0, type: "roller" }], loads: [{ x: 2000, y: 0, value: -5000 }] }, null, 2),
+	plan_beam_analysis: JSON.stringify(
+		{
+			beams: [{ x1: 0, y1: 0, x2: 4000, y2: 0, label: "B1" }],
+			supports: [
+				{ x: 0, y: 0, type: "pinned" },
+				{ x: 4000, y: 0, type: "roller" },
+			],
+			loads: [{ x: 2000, y: 0, value: -5000 }],
+		},
+		null,
+		2,
+	),
 };
 
 export default function PlaygroundPage() {
@@ -37,7 +77,8 @@ export default function PlaygroundPage() {
 			.then((j) => {
 				const all = [...(j.uploads || []), ...(j.outputs || [])].map((f: { name: string }) => f.name);
 				setDepotFiles(all);
-			}).catch(() => {});
+			})
+			.catch(() => {});
 	}, []);
 
 	useEffect(() => {
@@ -97,7 +138,11 @@ export default function PlaygroundPage() {
 							onChange={(e) => setTool(e.target.value)}
 							className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-amber-500"
 						>
-							{TOOLS.map((t) => <option key={t} value={t}>{t}</option>)}
+							{TOOLS.map((t) => (
+								<option key={t} value={t}>
+									{t}
+								</option>
+							))}
 						</select>
 					</div>
 					<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-3">
@@ -107,11 +152,18 @@ export default function PlaygroundPage() {
 								<div className="flex items-center gap-1">
 									<span className="text-xs text-slate-500">Files:</span>
 									<select
-										onChange={(e) => { if (e.target.value) insertFileName(e.target.value); e.target.value = ""; }}
+										onChange={(e) => {
+											if (e.target.value) insertFileName(e.target.value);
+											e.target.value = "";
+										}}
 										className="bg-black/40 border border-white/10 rounded text-[10px] px-2 py-1 text-slate-300 max-w-[140px]"
 									>
 										<option value="">Insert file name...</option>
-										{depotFiles.map((f) => <option key={f} value={f}>{f}</option>)}
+										{depotFiles.map((f) => (
+											<option key={f} value={f}>
+												{f}
+											</option>
+										))}
 									</select>
 								</div>
 							)}

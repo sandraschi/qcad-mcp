@@ -1,12 +1,4 @@
-import {
-	CheckCircle,
-	Code2,
-	Download,
-	ExternalLink,
-	FileCode,
-	Loader2,
-	Search,
-} from "lucide-react";
+import { CheckCircle, Code2, Download, ExternalLink, FileCode, Loader2, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { API_BASE } from "../lib/api";
 
@@ -29,9 +21,7 @@ export default function ScriptsPage() {
 	const [source, setSource] = useState("all");
 	const [query, setQuery] = useState("");
 	const [category, setCategory] = useState("");
-	const [categories, setCategories] = useState<{ id: string; label: string }[]>(
-		[],
-	);
+	const [categories, setCategories] = useState<{ id: string; label: string }[]>([]);
 	const [results, setResults] = useState<ScriptResult[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState("");
@@ -75,11 +65,7 @@ export default function ScriptsPage() {
 
 	const downloadScript = async (item: ScriptResult) => {
 		if (!item.url && item.source !== "gallery") {
-			window.open(
-				"https://gist.github.com/search?q=qcad",
-				"_blank",
-				"noopener",
-			);
+			window.open("https://gist.github.com/search?q=qcad", "_blank", "noopener");
 			return;
 		}
 		setDownloading(item.title);
@@ -118,8 +104,7 @@ export default function ScriptsPage() {
 				<FileCode className="text-amber-400" /> ECMAScript Library
 			</h1>
 			<p className="text-sm text-slate-300">
-				Browse curated QCAD scripts, QCAD bundled examples, and GitHub Gists.
-				Download to the depot and use with{" "}
+				Browse curated QCAD scripts, QCAD bundled examples, and GitHub Gists. Download to the depot and use with{" "}
 				<code className="text-amber-400">plan_script</code>.
 			</p>
 
@@ -139,10 +124,7 @@ export default function ScriptsPage() {
 
 				<div className="flex gap-2">
 					<div className="flex-1 relative">
-						<Search
-							size={16}
-							className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
-						/>
+						<Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
 						<input
 							type="text"
 							value={query}
@@ -158,12 +140,7 @@ export default function ScriptsPage() {
 						disabled={loading}
 						className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-xl text-sm font-bold flex items-center gap-2"
 					>
-						{loading ? (
-							<Loader2 size={14} className="animate-spin" />
-						) : (
-							<Search size={14} />
-						)}{" "}
-						Search
+						{loading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />} Search
 					</button>
 				</div>
 
@@ -185,9 +162,7 @@ export default function ScriptsPage() {
 				{error && <p className="text-red-400 text-sm">{error}</p>}
 			</div>
 
-			{results.length > 0 && (
-				<p className="text-slate-300 text-sm">{results.length} scripts found</p>
-			)}
+			{results.length > 0 && <p className="text-slate-300 text-sm">{results.length} scripts found</p>}
 
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 				{results.map((item, i) => (
@@ -197,28 +172,17 @@ export default function ScriptsPage() {
 					>
 						<div className="p-4 space-y-2">
 							<div className="flex items-start gap-2">
-								<Code2
-									size={16}
-									className={`mt-0.5 shrink-0 ${sourceColor(item.source)}`}
-								/>
+								<Code2 size={16} className={`mt-0.5 shrink-0 ${sourceColor(item.source)}`} />
 								<div className="min-w-0">
-									<h3 className="text-sm font-bold text-white leading-tight">
-										{item.title}
-									</h3>
-									<p className="text-xs text-slate-400 mt-1 line-clamp-2">
-										{item.description}
-									</p>
+									<h3 className="text-sm font-bold text-white leading-tight">{item.title}</h3>
+									<p className="text-xs text-slate-400 mt-1 line-clamp-2">{item.description}</p>
 								</div>
 							</div>
 							<div className="flex items-center gap-2 text-xs">
-								<span
-									className={`px-2 py-0.5 rounded uppercase font-bold ${sourceColor(item.source)} bg-white/5`}
-								>
+								<span className={`px-2 py-0.5 rounded uppercase font-bold ${sourceColor(item.source)} bg-white/5`}>
 									{item.source}
 								</span>
-								{item.category && (
-									<span className="text-slate-500">{item.category}</span>
-								)}
+								{item.category && <span className="text-slate-500">{item.category}</span>}
 							</div>
 							<div className="flex items-center gap-2 pt-1">
 								<button
@@ -255,8 +219,8 @@ export default function ScriptsPage() {
 				<div className="text-center py-12 text-slate-400">
 					<FileCode size={48} className="mx-auto mb-4 opacity-30" />
 					<p>
-						Search for QCAD ECMAScript scripts. The curated gallery has
-						ready-to-use drawing, dimension, and utility scripts.
+						Search for QCAD ECMAScript scripts. The curated gallery has ready-to-use drawing, dimension, and utility
+						scripts.
 					</p>
 				</div>
 			)}
@@ -264,20 +228,13 @@ export default function ScriptsPage() {
 			{recent.length > 0 && (
 				<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-2">
 					<h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-						<CheckCircle size={12} className="text-emerald-400" /> Added to
-						Depot
+						<CheckCircle size={12} className="text-emerald-400" /> Added to Depot
 					</h3>
 					{recent.map((f) => (
-						<div
-							key={f}
-							className="flex items-center gap-2 p-2 rounded-xl bg-white/10 text-sm text-slate-300"
-						>
+						<div key={f} className="flex items-center gap-2 p-2 rounded-xl bg-white/10 text-sm text-slate-300">
 							<Download size={14} className="text-emerald-400 shrink-0" />
 							<span className="truncate">{f}</span>
-							<a
-								href={`/api/v1/depot/${f}`}
-								className="text-sm text-amber-400 ml-auto shrink-0"
-							>
+							<a href={`/api/v1/depot/${f}`} className="text-sm text-amber-400 ml-auto shrink-0">
 								View in Depot →
 							</a>
 						</div>

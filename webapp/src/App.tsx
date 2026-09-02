@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import AppLayout from "./components/AppLayout";
+import FloatingChat from "./components/FloatingChat";
 import AgenticPage from "./pages/AgenticPage";
 import AnalysePage from "./pages/AnalysePage";
 import BatchPage from "./pages/BatchPage";
@@ -17,7 +18,6 @@ import PlaygroundPage from "./pages/PlaygroundPage";
 import ScriptsPage from "./pages/ScriptsPage";
 import SettingsPage from "./pages/SettingsPage";
 import ViewerPage from "./pages/ViewerPage";
-import FloatingChat from "./components/FloatingChat";
 
 export default function App() {
 	return (

@@ -1,8 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
-import { installTauriApiShim } from "./lib/api";
 import App from "./App";
+import { installTauriApiShim } from "./lib/api";
 import "./index.css";
 
 installTauriApiShim();

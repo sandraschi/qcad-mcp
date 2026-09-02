@@ -151,23 +151,73 @@ export default function ExtrudePage() {
 			</div>
 
 			{result && (
-				<div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-500/20 space-y-2">
-					<p className="text-emerald-400 font-bold flex items-center gap-2">
-						<Download size={16} /> Extrusion Complete
+				<div className="p-5 rounded-2xl bg-emerald-950/30 border border-emerald-500/20 space-y-3">
+					<p className="text-emerald-400 font-bold flex items-center gap-2 text-base">
+						<Download size={18} /> Extrusion Complete
 					</p>
-					<p className="text-sm text-slate-400">
-						{result.output} — {result.data?.size_kb} KB
-					</p>
-					<p className="text-sm text-slate-400">
-						{result.data?.wall_count} wall segments — {result.data?.vertices}+ vertices, {result.data?.faces} faces
-					</p>
-					<a
-						href={`/api/v1/download/${result.output}`}
-						download
-						className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
-					>
-						<Download size={14} /> Download STL from Depot
-					</a>
+					<div className="grid grid-cols-2 gap-2 text-sm text-slate-300">
+						<div>
+							File: <span className="font-mono text-slate-100">{result.output}</span>
+						</div>
+						<div>
+							Size: <span className="font-mono text-slate-100">{result.data?.size_kb} KB</span>
+						</div>
+						<div>
+							Wall Segments: <span className="font-mono text-slate-100">{result.data?.wall_count}</span>
+						</div>
+						<div>
+							Mesh Geometry:{" "}
+							<span className="font-mono text-slate-100">
+								{result.data?.vertices}+ vertices, {result.data?.faces} faces
+							</span>
+						</div>
+					</div>
+					<div className="flex items-center gap-3 pt-2">
+						<a
+							href={`${API_BASE}/api/v1/case-files/${result.output}`}
+							download
+							className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition-all shadow-lg"
+						>
+							<Download size={16} /> Download 3D STL Mesh
+						</a>
+						{file && (
+							<button
+								type="button"
+								onClick={async () => {
+									try {
+										const r = await fetch(`${API_BASE}/api/v1/control/tool`, {
+											method: "POST",
+											headers: { "Content-Type": "application/json" },
+											body: JSON.stringify({
+												tool: "plan_to_ifc_data",
+												arguments: {
+													file_name: file.name,
+													wall_height: wallHeight * 1000.0,
+													wall_thickness: wallThickness * 1000.0,
+												},
+											}),
+										});
+										const j = await r.json();
+										if (j.success) {
+											const blob = new Blob([JSON.stringify(j.data?.bim_schema, null, 2)], {
+												type: "application/json",
+											});
+											const url = URL.createObjectURL(blob);
+											const a = document.createElement("a");
+											a.href = url;
+											a.download = j.data?.ifc_json_name || "building_bim.json";
+											a.click();
+										}
+									} catch (e) {
+										console.error(e);
+									}
+								}}
+								className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 text-sm font-bold transition-all"
+							>
+								<Box size={16} /> Export BIM JSON (IFC)
+							</button>
+						)}
+					</div>
 				</div>
 			)}
 		</div>

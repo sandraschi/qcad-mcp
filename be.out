@@ -1,0 +1,1 @@
+INFO:     127.0.0.1:60447 - "GET /api/v1/health HTTP/1.1" 500 Internal Server Error

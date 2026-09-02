@@ -1,13 +1,4 @@
-import {
-	Box,
-	CheckCircle,
-	Download,
-	ExternalLink,
-	Eye,
-	Loader2,
-	Sparkles,
-	Wand2,
-} from "lucide-react";
+import { Box, CheckCircle, Download, ExternalLink, Eye, Loader2, Sparkles, Wand2 } from "lucide-react";
 import { useState } from "react";
 import StlViewer from "../components/StlViewer";
 import { API_BASE } from "../lib/api";
@@ -29,7 +20,10 @@ interface DemoResult {
 
 type Entity = Record<string, unknown>;
 
-function generateEntities(goal: string): { entities: Entity[]; layers: { name: string; color: number; description: string }[] } {
+function generateEntities(goal: string): {
+	entities: Entity[];
+	layers: { name: string; color: number; description: string }[];
+} {
 	const g = goal.toLowerCase();
 	const mm = (m: number) => Math.round(m * 1000);
 
@@ -46,19 +40,29 @@ function generateEntities(goal: string): { entities: Entity[]; layers: { name: s
 
 	// Baroque church
 	if (g.includes("baroque") || g.includes("church") || g.includes("cathedral") || g.includes("basilica")) {
-		const W = mm(45), H = mm(20); // nave dimensions
+		const W = mm(45),
+			H = mm(20); // nave dimensions
 		const apseR = mm(6);
-		const transeptW = mm(10), transeptH = mm(28);
-		const chapelW = mm(5), chapelH = mm(5);
+		const transeptW = mm(10),
+			transeptH = mm(28);
+		const chapelW = mm(5),
+			chapelH = mm(5);
 		// Nave
 		entities.push({ type: "rect", x1: 0, y1: 0, x2: W, y2: H, layer: "Walls" });
 		// Apse (semi-circle approximated as rect + text)
-		entities.push({ type: "line", x1: W, y1: H/2 - apseR, x2: W + apseR, y2: H/2 - apseR, layer: "Walls" });
-		entities.push({ type: "line", x1: W + apseR, y1: H/2 - apseR, x2: W + apseR, y2: H/2 + apseR, layer: "Walls" });
-		entities.push({ type: "line", x1: W + apseR, y1: H/2 + apseR, x2: W, y2: H/2 + apseR, layer: "Walls" });
+		entities.push({ type: "line", x1: W, y1: H / 2 - apseR, x2: W + apseR, y2: H / 2 - apseR, layer: "Walls" });
+		entities.push({ type: "line", x1: W + apseR, y1: H / 2 - apseR, x2: W + apseR, y2: H / 2 + apseR, layer: "Walls" });
+		entities.push({ type: "line", x1: W + apseR, y1: H / 2 + apseR, x2: W, y2: H / 2 + apseR, layer: "Walls" });
 		// Transept (cross arms)
 		const tx = Math.round(W * 0.4);
-		entities.push({ type: "rect", x1: tx, y1: -transeptH/2 + H/2, x2: tx + transeptW, y2: transeptH/2 + H/2, layer: "Walls" });
+		entities.push({
+			type: "rect",
+			x1: tx,
+			y1: -transeptH / 2 + H / 2,
+			x2: tx + transeptW,
+			y2: transeptH / 2 + H / 2,
+			layer: "Walls",
+		});
 		// Side chapels
 		for (let i = 0; i < 4; i++) {
 			const cx = Math.round(W * 0.15 + i * W * 0.2);
@@ -72,16 +76,30 @@ function generateEntities(goal: string): { entities: Entity[]; layers: { name: s
 			entities.push({ type: "circle", x: cx, y: Math.round(H * 0.75), r: 200, layer: "Columns" });
 		}
 		// Altar
-		entities.push({ type: "rect", x1: W - mm(1), y1: H/2 - mm(1.5), x2: W + mm(1), y2: H/2 + mm(1.5), layer: "Detail" });
+		entities.push({
+			type: "rect",
+			x1: W - mm(1),
+			y1: H / 2 - mm(1.5),
+			x2: W + mm(1),
+			y2: H / 2 + mm(1.5),
+			layer: "Detail",
+		});
 		// Labels
-		entities.push({ type: "text", x: W/2 - mm(3), y: H/2 - mm(1), h: 800, text: "NAVE", layer: "Text" });
-		entities.push({ type: "text", x: W + mm(2), y: H/2 - mm(0.5), h: 400, text: "APSE", layer: "Text" });
+		entities.push({ type: "text", x: W / 2 - mm(3), y: H / 2 - mm(1), h: 800, text: "NAVE", layer: "Text" });
+		entities.push({ type: "text", x: W + mm(2), y: H / 2 - mm(0.5), h: 400, text: "APSE", layer: "Text" });
 		entities.push({ type: "text", x: tx + mm(1), y: -mm(2), h: 400, text: "TRANSEPT", layer: "Text" });
-		entities.push({ type: "text", x: W/2 - mm(2), y: H + mm(2), h: 400, text: "SIDE CHAPEL", layer: "Text" });
+		entities.push({ type: "text", x: W / 2 - mm(2), y: H + mm(2), h: 400, text: "SIDE CHAPEL", layer: "Text" });
 
-	// Mob compound
-	} else if (g.includes("mob") || g.includes("compound") || g.includes("mafia") || g.includes("estate") || g.includes("villa")) {
-		const P = mm(60), Q = mm(50); // perimeter
+		// Mob compound
+	} else if (
+		g.includes("mob") ||
+		g.includes("compound") ||
+		g.includes("mafia") ||
+		g.includes("estate") ||
+		g.includes("villa")
+	) {
+		const P = mm(60),
+			Q = mm(50); // perimeter
 		// Perimeter wall
 		entities.push({ type: "rect", x1: 0, y1: 0, x2: P, y2: Q, layer: "Walls" });
 		// Guard towers at corners
@@ -90,29 +108,36 @@ function generateEntities(goal: string): { entities: Entity[]; layers: { name: s
 		entities.push({ type: "rect", x1: -mm(1), y1: Q - mm(2), x2: mm(3), y2: Q + mm(2), layer: "Detail" });
 		entities.push({ type: "rect", x1: P - mm(2), y1: Q - mm(2), x2: P + mm(2), y2: Q + mm(2), layer: "Detail" });
 		// Main villa
-		const vx = mm(15), vy = mm(10), vw = mm(20), vh = mm(18);
+		const vx = mm(15),
+			vy = mm(10),
+			vw = mm(20),
+			vh = mm(18);
 		entities.push({ type: "rect", x1: vx, y1: vy, x2: vx + vw, y2: vy + vh, layer: "Walls" });
 		// Pool
 		entities.push({ type: "rect", x1: mm(38), y1: mm(8), x2: mm(52), y2: mm(16), layer: "Detail" });
 		// Guest house
 		entities.push({ type: "rect", x1: mm(5), y1: vy + vh + mm(4), x2: mm(14), y2: vy + vh + mm(10), layer: "Walls" });
 		// Gatehouse at entrance
-		entities.push({ type: "rect", x1: P/2 - mm(3), y1: 0, x2: P/2 + mm(3), y2: mm(4), layer: "Walls" });
+		entities.push({ type: "rect", x1: P / 2 - mm(3), y1: 0, x2: P / 2 + mm(3), y2: mm(4), layer: "Walls" });
 		// Driveway
-		entities.push({ type: "line", x1: P/2, y1: mm(4), x2: P/2, y2: vy, layer: "Detail" });
+		entities.push({ type: "line", x1: P / 2, y1: mm(4), x2: P / 2, y2: vy, layer: "Detail" });
 		// Labels
 		entities.push({ type: "text", x: vx + mm(4), y: vy + mm(7), h: 700, text: "VILLA", layer: "Text" });
 		entities.push({ type: "text", x: mm(40), y: mm(9), h: 400, text: "POOL", layer: "Text" });
 		entities.push({ type: "text", x: mm(6), y: vy + vh + mm(5), h: 350, text: "GUEST", layer: "Text" });
-		entities.push({ type: "text", x: P/2 - mm(2), y: mm(1), h: 300, text: "GATE", layer: "Text" });
+		entities.push({ type: "text", x: P / 2 - mm(2), y: mm(1), h: 300, text: "GATE", layer: "Text" });
 
-	// Versailles / palace
-	} else if (g.includes("versailles") || (g.includes("palace") && (g.includes("wing") || g.includes("garden") || g.includes("state")))) {
-		const W = mm(200), H = mm(150);
+		// Versailles / palace
+	} else if (
+		g.includes("versailles") ||
+		(g.includes("palace") && (g.includes("wing") || g.includes("garden") || g.includes("state")))
+	) {
+		const W = mm(200),
+			H = mm(150);
 		// Main palace block
 		entities.push({ type: "rect", x1: 0, y1: 0, x2: W, y2: H, layer: "Walls" });
 		// Central axis (grande perspective)
-		entities.push({ type: "line", x1: W/2, y1: 0, x2: W/2, y2: H + mm(80), layer: "Walls" });
+		entities.push({ type: "line", x1: W / 2, y1: 0, x2: W / 2, y2: H + mm(80), layer: "Walls" });
 		// Hall of Mirrors (central gallery)
 		entities.push({ type: "rect", x1: mm(62), y1: mm(30), x2: mm(138), y2: mm(50), layer: "Walls" });
 		// King's wing (north)
@@ -135,7 +160,14 @@ function generateEntities(goal: string): { entities: Entity[]; layers: { name: s
 		entities.push({ type: "rect", x1: mm(20), y1: H + mm(10), x2: mm(70), y2: H + mm(25), layer: "Walls" });
 		// Gardens (path grid)
 		for (let i = 0; i < 5; i++) {
-			entities.push({ type: "line", x1: mm(30 + i * 35), y1: H + mm(30), x2: mm(30 + i * 35), y2: H + mm(80), layer: "Detail" });
+			entities.push({
+				type: "line",
+				x1: mm(30 + i * 35),
+				y1: H + mm(30),
+				x2: mm(30 + i * 35),
+				y2: H + mm(80),
+				layer: "Detail",
+			});
 		}
 		// Fountains
 		for (let i = 0; i < 3; i++) {
@@ -149,15 +181,16 @@ function generateEntities(goal: string): { entities: Entity[]; layers: { name: s
 		entities.push({ type: "text", x: W + mm(15), y: mm(22), h: 300, text: "TRIANON", layer: "Text" });
 		entities.push({ type: "text", x: mm(25), y: H + mm(12), h: 300, text: "ORANGERIE", layer: "Text" });
 
-	// Museum / gallery
+		// Museum / gallery
 	} else if (g.includes("museum") || g.includes("gallery") || g.includes("art")) {
-		const W = mm(40), H = mm(35);
+		const W = mm(40),
+			H = mm(35);
 		entities.push({ type: "rect", x1: 0, y1: 0, x2: W, y2: H, layer: "Walls" });
 		// Central atrium
 		entities.push({ type: "rect", x1: mm(14), y1: mm(10), x2: mm(26), y2: mm(25), layer: "Walls" });
 		// Gallery wings radiating out
 		for (let i = 0; i < 4; i++) {
-			const angle = (i * 90) * Math.PI / 180;
+			const angle = (i * 90 * Math.PI) / 180;
 			const cx = mm(20) + Math.round(Math.cos(angle) * mm(10));
 			const cy = mm(17) + Math.round(Math.sin(angle) * mm(10));
 			entities.push({ type: "rect", x1: cx - mm(3), y1: cy - mm(2), x2: cx + mm(3), y2: cy + mm(2), layer: "Walls" });
@@ -166,7 +199,7 @@ function generateEntities(goal: string): { entities: Entity[]; layers: { name: s
 		entities.push({ type: "text", x: mm(22), y: mm(2), h: 400, text: "WING A", layer: "Text" });
 		entities.push({ type: "text", x: mm(34), y: mm(16), h: 400, text: "WING B", layer: "Text" });
 
-	// Generic: parse dimensions from goal
+		// Generic: parse dimensions from goal
 	} else {
 		const dimMatch = g.match(/(\d+)\s*(?:m|meter|metre)/g);
 		const nums = dimMatch ? dimMatch.map((s) => parseInt(s.replace(/\D/g, ""))) : [8, 6];
@@ -181,15 +214,30 @@ function generateEntities(goal: string): { entities: Entity[]; layers: { name: s
 		for (let r = 0; r < rows; r++) {
 			for (let c = 0; c < cols; c++) {
 				if (r * cols + c >= roomCount) break;
-				const rx = Math.round(w * c / cols), ry = Math.round(h * r / rows);
-				const rw = Math.round(w * (c + 1) / cols) - rx;
-				const rh = Math.round(h * (r + 1) / rows) - ry;
+				const rx = Math.round((w * c) / cols),
+					ry = Math.round((h * r) / rows);
+				const rw = Math.round((w * (c + 1)) / cols) - rx;
+				const rh = Math.round((h * (r + 1)) / rows) - ry;
 				if (r > 0) entities.push({ type: "line", x1: rx, y1: ry, x2: rx + rw, y2: ry, layer: "Walls" });
 				if (c > 0) entities.push({ type: "line", x1: rx, y1: ry, x2: rx, y2: ry + rh, layer: "Walls" });
-				entities.push({ type: "text", x: rx + Math.round(rw * 0.2), y: ry + Math.round(rh * 0.4), h: Math.min(rw, rh) / 3, text: `ROOM ${r * cols + c + 1}`, layer: "Text" });
+				entities.push({
+					type: "text",
+					x: rx + Math.round(rw * 0.2),
+					y: ry + Math.round(rh * 0.4),
+					h: Math.min(rw, rh) / 3,
+					text: `ROOM ${r * cols + c + 1}`,
+					layer: "Text",
+				});
 			}
 		}
-		entities.push({ type: "text", x: Math.round(w * 0.3), y: Math.round(h * 0.85), h: 250, text: `${nums[0] || 8}m x ${nums[1] || nums[0] || 6}m`, layer: "Dimensions" });
+		entities.push({
+			type: "text",
+			x: Math.round(w * 0.3),
+			y: Math.round(h * 0.85),
+			h: 250,
+			text: `${nums[0] || 8}m x ${nums[1] || nums[0] || 6}m`,
+			layer: "Dimensions",
+		});
 	}
 
 	return { entities, layers };
@@ -235,9 +283,7 @@ export default function DemoPage() {
 	const [result, setResult] = useState<DemoResult | null>(null);
 
 	const updateStep = (idx: number, patch: Partial<Step>) => {
-		setSteps((prev) =>
-			prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)),
-		);
+		setSteps((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
 	};
 
 	const execute = async () => {
@@ -284,8 +330,7 @@ export default function DemoPage() {
 					entities,
 					layers,
 				});
-				if (!createResult.success)
-					throw new Error(createResult.error || "Failed to create floor plan");
+				if (!createResult.success) throw new Error(createResult.error || "Failed to create floor plan");
 				dxfFile = dxfName;
 				entityCount = createResult.data?.entity_count ?? 0;
 			}
@@ -303,11 +348,7 @@ export default function DemoPage() {
 				status: svgResult.success ? "done" : "error",
 				detail: svgResult.success ? svgResult.output : svgResult.error,
 			});
-			setResult((prev) =>
-				prev
-					? { ...prev, svg: svgResult.success ? svgResult.output : null }
-					: prev,
-			);
+			setResult((prev) => (prev ? { ...prev, svg: svgResult.success ? svgResult.output : null } : prev));
 
 			// Step 3: Extrude to 3D STL
 			updateStep(2, { status: "running" });
@@ -329,9 +370,7 @@ export default function DemoPage() {
 					? {
 							...prev,
 							stl: stlResult.success ? stlResult.output : null,
-							stl_vertices: stlResult.success
-								? (stlResult.data?.vertices ?? 0)
-								: 0,
+							stl_vertices: stlResult.success ? (stlResult.data?.vertices ?? 0) : 0,
 						}
 					: prev,
 			);
@@ -353,11 +392,7 @@ export default function DemoPage() {
 			};
 			setResult((prev) => (prev ? { ...prev, error: msg } : empty));
 			setSteps((prev) =>
-				prev.map((s) =>
-					s.status === "running"
-						? { ...s, status: "error" as const, detail: msg }
-						: s,
-				),
+				prev.map((s) => (s.status === "running" ? { ...s, status: "error" as const, detail: msg } : s)),
 			);
 		} finally {
 			setRunning(false);
@@ -365,12 +400,9 @@ export default function DemoPage() {
 	};
 
 	const stepIcon = (s: Step) => {
-		if (s.status === "done")
-			return <CheckCircle size={16} className="text-emerald-400" />;
-		if (s.status === "running")
-			return <Loader2 size={16} className="animate-spin text-amber-400" />;
-		if (s.status === "error")
-			return <CheckCircle size={16} className="text-red-400" />;
+		if (s.status === "done") return <CheckCircle size={16} className="text-emerald-400" />;
+		if (s.status === "running") return <Loader2 size={16} className="animate-spin text-amber-400" />;
+		if (s.status === "error") return <CheckCircle size={16} className="text-red-400" />;
 		return <CheckCircle size={16} className="text-slate-700" />;
 	};
 
@@ -383,9 +415,7 @@ export default function DemoPage() {
 				</div>
 				<div>
 					<h1 className="text-2xl font-bold text-white">AI CAD Demo</h1>
-					<p className="text-sm text-slate-400">
-						Natural language → 2D floor plan → 3D model → Resonite-ready
-					</p>
+					<p className="text-sm text-slate-400">Natural language → 2D floor plan → 3D model → Resonite-ready</p>
 				</div>
 			</div>
 
@@ -411,11 +441,7 @@ export default function DemoPage() {
 							disabled={!goal.trim() || running}
 							className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-sm font-bold"
 						>
-							{running ? (
-								<Loader2 size={14} className="animate-spin" />
-							) : (
-								<Wand2 size={14} />
-							)}
+							{running ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
 							Generate
 						</button>
 					</div>
@@ -443,9 +469,7 @@ export default function DemoPage() {
 				<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4">
 					<div className="flex items-center gap-2 mb-3">
 						<Box size={14} className="text-amber-400" />
-						<h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">
-							Pipeline
-						</h3>
+						<h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Pipeline</h3>
 					</div>
 					<div className="grid grid-cols-4 gap-3">
 						{steps.map((s, i) => (
@@ -462,17 +486,11 @@ export default function DemoPage() {
 								}`}
 							>
 								<div className="flex items-center justify-center gap-1.5 mb-1">
-									<span className="text-xs text-slate-500 font-mono">
-										0{i + 1}
-									</span>
+									<span className="text-xs text-slate-500 font-mono">0{i + 1}</span>
 									{stepIcon(s)}
 								</div>
 								<p className="text-xs font-medium text-slate-300">{s.label}</p>
-								{s.detail && (
-									<p className="text-xs text-slate-500 mt-1 truncate">
-										{s.detail}
-									</p>
-								)}
+								{s.detail && <p className="text-xs text-slate-500 mt-1 truncate">{s.detail}</p>}
 							</div>
 						))}
 					</div>
@@ -488,12 +506,8 @@ export default function DemoPage() {
 							<div className="px-4 py-3 bg-white/5 border-b border-white/10 flex items-center justify-between">
 								<div className="flex items-center gap-2">
 									<Eye size={14} className="text-amber-400" />
-									<span className="text-sm font-bold text-slate-300">
-										2D Floor Plan
-									</span>
-									<span className="text-xs text-slate-500">
-										({result.dxf_entities} entities)
-									</span>
+									<span className="text-sm font-bold text-slate-300">2D Floor Plan</span>
+									<span className="text-xs text-slate-500">({result.dxf_entities} entities)</span>
 								</div>
 								<a
 									href={`/api/v1/download/${result.svg}`}
@@ -518,12 +532,8 @@ export default function DemoPage() {
 							<div className="px-4 py-3 bg-white/5 border-b border-white/10 flex items-center justify-between">
 								<div className="flex items-center gap-2">
 									<Box size={14} className="text-amber-400" />
-									<span className="text-sm font-bold text-slate-300">
-										3D Extrusion
-									</span>
-									<span className="text-xs text-slate-500">
-										({result.stl_vertices} vertices)
-									</span>
+									<span className="text-sm font-bold text-slate-300">3D Extrusion</span>
+									<span className="text-xs text-slate-500">({result.stl_vertices} vertices)</span>
 								</div>
 								<a
 									href={`/api/v1/download/${result.stl}`}
@@ -546,14 +556,10 @@ export default function DemoPage() {
 									<ExternalLink size={20} className="text-purple-400" />
 								</div>
 								<div className="space-y-2">
-									<h3 className="text-lg font-bold text-white flex items-center gap-2">
-										Resonite-Ready
-									</h3>
+									<h3 className="text-lg font-bold text-white flex items-center gap-2">Resonite-Ready</h3>
 									<p className="text-sm text-slate-300">
-										Download the STL file above and import it directly into
-										Resonite. The extrusion preserves real-world scale (1 DXF
-										unit = 1 mm). Use the STL as a static world mesh or add
-										interactivity.
+										Download the STL file above and import it directly into Resonite. The extrusion preserves real-world
+										scale (1 DXF unit = 1 mm). Use the STL as a static world mesh or add interactivity.
 									</p>
 									<div className="flex flex-wrap gap-2">
 										<a
@@ -591,13 +597,8 @@ export default function DemoPage() {
 					<div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-600/10 flex items-center justify-center">
 						<Sparkles size={28} className="text-amber-400 opacity-50" />
 					</div>
-					<p className="text-lg">
-						Describe a building above and watch it come to life.
-					</p>
-					<p className="text-sm">
-						NL input → AI floor plan → 2D preview → 3D extrusion →
-						Resonite-ready
-					</p>
+					<p className="text-lg">Describe a building above and watch it come to life.</p>
+					<p className="text-sm">NL input → AI floor plan → 2D preview → 3D extrusion → Resonite-ready</p>
 				</div>
 			)}
 		</div>

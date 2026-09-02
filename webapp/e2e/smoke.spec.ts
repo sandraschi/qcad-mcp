@@ -1,6 +1,7 @@
-import { test, expect } from '@playwright/test';
-const BE = http://127.0.0.1:10966;
-const FE = http://127.0.0.1:10967;
+import { expect, test } from '@playwright/test';
+
+const BE = "http://127.0.0.1:11966";
+const FE = "http://127.0.0.1:11967";
 test.describe('Fleet Audit', () => {
     test('Backend health', async ({ request }) => {
         const resp = await request.get(BE + '/health');
@@ -12,3 +13,4 @@ test.describe('Fleet Audit', () => {
         await expect(page.locator('#root')).toBeAttached();
     });
 });
+

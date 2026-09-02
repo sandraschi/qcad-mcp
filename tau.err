@@ -1,0 +1,11 @@
+[09/01/26 19:33:32] WARNING  OpenAPI schema has no paths defined. parser.py:668
+2026-09-01 19:33:33,076 - qcad-mcp - INFO - Starting QCAD MCP on 127.0.0.1:11966
+INFO:     Started server process [91400]
+INFO:     Waiting for application startup.
+2026-09-01 19:33:33,283 - qcad-mcp - INFO - QCAD Pro GUI launched: C:\Program Files\QCAD\qcad.exe
+2026-09-01 19:33:33,486 - qcad-mcp - INFO - QCAD MCP startup - ezdxf unknown, QCAD Pro 3.32.9 (running), depot: C:\Users\sandr\AppData\Local\qcad-mcp\depot
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:11966 (Press CTRL+C to quit)
+C:\Users\sandr\AppData\Local\Temp\_MEI884882\qcad_mcp\server.py:87: RuntimeWarning: coroutine 'FastMCP.list_tools' was never awaited
+  return len(mcp.list_tools())
+RuntimeWarning: Enable tracemalloc to get the object allocation traceback

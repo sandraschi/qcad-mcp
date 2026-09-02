@@ -7,4 +7,5 @@ if (-not (Test-Path -LiteralPath $FleetStartPath)) {
 }
 . $FleetStartPath
 
-if (-not (Stop-FleetPortListeners -Ports @(10967, 10966) -Label "qcad-mcp")) { exit 1 }
+if (-not (Stop-FleetPortListeners -Ports @(11967, 11966) -Label "qcad-mcp")) { exit 1 }
+
