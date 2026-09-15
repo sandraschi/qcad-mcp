@@ -205,7 +205,8 @@ async def api_health():
     qcad_version = qcad_pro.get_version()
     docker_ok = False
     try:
-        r = subprocess.run(
+        r = await asyncio.to_thread(
+            subprocess.run,
             ["docker", "info", "--format", "{{.ServerVersion}}"],
             capture_output=True,
             text=True,
@@ -221,7 +222,9 @@ async def api_health():
     compiler = None
     for exe in ["g++", "clang++", "cl.exe"]:
         try:
-            cr = subprocess.run([exe, "--version"], capture_output=True, text=True, timeout=3)
+            cr = await asyncio.to_thread(
+                subprocess.run, [exe, "--version"], capture_output=True, text=True, timeout=3
+            )
             if cr.returncode == 0:
                 compiler = exe
                 break
