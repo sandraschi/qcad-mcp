@@ -1,126 +1,132 @@
 import { useEffect, useRef, useState } from "react";
-import {
-	AmbientLight,
-	Box3,
-	type BufferGeometry,
-	DirectionalLight,
-	Mesh,
-	MeshPhongMaterial,
-	PerspectiveCamera,
-	Scene,
-	Vector3,
-	WebGLRenderer,
-} from "three";
+import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 
 interface Props {
 	url: string;
+	filename?: string;
 }
 
-export default function StlViewer({ url }: Props) {
+/** In-browser 3D preview for STL outputs: orbit with drag, zoom with wheel. */
+export default function StlViewer({ url, filename }: Props) {
 	const mountRef = useRef<HTMLDivElement>(null);
-	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
+	const [stats, setStats] = useState("");
+	const label = filename ?? decodeURIComponent(url.split("/").pop() ?? "model.stl");
 
 	useEffect(() => {
 		const mount = mountRef.current;
 		if (!mount) return;
+		let cancelled = false;
+		let renderer: THREE.WebGLRenderer | null = null;
+		let controls: OrbitControls | null = null;
+		let frame = 0;
+		setError("");
+		setStats("");
 
-		const scene = new Scene();
-		scene.background = null;
+		(async () => {
+			try {
+				const r = await fetch(url);
+				if (!r.ok) throw new Error(`HTTP ${r.status}`);
+				const buf = await r.arrayBuffer();
+				if (cancelled) return;
+				const geo = new STLLoader().parse(buf);
+				geo.computeBoundingBox();
+				geo.computeBoundingSphere();
+				const bb = geo.boundingBox as THREE.Box3;
+				const size = new THREE.Vector3();
+				bb.getSize(size);
+				const center = new THREE.Vector3();
+				bb.getCenter(center);
+				geo.translate(-center.x, -center.y, -center.z);
+				const radius = geo.boundingSphere ? geo.boundingSphere.radius : Math.max(size.x, size.y, size.z) / 2;
 
-		const camera = new PerspectiveCamera(45, mount.clientWidth / mount.clientHeight, 1, 100000);
-		camera.position.set(15000, 10000, 15000);
-		camera.lookAt(0, 0, 0);
+				const w = mount.clientWidth || 600;
+				const h = 420;
+				renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+				renderer.setSize(w, h);
+				renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+				mount.appendChild(renderer.domElement);
 
-		const renderer = new WebGLRenderer({ antialias: true, alpha: true });
-		renderer.setPixelRatio(window.devicePixelRatio);
-		renderer.setSize(mount.clientWidth, mount.clientHeight);
-		renderer.setClearColor(0x000000, 0);
-		mount.appendChild(renderer.domElement);
+				const scene = new THREE.Scene();
+				const camera = new THREE.PerspectiveCamera(45, w / h, 1, radius * 100);
+				camera.position.set(radius * 1.6, -radius * 1.8, radius * 1.2);
+				camera.up.set(0, 0, 1);
 
-		const ambient = new AmbientLight(0x404060, 2);
-		scene.add(ambient);
-		const dirLight = new DirectionalLight(0xffffff, 3);
-		dirLight.position.set(1, 2, 1);
-		scene.add(dirLight);
+				scene.add(new THREE.HemisphereLight(0xffffff, 0x1e1e26, 1.1));
+				const dir = new THREE.DirectionalLight(0xffffff, 1.6);
+				dir.position.set(radius, radius, radius * 2);
+				scene.add(dir);
 
-		const controls = new OrbitControls(camera, renderer.domElement);
-		controls.enableDamping = true;
-		controls.dampingFactor = 0.08;
-
-		const loader = new STLLoader();
-		loader.load(
-			url,
-			(geometry: BufferGeometry) => {
-				geometry.computeVertexNormals();
-				const material = new MeshPhongMaterial({
-					color: 0xd4a574,
-					specular: 0x111111,
-					shininess: 30,
-					flatShading: false,
+				const mat = new THREE.MeshStandardMaterial({
+					color: 0xd97706,
+					metalness: 0.15,
+					roughness: 0.6,
+					side: THREE.DoubleSide,
 				});
-				const mesh = new Mesh(geometry, material);
+				scene.add(new THREE.Mesh(geo, mat));
 
-				geometry.computeBoundingBox();
-				const bbox = geometry.boundingBox || new Box3();
-				const center = new Vector3();
-				bbox.getCenter(center);
-				mesh.position.sub(center);
-				const size = new Vector3();
-				bbox.getSize(size);
+				const grid = new THREE.GridHelper(Math.max(size.x, size.y) * 1.4, 20, 0x444455, 0x2a2a33);
+				grid.rotation.x = Math.PI / 2;
+				grid.position.z = -size.z / 2 - 1;
+				scene.add(grid);
 
-				scene.add(mesh);
-				setLoading(false);
-				camera.position.set(size.x * 1.5, size.y * 1.2, size.z * 1.5);
-			},
-			undefined,
-			() => {
-				setLoading(false);
-				setError("Failed to load STL");
-			},
-		);
+				controls = new OrbitControls(camera, renderer.domElement);
+				controls.target.set(0, 0, 0);
+				controls.autoRotate = true;
+				controls.autoRotateSpeed = 1.2;
+				controls.update();
 
-		let animId: number;
-		const animate = () => {
-			animId = requestAnimationFrame(animate);
-			controls.update();
-			renderer.render(scene, camera);
-		};
-		animate();
+				setStats(
+					`${(geo.attributes.position.count / 3).toLocaleString()} facets · ${size.x.toFixed(0)} x ${size.y.toFixed(0)} x ${size.z.toFixed(0)} mm`,
+				);
 
-		const handleResize = () => {
-			if (!mount) return;
-			camera.aspect = mount.clientWidth / mount.clientHeight;
-			camera.updateProjectionMatrix();
-			renderer.setSize(mount.clientWidth, mount.clientHeight);
-		};
-		window.addEventListener("resize", handleResize);
+				const animate = () => {
+					if (cancelled) return;
+					frame = requestAnimationFrame(animate);
+					controls?.update();
+					renderer?.render(scene, camera);
+				};
+				animate();
+
+				const onResize = () => {
+					if (!mount || !renderer) return;
+					const nw = mount.clientWidth || 600;
+					renderer.setSize(nw, h);
+					camera.aspect = nw / h;
+					camera.updateProjectionMatrix();
+				};
+				window.addEventListener("resize", onResize);
+				(controls as OrbitControls & { __cleanup?: () => void }).__cleanup = () =>
+					window.removeEventListener("resize", onResize);
+			} catch (e: unknown) {
+				if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+			}
+		})();
 
 		return () => {
-			cancelAnimationFrame(animId);
-			window.removeEventListener("resize", handleResize);
-			mount.removeChild(renderer.domElement);
-			renderer.dispose();
+			cancelled = true;
+			cancelAnimationFrame(frame);
+			const cleanup = (controls as (OrbitControls & { __cleanup?: () => void }) | null)?.__cleanup;
+			if (cleanup) cleanup();
+			controls?.dispose();
+			if (renderer) {
+				renderer.dispose();
+				if (renderer.domElement.parentElement === mount) mount.removeChild(renderer.domElement);
+			}
+			mount.innerHTML = "";
 		};
 	}, [url]);
 
 	return (
-		<div
-			ref={mountRef}
-			className="w-full h-full min-h-[400px] relative rounded-2xl overflow-hidden bg-gradient-to-b from-[#1a1a24] to-[#111118]"
-		>
-			{loading && (
-				<div className="absolute inset-0 flex items-center justify-center bg-black/20 z-10">
-					<div className="text-amber-400 text-sm animate-pulse">Loading 3D model...</div>
-				</div>
-			)}
-			{error && (
-				<div className="absolute inset-0 flex items-center justify-center bg-black/20 z-10">
-					<div className="text-red-400 text-sm">{error}</div>
-				</div>
-			)}
+		<div>
+			<div ref={mountRef} className="w-full rounded-xl overflow-hidden" style={{ height: 420 }} />
+			<div className="flex items-center justify-between px-1 pt-2 text-xs text-slate-400">
+				<span className="font-mono truncate">{label}</span>
+				{error ? <span className="text-red-400">{error}</span> : <span>{stats}</span>}
+			</div>
+			<p className="px-1 pt-1 text-xs text-slate-500">Drag to orbit · scroll to zoom · auto-rotates when idle</p>
 		</div>
 	);
 }

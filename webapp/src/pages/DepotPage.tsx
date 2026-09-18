@@ -25,6 +25,7 @@ import {
 	X,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import StlViewer from "../components/StlViewer";
 import { API_BASE } from "../lib/api";
 
 type DxfFile = {
@@ -188,6 +189,11 @@ export default function DepotPage() {
 		setSelectedFile(name);
 		setPreviewUrl("");
 		setFileInfo(null);
+
+		// STL files get the 3D viewer — no SVG/info pipeline (DXF-only tools).
+		if (/\.stl$/i.test(name)) {
+			return;
+		}
 
 		// Generate preview SVG
 		setGeneratingPreview(name);
@@ -605,20 +611,24 @@ export default function DepotPage() {
 							<FileText size={16} className="text-amber-400" /> {selectedFile}
 						</h3>
 						<div className="flex items-center gap-2">
-							<button
-								type="button"
-								onClick={() => handleExport("svg")}
-								className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-white/10 text-sm text-slate-400 hover:text-white"
-							>
-								Export SVG
-							</button>
-							<button
-								type="button"
-								onClick={() => handleExport("pdf")}
-								className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-white/10 text-sm text-slate-400 hover:text-white"
-							>
-								Export PDF
-							</button>
+							{/\.stl$/i.test(selectedFile) ? null : (
+								<>
+									<button
+										type="button"
+										onClick={() => handleExport("svg")}
+										className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-white/10 text-sm text-slate-400 hover:text-white"
+									>
+										Export SVG
+									</button>
+									<button
+										type="button"
+										onClick={() => handleExport("pdf")}
+										className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-white/10 text-sm text-slate-400 hover:text-white"
+									>
+										Export PDF
+									</button>
+								</>
+							)}
 							<a
 								href={`/api/v1/depot/${encodeURIComponent(selectedFile)}`}
 								download
@@ -637,12 +647,17 @@ export default function DepotPage() {
 					</div>
 
 					<div className="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4">
-						{/* Preview */}
+						{/* Preview (3D for STL, SVG for DXF/DWG) */}
 						<div
 							className="lg:col-span-2 bg-[#0a0a0c] border border-white/10 rounded-xl overflow-auto"
 							style={{ maxHeight: "50vh" }}
 						>
-							{generatingPreview === selectedFile ? (
+							{/\.stl$/i.test(selectedFile) ? (
+								<StlViewer
+									url={`/api/v1/depot/${encodeURIComponent(selectedFile)}`}
+									filename={selectedFile}
+								/>
+							) : generatingPreview === selectedFile ? (
 								<div className="flex items-center justify-center h-64">
 									<Loader2 className="animate-spin text-slate-300" size={24} />
 								</div>
