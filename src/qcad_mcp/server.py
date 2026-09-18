@@ -10,6 +10,7 @@ QCAD Pro CLI integration (dwg2pdf, dwg2svg, DWG↔DXF conversion) is optional an
 
 import asyncio
 import collections
+import json
 import logging
 import os
 import subprocess
@@ -897,6 +898,128 @@ async def chat_completion(req: ChatRequest):
     except Exception as e:
         logger.error("Chat error: %s", e)
         return {"content": f"Error: {e}"}
+
+
+# ── Blender Handoff (fleet cross-connect) ─────────────────────────────────
+# Sends qcad OBJ/STL output to blender-mcp via its MCP endpoint
+# (POST /mcp JSON-RPC: initialize -> tools/call blender_import).
+# global_scale 0.001 converts our millimetres to Blender metres.
+
+_BLENDER_BASE = os.environ.get("BLENDER_MCP_URL", "http://127.0.0.1:10849")
+
+
+def _parse_mcp_sse(text):
+    """Extract the last data: payload from an MCP SSE/JSON response."""
+    payload = None
+    for line in (text or "").splitlines():
+        if line.startswith("data: "):
+            try:
+                payload = json.loads(line[6:])
+            except Exception:
+                pass
+    if payload is None:
+        try:
+            payload = json.loads(text)
+        except Exception:
+            payload = None
+    return payload
+
+
+async def _blender_rpc(method, params=None, rpc_id=1, session=None, notify=False, timeout=180.0):
+    headers = {"Content-Type": "application/json", "Accept": "application/json, text/event-stream"}
+    if session:
+        headers["Mcp-Session-Id"] = session
+    body = {"jsonrpc": "2.0", "method": method}
+    if not notify:
+        body["id"] = rpc_id
+    if params is not None:
+        body["params"] = params
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        r = await client.post(_BLENDER_BASE + "/mcp", json=body, headers=headers)
+        return r.headers.get("Mcp-Session-Id", session), _parse_mcp_sse(r.text)
+
+
+@app.get("/api/v1/blender/status")
+async def blender_status():
+    """Probe the blender-mcp backend for the render handoff."""
+    for path in ("/api/v1/health", "/api/v1/status"):
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                r = await client.get(_BLENDER_BASE + path)
+                if r.status_code == 200:
+                    return {"reachable": True, "base": _BLENDER_BASE, "status": r.json()}
+        except Exception:
+            continue
+    return {
+        "reachable": False,
+        "base": _BLENDER_BASE,
+        "hint": "Start the blender-mcp backend to enable textured render import.",
+    }
+
+
+class BlenderImportRequest(BaseModel):
+    file_name: str = Field(description="OBJ/STL/GLB filename in qcad outputs, e.g. plan.obj")
+    operation: str = Field(default="", description="MCP operation (default by extension).")
+    global_scale: float = Field(default=0.001, description="Unit scale, mm to Blender metres.")
+
+
+@app.post("/api/v1/blender/import")
+async def blender_import(req: BlenderImportRequest):
+    """Send a qcad 3D file to Blender (textured OBJ keeps materials)."""
+    obj_path = os.path.join(OUTPUT_DIR, req.file_name)
+    if not os.path.isfile(obj_path):
+        raise HTTPException(404, f"File '{req.file_name}' not found in qcad outputs.")
+    ext = Path(req.file_name).suffix.lower()
+    op = req.operation or {"obj": "import_obj", "stl": "import_stl", "glb": "import_gltf", "gltf": "import_gltf"}.get(
+        ext.lstrip("."), ""
+    )
+    if not op:
+        raise HTTPException(400, f"Unsupported extension for Blender import: {ext}")
+    try:
+        session, _ = await _blender_rpc(
+            "initialize",
+            {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {"name": "qcad-shuttle", "version": "1"},
+            },
+            rpc_id=1,
+            timeout=60.0,
+        )
+        if not session:
+            raise RuntimeError("Blender MCP session failed.")
+        await _blender_rpc("notifications/initialized", None, session=session, notify=True, timeout=30.0)
+        _session, payload = await _blender_rpc(
+            "tools/call",
+            {
+                "name": "blender_import",
+                "arguments": {
+                    "operation": op,
+                    "filepath": obj_path,
+                    "file_format": ext.lstrip(".").upper(),
+                    "global_scale": req.global_scale,
+                    "import_shading": True,
+                },
+            },
+            rpc_id=3,
+            session=session,
+            timeout=300.0,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(502, f"Blender backend unreachable at {_BLENDER_BASE}: {e}")
+    detail = ""
+    inner = {}
+    try:
+        content = (payload.get("result", {}) or {}).get("content", [])
+        detail = (content[0] or {}).get("text", "") if content else ""
+        inner = json.loads(detail) if detail else {}
+    except Exception:
+        pass
+    if inner.get("status") != "SUCCESS":
+        raise HTTPException(502, f"Blender import failed: {(inner.get('error') or detail)[:300]}")
+    return {"success": True, "output": req.file_name, "data": inner, "detail": detail[:500]}
 
 
 # ── FreeCAD Handoff (fleet cross-connect) ─────────────────────────────────

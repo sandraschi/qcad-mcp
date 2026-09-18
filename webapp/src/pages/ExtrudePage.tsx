@@ -29,6 +29,19 @@ interface FreecadResult {
 	error?: string;
 }
 
+interface BlenderStatus {
+	reachable: boolean;
+	base: string;
+	hint?: string;
+}
+
+interface BlenderResult {
+	success: boolean;
+	output: string;
+	imported: string[];
+	error?: string;
+}
+
 export default function ExtrudePage() {
 	const [file, setFile] = useState<File | null>(null);
 	const [depotFiles, setDepotFiles] = useState<string[]>([]);
@@ -44,6 +57,9 @@ export default function ExtrudePage() {
 	const [freecadStatus, setFreecadStatus] = useState<FreecadStatus | null>(null);
 	const [freecadSending, setFreecadSending] = useState(false);
 	const [freecadResult, setFreecadResult] = useState<FreecadResult | null>(null);
+	const [blenderStatus, setBlenderStatus] = useState<BlenderStatus | null>(null);
+	const [blenderSending, setBlenderSending] = useState(false);
+	const [blenderResult, setBlenderResult] = useState<BlenderResult | null>(null);
 
 	useEffect(() => {
 		fetch(API_BASE + "/api/v1/depot")
@@ -59,6 +75,10 @@ export default function ExtrudePage() {
 		fetch(API_BASE + "/api/v1/freecad/status")
 			.then((r) => r.json())
 			.then((j) => setFreecadStatus(j))
+			.catch(() => {});
+		fetch(API_BASE + "/api/v1/blender/status")
+			.then((r) => r.json())
+			.then((j) => setBlenderStatus(j))
 			.catch(() => {});
 	}, []);
 
@@ -143,6 +163,54 @@ export default function ExtrudePage() {
 		}
 	};
 
+	const handleBlender = async () => {
+		if (!result?.output) return;
+		setBlenderSending(true);
+		try {
+			// Textured OBJ first (materials carry into Blender), then import it.
+			const objName = result.output.replace(/\.(stl|obj)$/i, "") + ".obj";
+			const wl = wallLayers.trim() ? wallLayers.split(",").map((s) => s.trim()) : undefined;
+			const o = await fetch(API_BASE + "/api/v1/control/tool", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					tool: "plan_obj",
+					arguments: {
+						file_name: activeFileName,
+						output_name: objName,
+						wall_height: wallHeight,
+						wall_thickness: wallThickness,
+						wall_layers: wl,
+					},
+				}),
+			});
+			const oj = await o.json();
+			if (!oj.success) throw new Error(oj.error || "OBJ export failed");
+			const r = await fetch(API_BASE + "/api/v1/blender/import", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ file_name: oj.output }),
+			});
+			const j = await r.json();
+			if (j.success) {
+				const inner = j.data || {};
+				const imported: string[] = inner.imported_objects || [];
+				setBlenderResult({ success: true, output: oj.output, imported });
+			} else {
+				setBlenderResult({ success: false, output: "", imported: [], error: j.detail || "Transfer failed" });
+			}
+		} catch (e: unknown) {
+			setBlenderResult({
+				success: false,
+				output: "",
+				imported: [],
+				error: e instanceof Error ? e.message : String(e),
+			});
+		} finally {
+			setBlenderSending(false);
+		}
+	};
+
 	const canRun = source === "depot" ? depotSelected !== "" : file !== null;
 
 	return (
@@ -152,7 +220,7 @@ export default function ExtrudePage() {
 			</h1>
 			<p className="text-sm text-slate-300">
 				Pick a DXF floor plan from the depot or upload one, configure wall parameters, and generate a 3D
-				STL mesh — then optionally send it to FreeCAD for a solid 3D object.
+				STL mesh — then send it on to FreeCAD for a solid, or to Blender for rendering.
 			</p>
 
 			<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 space-y-4">
@@ -407,9 +475,54 @@ export default function ExtrudePage() {
 							)}
 						</div>
 					)}
-					{freecadResult && !freecadResult.success && (
+				{freecadResult && !freecadResult.success && (
+					<div className="p-3 rounded-xl bg-red-950/40 border border-red-500/20 text-red-400 text-sm">
+						{freecadResult.error}
+					</div>
+				)}
+			</div>
+			)}
+
+			{result && (
+				<div className="p-5 rounded-2xl bg-orange-950/30 border border-orange-500/20 space-y-3">
+					<p className="text-orange-300 font-bold flex items-center gap-2 text-base">
+						<Box size={18} /> Blender Render Import
+						{blenderStatus && (
+							<span
+								className={`ml-2 inline-block w-2.5 h-2.5 rounded-full ${blenderStatus.reachable ? "bg-emerald-400" : "bg-red-400"}`}
+								title={blenderStatus.reachable ? `Blender reachable at ${blenderStatus.base}` : (blenderStatus.hint || "Blender offline")}
+							/>
+						)}
+					</p>
+					<p className="text-sm text-slate-400">
+						Exports a textured OBJ and imports it into Blender with materials
+						(mm scaled to metres). Requires the blender-mcp backend running.
+					</p>
+					{blenderStatus && !blenderStatus.reachable && (
+						<p className="text-sm text-amber-400">{blenderStatus.hint}</p>
+					)}
+					<button
+						type="button"
+						onClick={handleBlender}
+						disabled={blenderSending || (blenderStatus ? !blenderStatus.reachable : false)}
+						className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 disabled:opacity-40 text-white text-sm font-bold transition-all"
+					>
+						{blenderSending ? <Loader2 className="animate-spin" size={16} /> : <Box size={16} />}
+						{blenderSending ? "Importing into Blender..." : "Send to Blender"}
+					</button>
+					{blenderResult && blenderResult.success && (
+						<div className="text-sm text-slate-300 space-y-1">
+							<div>
+								Imported:{" "}
+								<span className="font-mono text-slate-100">
+									{blenderResult.imported.length > 0 ? blenderResult.imported.join(", ") : blenderResult.output}
+								</span>
+							</div>
+						</div>
+					)}
+					{blenderResult && !blenderResult.success && (
 						<div className="p-3 rounded-xl bg-red-950/40 border border-red-500/20 text-red-400 text-sm">
-							{freecadResult.error}
+							{blenderResult.error}
 						</div>
 					)}
 				</div>
