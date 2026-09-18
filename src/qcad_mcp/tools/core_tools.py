@@ -117,10 +117,35 @@ async def plan_to_svg(
         return {"success": False, "error": f"SVG rendering failed: {e}"}
 
 
-def _wall_segments(msp, wall_layers, doc):
+def _set_height_tag(ent, spec):
+    """Store an optional per-entity wall height (metres) as XDATA so it
+    survives the DXF round-trip. Key: height | hgt (h is text size)."""
+    h = spec.get("height", spec.get("hgt", None))
+    if h is None:
+        return
+    try:
+        ent.set_xdata("QCADMCP", [(1040, float(h))])
+    except Exception:
+        pass
+
+
+def _ent_height_mm(ent, default_mm):
+    """Read per-entity wall height (XDATA, metres) or fall back to default."""
+    try:
+        if ent.has_xdata("QCADMCP"):
+            for tag in ent.get_xdata("QCADMCP"):
+                if tag.code == 1040:
+                    return float(tag.value) * 1000.0
+    except Exception:
+        pass
+    return default_mm
+
+
+def _wall_segments(msp, wall_layers, doc, default_h_mm=None):
     """Shared wall detection for extrude/drawings: auto-detect wall layers
     (case-insensitive keyword match), return (segments, used_layers).
-    Each segment: {"start": (x, y), "end": (x, y)} in DXF units (mm)."""
+    Each segment: {"start": (x, y), "end": (x, y), "h": height_mm} in DXF
+    units (mm); per-entity XDATA height wins over the default."""
     wall_keywords = ["wall", "mauer", "wand", "mur", "parete", "pared"]
     if not wall_layers:
         all_layers = {layer.dxf.name.lower() for layer in doc.layers}
@@ -133,20 +158,21 @@ def _wall_segments(msp, wall_layers, doc):
     for e in msp:
         if e.get_dxf_attrib("layer", "").lower() not in wall_filter:
             continue
+        h = _ent_height_mm(e, default_h_mm) if default_h_mm else None
         if e.dxftype() == "LINE":
             segments.append(
-                {"type": "line", "start": (e.dxf.start.x, e.dxf.start.y), "end": (e.dxf.end.x, e.dxf.end.y)}
+                {"type": "line", "start": (e.dxf.start.x, e.dxf.start.y), "end": (e.dxf.end.x, e.dxf.end.y), "h": h}
             )
         elif e.dxftype() == "LWPOLYLINE":
             pts = [(p[0], p[1]) for p in e.get_points("xy")]
             for i in range(len(pts) - 1):
-                segments.append({"type": "line", "start": pts[i], "end": pts[i + 1]})
+                segments.append({"type": "line", "start": pts[i], "end": pts[i + 1], "h": h})
             if e.closed and len(pts) > 2:
-                segments.append({"type": "line", "start": pts[-1], "end": pts[0]})
+                segments.append({"type": "line", "start": pts[-1], "end": pts[0], "h": h})
         elif e.dxftype() == "POLYLINE":
             pts = [(p[0], p[1]) for p in e.points()]
             for i in range(len(pts) - 1):
-                segments.append({"type": "line", "start": pts[i], "end": pts[i + 1]})
+                segments.append({"type": "line", "start": pts[i], "end": pts[i + 1], "h": h})
     return segments, wall_layers
 
 
@@ -223,7 +249,7 @@ async def plan_extrude(
 
     try:
         msp = doc.modelspace()
-        wall_segments, _used_layers = _wall_segments(msp, wall_layers, doc)
+        wall_segments, _used_layers = _wall_segments(msp, wall_layers, doc, default_h_mm=height_mm)
 
         if not wall_segments:
             return {
@@ -232,9 +258,12 @@ async def plan_extrude(
             }
 
         meshes = []
+        heights = set()
         for seg in wall_segments:
             x1, y1 = seg["start"]
             x2, y2 = seg["end"]
+            seg_h = seg.get("h") or height_mm
+            heights.add(round(seg_h, 1))
             dx, dy = x2 - x1, y2 - y1
             length = np.sqrt(dx * dx + dy * dy)
             if length < 1e-6:
@@ -247,10 +276,10 @@ async def plan_extrude(
                     [x1 + nx * hw, y1 + ny * hw, 0],
                     [x2 + nx * hw, y2 + ny * hw, 0],
                     [x2 - nx * hw, y2 - ny * hw, 0],
-                    [x1 - nx * hw, y1 - ny * hw, height_mm],
-                    [x1 + nx * hw, y1 + ny * hw, height_mm],
-                    [x2 + nx * hw, y2 + ny * hw, height_mm],
-                    [x2 - nx * hw, y2 - ny * hw, height_mm],
+                    [x1 - nx * hw, y1 - ny * hw, seg_h],
+                    [x1 + nx * hw, y1 + ny * hw, seg_h],
+                    [x2 + nx * hw, y2 + ny * hw, seg_h],
+                    [x2 - nx * hw, y2 - ny * hw, seg_h],
                 ]
             )
             triangles = np.array(
@@ -287,6 +316,7 @@ async def plan_extrude(
                 "size_kb": round(os.path.getsize(stl_path) / 1024, 1),
                 "wall_height_m": wall_height,
                 "wall_thickness_m": wall_thickness,
+                "heights_mm": sorted(heights),
             },
         }
     except Exception as e:
@@ -338,16 +368,19 @@ async def plan_drawings(
 
     try:
         msp = doc.modelspace()
-        segments, used_layers = _wall_segments(msp, wall_layers, doc)
+        H = wall_height * 1000.0
+        T = wall_thickness * 1000.0
+        segments, used_layers = _wall_segments(msp, wall_layers, doc, default_h_mm=H)
         if not segments:
             return {
                 "success": False,
                 "error": "No wall entities found. Try specifying wall_layers or use a DXF with LINE/LWPOLYLINE entities.",
             }
+        for s in segments:
+            if not s.get("h"):
+                s["h"] = H
+        Hmax = max(s["h"] for s in segments)
         openings = _drawing_openings(msp)
-
-        H = wall_height * 1000.0
-        T = wall_thickness * 1000.0
         xs = [p for s in segments for p in (s["start"][0], s["end"][0])]
         ys = [p for s in segments for p in (s["start"][1], s["end"][1])]
         x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
@@ -380,14 +413,15 @@ async def plan_drawings(
             for s in segments:
                 a = min(s["start"][0 if proj == "x" else 1], s["end"][0 if proj == "x" else 1])
                 b = max(s["start"][0 if proj == "x" else 1], s["end"][0 if proj == "x" else 1])
-                ax.add_patch(Rectangle((a, 0), max(b - a, T * 0.5), H, facecolor="#e8e8e8", edgecolor="black", lw=1))
+                sh = s.get("h") or H
+                ax.add_patch(Rectangle((a, 0), max(b - a, T * 0.5), sh, facecolor="#e8e8e8", edgecolor="black", lw=1))
             for ox, oy, ow, oh in _opening_rects(proj):
                 ax.add_patch(Rectangle((ox, oy), ow, oh, facecolor="white", edgecolor="black", lw=1.2))
             ax.plot([span0, span1], [0, 0], color="black", lw=2.5)
             ax.text(
                 (span0 + span1) / 2,
-                H * 1.06,
-                f"{(span1 - span0) / 1000:.1f} m  |  height {H / 1000:.1f} m  |  {len(openings)} openings",
+                Hmax * 1.06,
+                f"{(span1 - span0) / 1000:.1f} m  |  max height {Hmax / 1000:.1f} m  |  {len(openings)} openings",
                 ha="center",
                 fontsize=10,
             )
@@ -410,16 +444,17 @@ async def plan_drawings(
                 (sx1, sy1), (sx2, sy2) = s["start"], s["end"]
                 if min(sy1, sy2) - T <= cut <= max(sy1, sy2) + T:
                     a, b = min(sx1, sx2), max(sx1, sx2)
+                    sh = s.get("h") or H
                     ax.add_patch(
-                        Rectangle((a, 0), max(b - a, T * 0.5), H, facecolor="#e8e8e8", edgecolor="black", lw=1)
+                        Rectangle((a, 0), max(b - a, T * 0.5), sh, facecolor="#e8e8e8", edgecolor="black", lw=1)
                     )
             ax.plot([x0, x1], [0, 0], color="black", lw=2.5)  # ground slab
-            ax.plot([x0, x1], [H, H], color="black", lw=1.5)  # ceiling slab
+            ax.plot([x0, x1], [Hmax, Hmax], color="black", lw=1.5)  # ceiling slab
             for gx in [x0 + i * max(W / 40, T) for i in range(int(W / max(W / 40, T)) + 1)]:
                 ax.plot([gx, gx - T * 0.4], [0, -T * 0.4], color="black", lw=0.8)  # ground hatch
             ax.text(
                 (x0 + x1) / 2,
-                H * 1.06,
+                Hmax * 1.06,
                 f"Section A-A (cut at y={(cut - y0) / 1000:.1f} m)  |  {W / 1000:.1f} m span",
                 ha="center",
                 fontsize=10,
@@ -439,6 +474,7 @@ async def plan_drawings(
 
             for s in segments:
                 (sx1, sy1), (sx2, sy2) = s["start"], s["end"]
+                sh = s.get("h") or H
                 dx, dy = sx2 - sx1, sy2 - sy1
                 length = math.hypot(dx, dy)
                 if length < 1e-6:
@@ -450,10 +486,10 @@ async def plan_drawings(
                     (sx1 + nx * hw, sy1 + ny * hw, 0),
                     (sx2 + nx * hw, sy2 + ny * hw, 0),
                     (sx2 - nx * hw, sy2 - ny * hw, 0),
-                    (sx1 - nx * hw, sy1 - ny * hw, H),
-                    (sx1 + nx * hw, sy1 + ny * hw, H),
-                    (sx2 + nx * hw, sy2 + ny * hw, H),
-                    (sx2 - nx * hw, sy2 - ny * hw, H),
+                    (sx1 - nx * hw, sy1 - ny * hw, sh),
+                    (sx1 + nx * hw, sy1 + ny * hw, sh),
+                    (sx2 + nx * hw, sy2 + ny * hw, sh),
+                    (sx2 - nx * hw, sy2 - ny * hw, sh),
                 ]
                 p = [_proj(*c) for c in corners]
                 ax.add_patch(Polygon([p[4], p[5], p[6], p[7]], fc="#dedede", ec="black", lw=0.8))  # top
@@ -464,7 +500,7 @@ async def plan_drawings(
             ax.text(
                 sum(p[0] for p in g) / 4,
                 max(p[1] for p in g) * 1.02,
-                f"Axonometric  |  {W / 1000:.1f} x {D / 1000:.1f} x {H / 1000:.1f} m",
+                f"Axonometric  |  {W / 1000:.1f} x {D / 1000:.1f} x {Hmax / 1000:.1f} m (max)",
                 ha="center",
                 fontsize=10,
             )
@@ -504,7 +540,8 @@ async def plan_drawings(
                 "wall_count": len(segments),
                 "wall_layers": used_layers,
                 "bbox_mm": {"x0": x0, "x1": x1, "y0": y0, "y1": y1},
-                "height_mm": H,
+                "height_mm": Hmax,
+                "heights_mm": sorted({round(s.get("h") or H, 1) for s in segments}),
                 "openings": len(openings),
             },
         }
@@ -730,6 +767,11 @@ async def plan_create(
     - window: {"type": "window", "x1": 10, "y1": 0, "x2": 1600, "y2": 0, "layer": "Windows"}
       (triple-line sill symbol; detected as an opening by plan_drawings)
 
+    Any line/rect/circle/polyline/arc entity accepts an optional "hgt"
+    (or "height") in METRES for per-entity wall height, stored as XDATA and
+    honoured by plan_extrude / plan_drawings (e.g. nave 12, towers 25).
+    Without it the tool default height applies.
+
     ## Return Format
     {"success": bool, "filename": str, "data": {"size_kb": float, "entity_count": int}}
 
@@ -769,6 +811,8 @@ async def plan_create(
                 layer_defs.append({"name": name, "color": 7})
         for ld in layer_defs:
             doc.layers.add(name=ld["name"], dxfattribs={"color": ld.get("color", 7)})
+        if "QCADMCP" not in doc.appids:
+            doc.appids.add("QCADMCP")
 
         # Draw entities
         count = 0
@@ -777,7 +821,10 @@ async def plan_create(
             layer = ent.get("layer", "0")
             try:
                 if etype == "line":
-                    msp.add_line((ent["x1"], ent["y1"]), (ent["x2"], ent["y2"]), dxfattribs={"layer": layer})
+                    _set_height_tag(
+                        msp.add_line((ent["x1"], ent["y1"]), (ent["x2"], ent["y2"]), dxfattribs={"layer": layer}),
+                        ent,
+                    )
                     count += 1
                 elif etype == "rect":
                     if "x1" in ent and "x2" in ent:
@@ -787,14 +834,19 @@ async def plan_create(
                         x, y, w, h = x0, y0, x1 - x0, y1 - y0
                     else:
                         x, y, w, h = ent["x"], ent["y"], ent["w"], ent["h"]
-                    msp.add_lwpolyline(
-                        [(x, y), (x + w, y), (x + w, y + h), (x, y + h)], close=True, dxfattribs={"layer": layer}
+                    _set_height_tag(
+                        msp.add_lwpolyline(
+                            [(x, y), (x + w, y), (x + w, y + h), (x, y + h)],
+                            close=True,
+                            dxfattribs={"layer": layer},
+                        ),
+                        ent,
                     )
                     count += 1
                 elif etype == "circle":
                     cx = ent.get("cx", ent.get("x"))
                     cy = ent.get("cy", ent.get("y"))
-                    msp.add_circle((cx, cy), ent["r"], dxfattribs={"layer": layer})
+                    _set_height_tag(msp.add_circle((cx, cy), ent["r"], dxfattribs={"layer": layer}), ent)
                     count += 1
                 elif etype == "text":
                     content = ent.get("content", ent.get("text", ""))
@@ -807,17 +859,23 @@ async def plan_create(
                 elif etype == "polyline":
                     pts = [Vec2(p[0], p[1]) for p in ent.get("points", [])]
                     if len(pts) >= 2:
-                        msp.add_lwpolyline(pts, close=ent.get("closed", False), dxfattribs={"layer": layer})
+                        _set_height_tag(
+                            msp.add_lwpolyline(pts, close=ent.get("closed", False), dxfattribs={"layer": layer}),
+                            ent,
+                        )
                         count += 1
                 elif etype == "arc":
                     cx = ent.get("cx", ent.get("x", 0))
                     cy = ent.get("cy", ent.get("y", 0))
-                    msp.add_arc(
-                        (cx, cy),
-                        ent["r"],
-                        float(ent.get("start_angle", 0)),
-                        float(ent.get("end_angle", 90)),
-                        dxfattribs={"layer": layer},
+                    _set_height_tag(
+                        msp.add_arc(
+                            (cx, cy),
+                            ent["r"],
+                            float(ent.get("start_angle", 0)),
+                            float(ent.get("end_angle", 90)),
+                            dxfattribs={"layer": layer},
+                        ),
+                        ent,
                     )
                     count += 1
                 elif etype == "door":

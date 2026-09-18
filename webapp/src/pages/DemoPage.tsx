@@ -64,13 +64,13 @@ function generateEntities(goal: string): {
 			transeptH = mm(28);
 		const chapelW = mm(5),
 			chapelH = mm(5);
-		// Nave
-		entities.push({ type: "rect", x1: 0, y1: 0, x2: W, y2: H, layer: "Walls" });
+		// Nave (12 m walls)
+		entities.push({ type: "rect", x1: 0, y1: 0, x2: W, y2: H, hgt: 12, layer: "Walls" });
 		// Rounded apse: true semi-circle via arc + springing lines
-		entities.push({ type: "arc", cx: W, cy: H / 2, r: apseR, start_angle: -90, end_angle: 90, layer: "Walls" });
+		entities.push({ type: "arc", cx: W, cy: H / 2, r: apseR, start_angle: -90, end_angle: 90, hgt: 10, layer: "Walls" });
 		entities.push({ type: "line", x1: W, y1: H / 2 - apseR, x2: W + apseR, y2: H / 2 - apseR, layer: "Walls" });
 		entities.push({ type: "line", x1: W, y1: H / 2 + apseR, x2: W + apseR, y2: H / 2 + apseR, layer: "Walls" });
-		// Transept (cross arms)
+		// Transept (cross arms, 12 m)
 		const tx = Math.round(W * 0.4);
 		entities.push({
 			type: "rect",
@@ -78,13 +78,14 @@ function generateEntities(goal: string): {
 			y1: -transeptH / 2 + H / 2,
 			x2: tx + transeptW,
 			y2: transeptH / 2 + H / 2,
+			hgt: 12,
 			layer: "Walls",
 		});
-		// Side chapels
+		// Side chapels (6 m)
 		for (let i = 0; i < 4; i++) {
 			const cx = Math.round(W * 0.15 + i * W * 0.2);
-			entities.push({ type: "rect", x1: cx, y1: H, x2: cx + chapelW, y2: H + chapelH, layer: "Walls" });
-			entities.push({ type: "rect", x1: cx, y1: -chapelH, x2: cx + chapelW, y2: 0, layer: "Walls" });
+			entities.push({ type: "rect", x1: cx, y1: H, x2: cx + chapelW, y2: H + chapelH, hgt: 6, layer: "Walls" });
+			entities.push({ type: "rect", x1: cx, y1: -chapelH, x2: cx + chapelW, y2: 0, hgt: 6, layer: "Walls" });
 		}
 		// Columns along nave
 		for (let i = 0; i < 6; i++) {
@@ -101,9 +102,9 @@ function generateEntities(goal: string): {
 			y2: H / 2 + mm(1.5),
 			layer: "Detail",
 		});
-		// Twin west towers flanking the portal (plan footprint)
-		entities.push({ type: "rect", x1: -mm(4), y1: -mm(1), x2: 0, y2: H / 2 - mm(2), layer: "Walls" });
-		entities.push({ type: "rect", x1: -mm(4), y1: H / 2 + mm(2), x2: 0, y2: H + mm(1), layer: "Walls" });
+		// Twin west towers flanking the portal (25 m plan footprint)
+		entities.push({ type: "rect", x1: -mm(4), y1: -mm(1), x2: 0, y2: H / 2 - mm(2), hgt: 25, layer: "Walls" });
+		entities.push({ type: "rect", x1: -mm(4), y1: H / 2 + mm(2), x2: 0, y2: H + mm(1), hgt: 25, layer: "Walls" });
 		// West portal: grand arched doorway between towers
 		entities.push({ type: "door", x: -mm(1), y: H / 2 - mm(1.2), w: 2400, angle: 90, layer: "Doors" });
 		entities.push({ type: "arc", cx: 0, cy: H / 2, r: mm(1.2), start_angle: 90, end_angle: 270, layer: "Doors" });
@@ -117,8 +118,8 @@ function generateEntities(goal: string): {
 		entities.push({ type: "circle", x: tx + transeptW / 2, y: H / 2, r: mm(2), layer: "Detail" });
 		// Buttresses: stepped rects along both nave walls (rhythm + detail)
 		for (let x = mm(6); x < W - mm(3); x += mm(7)) {
-			entities.push({ type: "rect", x1: x, y1: -mm(1.2), x2: x + mm(1.2), y2: 0, layer: "Walls" });
-			entities.push({ type: "rect", x1: x, y1: H, x2: x + mm(1.2), y2: H + mm(1.2), layer: "Walls" });
+			entities.push({ type: "rect", x1: x, y1: -mm(1.2), x2: x + mm(1.2), y2: 0, hgt: 8, layer: "Walls" });
+			entities.push({ type: "rect", x1: x, y1: H, x2: x + mm(1.2), y2: H + mm(1.2), hgt: 8, layer: "Walls" });
 		}
 		// Arched clerestory windows between buttresses
 		for (let x = mm(9); x < W - mm(3); x += mm(7)) {
