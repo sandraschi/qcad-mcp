@@ -151,10 +151,10 @@ def _wall_segments(msp, wall_layers, doc):
 
 
 def _drawing_openings(msp):
-    """Find door/window markers: INSERT/CIRCLE/ARC on DOOR/WINDOW/OPENING layers."""
+    """Find door/window markers: INSERT/CIRCLE/ARC/LINE on DOOR/WINDOW/OPENING layers."""
     openings = []
     for e in msp:
-        if e.dxftype() not in ("INSERT", "CIRCLE", "ARC"):
+        if e.dxftype() not in ("INSERT", "CIRCLE", "ARC", "LINE"):
             continue
         layer_upper = e.get_dxf_attrib("layer", "").upper()
         if "DOOR" in layer_upper:
@@ -166,6 +166,8 @@ def _drawing_openings(msp):
         try:
             if e.dxftype() == "INSERT":
                 pos = (e.dxf.insert.x, e.dxf.insert.y)
+            elif e.dxftype() == "LINE":
+                pos = ((e.dxf.start.x + e.dxf.end.x) / 2, (e.dxf.start.y + e.dxf.end.y) / 2)
             else:
                 pos = (e.dxf.center.x, e.dxf.center.y)
         except Exception:
@@ -722,6 +724,11 @@ async def plan_create(
     - text:   {"type": "text", "x": 50, "y": 50, "content": "Label", "height": 5, "layer": "labels"}
       alias:  {"type": "text", "x": 50, "y": 50, "text": "Label", "h": 5, "layer": "labels"}
     - polyline: {"type": "polyline", "points": [[0,0], [100,0], [100,50], [0,50]], "closed": true, "layer": "walls"}
+    - arc:   {"type": "arc", "cx": 50, "cy": 50, "r": 20, "start_angle": 0, "end_angle": 90, "layer": "doors"}
+    - door:  {"type": "door", "x": 10, "y": 10, "w": 900, "angle": 0, "swing": 90, "layer": "Doors"}
+      (leaf line + swing arc; detected as an opening by plan_drawings)
+    - window: {"type": "window", "x1": 10, "y1": 0, "x2": 1600, "y2": 0, "layer": "Windows"}
+      (triple-line sill symbol; detected as an opening by plan_drawings)
 
     ## Return Format
     {"success": bool, "filename": str, "data": {"size_kb": float, "entity_count": int}}
@@ -802,6 +809,47 @@ async def plan_create(
                     if len(pts) >= 2:
                         msp.add_lwpolyline(pts, close=ent.get("closed", False), dxfattribs={"layer": layer})
                         count += 1
+                elif etype == "arc":
+                    cx = ent.get("cx", ent.get("x", 0))
+                    cy = ent.get("cy", ent.get("y", 0))
+                    msp.add_arc(
+                        (cx, cy),
+                        ent["r"],
+                        float(ent.get("start_angle", 0)),
+                        float(ent.get("end_angle", 90)),
+                        dxfattribs={"layer": layer},
+                    )
+                    count += 1
+                elif etype == "door":
+                    # Door leaf + swing arc on the Doors layer (picked up as an
+                    # opening by plan_drawings / plan_to_ifc_data).
+                    import math as _math
+
+                    hx, hy = ent["x"], ent["y"]
+                    w = ent.get("w", 900)
+                    ang = _math.radians(ent.get("angle", 0))
+                    swing = ent.get("swing", 90)
+                    dx, dy = _math.cos(ang), _math.sin(ang)
+                    msp.add_line((hx, hy), (hx + dx * w, hy + dy * w), dxfattribs={"layer": layer})
+                    msp.add_arc(
+                        (hx, hy), w, ent.get("angle", 0), ent.get("angle", 0) + swing, dxfattribs={"layer": layer}
+                    )
+                    count += 2
+                elif etype == "window":
+                    # Triple-line sill symbol on the Windows layer.
+                    import math as _math
+
+                    (wx1, wy1), (wx2, wy2) = (ent["x1"], ent["y1"]), (ent["x2"], ent["y2"])
+                    dx, dy = wx2 - wx1, wy2 - wy1
+                    length = _math.hypot(dx, dy) or 1.0
+                    nx, ny = -dy / length, dx / length
+                    for off in (-150.0, 0.0, 150.0):
+                        msp.add_line(
+                            (wx1 + nx * off, wy1 + ny * off),
+                            (wx2 + nx * off, wy2 + ny * off),
+                            dxfattribs={"layer": layer},
+                        )
+                    count += 3
             except Exception as e:
                 logger.warning("Failed to add entity %s: %s", etype, e)
 

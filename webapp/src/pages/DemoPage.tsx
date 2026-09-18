@@ -44,6 +44,8 @@ function generateEntities(goal: string): {
 		{ name: "Walls", color: 7, description: "Wall lines" },
 		{ name: "Columns", color: 8, description: "Structural columns" },
 		{ name: "Doors", color: 3, description: "Door openings" },
+		{ name: "Windows", color: 1, description: "Window openings" },
+		{ name: "Furniture", color: 6, description: "Furniture and fixtures" },
 		{ name: "Text", color: 2, description: "Room labels" },
 		{ name: "Dimensions", color: 6, description: "Measurement annotations" },
 		{ name: "Detail", color: 5, description: "Detail elements" },
@@ -224,6 +226,8 @@ function generateEntities(goal: string): {
 		// Subdivide into rooms
 		const cols = Math.ceil(Math.sqrt(roomCount));
 		const rows = Math.ceil(roomCount / cols);
+		const isOffice = g.includes("office") || g.includes("work") || g.includes("meeting");
+		const roomRects: { rx: number; ry: number; rw: number; rh: number }[] = [];
 		for (let r = 0; r < rows; r++) {
 			for (let c = 0; c < cols; c++) {
 				if (r * cols + c >= roomCount) break;
@@ -231,17 +235,51 @@ function generateEntities(goal: string): {
 					ry = Math.round((h * r) / rows);
 				const rw = Math.round((w * (c + 1)) / cols) - rx;
 				const rh = Math.round((h * (r + 1)) / rows) - ry;
+				roomRects.push({ rx, ry, rw, rh });
 				if (r > 0) entities.push({ type: "line", x1: rx, y1: ry, x2: rx + rw, y2: ry, layer: "Walls" });
 				if (c > 0) entities.push({ type: "line", x1: rx, y1: ry, x2: rx, y2: ry + rh, layer: "Walls" });
+				// Door per room in its bottom wall (hinge left, 900 leaf)
+				entities.push({ type: "door", x: rx + Math.round(rw * 0.3), y: ry, w: 900, angle: 0, layer: "Doors" });
 				entities.push({
 					type: "text",
 					x: rx + Math.round(rw * 0.2),
 					y: ry + Math.round(rh * 0.4),
 					h: Math.min(rw, rh) / 3,
-					text: `ROOM ${r * cols + c + 1}`,
+					text: isOffice && r * cols + c === 0 ? "OPEN PLAN" : `ROOM ${r * cols + c + 1}`,
 					layer: "Text",
 				});
+				// Furniture: desks for offices, table otherwise
+				if (isOffice) {
+					entities.push({ type: "rect", x1: rx + 600, y1: ry + 600, x2: rx + 2000, y2: ry + 1300, layer: "Furniture" });
+					entities.push({ type: "text", x: rx + 700, y: ry + 800, h: 220, text: "DESK", layer: "Text" });
+					if (rw > 6000) {
+						entities.push({ type: "rect", x1: rx + 2600, y1: ry + 600, x2: rx + 4000, y2: ry + 1300, layer: "Furniture" });
+						entities.push({ type: "text", x: rx + 2700, y: ry + 800, h: 220, text: "DESK", layer: "Text" });
+					}
+				} else {
+					entities.push({
+						type: "rect",
+						x1: rx + Math.round(rw * 0.35),
+						y1: ry + Math.round(rh * 0.35),
+						x2: rx + Math.round(rw * 0.65),
+						y2: ry + Math.round(rh * 0.6),
+						layer: "Furniture",
+					});
+				}
 			}
+		}
+		// Main entrance door (south wall) + windows along outer walls
+		entities.push({ type: "door", x: Math.round(w / 2) - 500, y: 0, w: 1000, angle: 0, layer: "Doors" });
+		const winLen = 1500;
+		for (let x = 2000; x < w - 1000; x += 4000) {
+			entities.push({ type: "window", x1: x, y1: h, x2: x + winLen, y2: h, layer: "Windows" });
+			if (x + winLen < w - 2500 || roomCount <= 2) {
+				entities.push({ type: "window", x1: x, y1: 0, x2: x + winLen, y2: 0, layer: "Windows" });
+			}
+		}
+		for (let y = 2000; y < h - 1000; y += 4000) {
+			entities.push({ type: "window", x1: 0, y1: y, x2: 0, y2: y + winLen, layer: "Windows" });
+			entities.push({ type: "window", x1: w, y1: y, x2: w, y2: y + winLen, layer: "Windows" });
 		}
 		entities.push({
 			type: "text",
