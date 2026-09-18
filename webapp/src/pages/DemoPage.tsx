@@ -347,6 +347,17 @@ export default function DemoPage() {
 		setSteps((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
 	};
 
+	const slugify = (s: string) => {
+		const slug = s
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, "_")
+			.replace(/^_+|_+$/g, "")
+			.replace(/_+/g, "_")
+			.slice(0, 48)
+			.replace(/_+$/g, "");
+		return slug || "plan";
+	};
+
 	const execute = async () => {
 		if (!goal.trim()) return;
 		setRunning(true);
@@ -376,8 +387,20 @@ export default function DemoPage() {
 		try {
 			// Step 1: Create floor plan
 			updateStep(0, { status: "running" });
-			const timestamp = Date.now();
-			const dxfName = `demo_${timestamp}.dxf`;
+			const slug = slugify(goal.trim());
+			// Descriptive depot name from the prompt; numeric suffix on collision.
+			let dxfName = `${slug}.dxf`;
+			try {
+				const depR = await fetch(API_BASE + "/api/v1/depot");
+				const depJ = await depR.json();
+				const names: string[] = (depJ.files || []).map((f: { name: string }) => f.name);
+				let n = 2;
+				while (names.includes(dxfName)) {
+					dxfName = `${slug}_${n}.dxf`;
+					n += 1;
+				}
+			} catch {}
+			const stem = dxfName.replace(/\.dxf$/i, "");
 
 			const agenticResult = await callTool("plan_agentic", { goal: goal.trim() }).catch(() => null);
 			const agenticOk = !!agenticResult?.success;
@@ -419,7 +442,7 @@ export default function DemoPage() {
 			updateStep(1, { status: "running" });
 			const svgResult = await callTool("plan_to_svg", {
 				file_name: dxfFile,
-				output_name: `demo_${timestamp}.svg`,
+				output_name: `${stem}.svg`,
 			});
 			updateStep(1, {
 				status: svgResult.success ? "done" : "error",
@@ -431,7 +454,7 @@ export default function DemoPage() {
 			updateStep(2, { status: "running" });
 			const stlResult = await callTool("plan_extrude", {
 				file_name: dxfFile,
-				output_name: `demo_${timestamp}.stl`,
+				output_name: `${stem}.stl`,
 				wall_height: 3.0,
 				wall_thickness: 0.15,
 				wall_layers: ["Walls", "Columns"],
@@ -456,7 +479,7 @@ export default function DemoPage() {
 			updateStep(3, { status: "running" });
 			const drawingsResult = await callTool("plan_drawings", {
 				file_name: dxfFile,
-				output_prefix: `demo_${timestamp}_set`,
+				output_prefix: `${stem}_set`,
 				wall_height: 3.0,
 				wall_thickness: 0.15,
 				wall_layers: ["Walls", "Columns"],
