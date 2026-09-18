@@ -1,11 +1,11 @@
-# Per-repo fleet start config for qcad-mcp
+﻿# Per-repo fleet start config for qcad-mcp
 # Edit ports/backend target here - start.ps1 is fleet-standard.
 @{
     Name         = 'qcad-mcp'
     BackendPort  = 11966
     FrontendPort = 11967
     HealthPath   = '/api/v1/status'
-    WebRoot      = 'D:\Dev\repos\qcad-mcp\webapp'
+    WebRoot      = 'webapp'
     Backend = @{
         Kind          = 'uvicorn'
         UvicornTarget = 'qcad_mcp.server:app'
@@ -19,4 +19,3 @@
         ApiTargetEnv   = 'VITE_API_TARGET'
     }
 }
-

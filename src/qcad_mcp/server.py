@@ -80,13 +80,28 @@ _state: dict = {}
 
 def _tool_count() -> int:
     """Count registered FastMCP tools robustly across versions."""
+    # FastMCP 3.4.x: no sync _tool_manager; list_tools() is async.
+    # Sync fallback: REST dispatch table (populated at import) is a stable proxy.
+    dispatch = globals().get("_TOOL_DISPATCH")
+    if isinstance(dispatch, dict) and len(dispatch) > 0:
+        return len(dispatch)
+    for attr in ("_tools", "_registered_tools"):
+        tools = getattr(mcp, attr, None)
+        if isinstance(tools, dict) and len(tools) > 0:
+            return len(tools)
     tm = getattr(mcp, "_tool_manager", None)
-    if tm is not None and hasattr(tm, "tools"):
+    if tm is not None and isinstance(getattr(tm, "tools", None), dict) and len(tm.tools) > 0:
         return len(tm.tools)
+    return 0
+
+
+async def _tool_count_async() -> int:
+    """Async tool count via FastMCP 3.4 list_tools(), with sync fallback."""
     try:
-        return len(mcp.list_tools())
+        tools = await mcp.list_tools()
+        return len(tools)
     except Exception:
-        return 0
+        return _tool_count()
 
 
 def _ensure_qcad_running():
@@ -222,16 +237,14 @@ async def api_health():
     compiler = None
     for exe in ["g++", "clang++", "cl.exe"]:
         try:
-            cr = await asyncio.to_thread(
-                subprocess.run, [exe, "--version"], capture_output=True, text=True, timeout=3
-            )
+            cr = await asyncio.to_thread(subprocess.run, [exe, "--version"], capture_output=True, text=True, timeout=3)
             if cr.returncode == 0:
                 compiler = exe
                 break
         except Exception:
             logger.debug("Compiler probe failed for: %s", exe)
             continue
-    tool_count = _tool_count()
+    tool_count = await _tool_count_async()
     return {
         "status": "ok" if qcad_ok else "degraded",
         "qcad_ok": qcad_ok,
@@ -256,7 +269,7 @@ async def api_diagnostics():
         disk = psutil.disk_usage("/").percent
     except ImportError:
         cpu = mem = disk = None
-    tool_count = _tool_count()
+    tool_count = await _tool_count_async()
     return {
         "success": True,
         "backend": {"port": 11966, "status": "running", "uptime": int(time.time() - _START_TIME)},
