@@ -66,10 +66,10 @@ function generateEntities(goal: string): {
 			chapelH = mm(5);
 		// Nave
 		entities.push({ type: "rect", x1: 0, y1: 0, x2: W, y2: H, layer: "Walls" });
-		// Apse (semi-circle approximated as rect + text)
+		// Rounded apse: true semi-circle via arc + springing lines
+		entities.push({ type: "arc", cx: W, cy: H / 2, r: apseR, start_angle: -90, end_angle: 90, layer: "Walls" });
 		entities.push({ type: "line", x1: W, y1: H / 2 - apseR, x2: W + apseR, y2: H / 2 - apseR, layer: "Walls" });
-		entities.push({ type: "line", x1: W + apseR, y1: H / 2 - apseR, x2: W + apseR, y2: H / 2 + apseR, layer: "Walls" });
-		entities.push({ type: "line", x1: W + apseR, y1: H / 2 + apseR, x2: W, y2: H / 2 + apseR, layer: "Walls" });
+		entities.push({ type: "line", x1: W, y1: H / 2 + apseR, x2: W + apseR, y2: H / 2 + apseR, layer: "Walls" });
 		// Transept (cross arms)
 		const tx = Math.round(W * 0.4);
 		entities.push({
@@ -101,6 +101,35 @@ function generateEntities(goal: string): {
 			y2: H / 2 + mm(1.5),
 			layer: "Detail",
 		});
+		// Twin west towers flanking the portal (plan footprint)
+		entities.push({ type: "rect", x1: -mm(4), y1: -mm(1), x2: 0, y2: H / 2 - mm(2), layer: "Walls" });
+		entities.push({ type: "rect", x1: -mm(4), y1: H / 2 + mm(2), x2: 0, y2: H + mm(1), layer: "Walls" });
+		// West portal: grand arched doorway between towers
+		entities.push({ type: "door", x: -mm(1), y: H / 2 - mm(1.2), w: 2400, angle: 90, layer: "Doors" });
+		entities.push({ type: "arc", cx: 0, cy: H / 2, r: mm(1.2), start_angle: 90, end_angle: 270, layer: "Doors" });
+		// Rose window: concentric circles above portal (west front)
+		entities.push({ type: "circle", x: 0, y: H / 2, r: mm(2.5), layer: "Windows" });
+		entities.push({ type: "circle", x: 0, y: H / 2, r: mm(1.6), layer: "Windows" });
+		entities.push({ type: "circle", x: 0, y: H / 2, r: mm(0.7), layer: "Windows" });
+		// Dome at crossing: drum ring + concentric dome ribs
+		entities.push({ type: "circle", x: tx + transeptW / 2, y: H / 2, r: mm(5), layer: "Walls" });
+		entities.push({ type: "circle", x: tx + transeptW / 2, y: H / 2, r: mm(3.5), layer: "Detail" });
+		entities.push({ type: "circle", x: tx + transeptW / 2, y: H / 2, r: mm(2), layer: "Detail" });
+		// Buttresses: stepped rects along both nave walls (rhythm + detail)
+		for (let x = mm(6); x < W - mm(3); x += mm(7)) {
+			entities.push({ type: "rect", x1: x, y1: -mm(1.2), x2: x + mm(1.2), y2: 0, layer: "Walls" });
+			entities.push({ type: "rect", x1: x, y1: H, x2: x + mm(1.2), y2: H + mm(1.2), layer: "Walls" });
+		}
+		// Arched clerestory windows between buttresses
+		for (let x = mm(9); x < W - mm(3); x += mm(7)) {
+			entities.push({ type: "arc", cx: x, cy: 0, r: mm(0.9), start_angle: 0, end_angle: 180, layer: "Windows" });
+			entities.push({ type: "arc", cx: x, cy: H, r: mm(0.9), start_angle: 180, end_angle: 360, layer: "Windows" });
+		}
+		// Chapel doors (west side of each chapel pair)
+		for (let i = 0; i < 4; i++) {
+			const cx = Math.round(W * 0.15 + i * W * 0.2);
+			entities.push({ type: "door", x: cx + mm(1), y: H, w: 1100, angle: 0, layer: "Doors" });
+		}
 		// Labels
 		entities.push({ type: "text", x: W / 2 - mm(3), y: H / 2 - mm(1), h: 800, text: "NAVE", layer: "Text" });
 		entities.push({ type: "text", x: W + mm(2), y: H / 2 - mm(0.5), h: 400, text: "APSE", layer: "Text" });
