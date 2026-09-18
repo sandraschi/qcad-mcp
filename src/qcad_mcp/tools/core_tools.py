@@ -166,9 +166,10 @@ async def plan_extrude(
                 wall_layers = [layer.dxf.name for layer in doc.layers]
 
         wall_segments = []
+        wall_filter = {w.lower() for w in wall_layers} if wall_layers else set()
         for e in msp:
             layer_name = e.get_dxf_attrib("layer", "")
-            if wall_layers and layer_name not in wall_layers:
+            if wall_filter and layer_name.lower() not in wall_filter:
                 continue
             if e.dxftype() == "LINE":
                 wall_segments.append(
