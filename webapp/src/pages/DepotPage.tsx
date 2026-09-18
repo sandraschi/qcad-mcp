@@ -615,6 +615,19 @@ export default function DepotPage() {
 								<>
 									<button
 										type="button"
+										onClick={async () => {
+											await fetch(`${API_BASE}/api/v1/qcad/show`, {
+												method: "POST",
+												headers: { "Content-Type": "application/json" },
+												body: JSON.stringify({ file_name: selectedFile }),
+											});
+										}}
+										className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold"
+									>
+										Open in QCAD Pro
+									</button>
+									<button
+										type="button"
 										onClick={() => handleExport("svg")}
 										className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-white/10 text-sm text-slate-400 hover:text-white"
 									>

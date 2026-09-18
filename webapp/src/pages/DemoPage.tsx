@@ -106,6 +106,17 @@ function generateEntities(goal: string): {
 		entities.push({ type: "text", x: W + mm(2), y: H / 2 - mm(0.5), h: 400, text: "APSE", layer: "Text" });
 		entities.push({ type: "text", x: tx + mm(1), y: -mm(2), h: 400, text: "TRANSEPT", layer: "Text" });
 		entities.push({ type: "text", x: W / 2 - mm(2), y: H + mm(2), h: 400, text: "SIDE CHAPEL", layer: "Text" });
+		// West portal + chapel doors + nave clerestory windows
+		entities.push({ type: "door", x: 0, y: H / 2 - mm(1), w: 2000, angle: 90, layer: "Doors" });
+		for (let i = 0; i < 4; i++) {
+			const cx = Math.round(W * 0.15 + i * W * 0.2);
+			entities.push({ type: "door", x: cx + chapelW / 2 - 600, y: H, w: 1200, angle: 0, layer: "Doors" });
+			entities.push({ type: "door", x: cx + chapelW / 2 - 600, y: -chapelH, w: 1200, angle: 0, layer: "Doors" });
+		}
+		for (let x = mm(4); x < W - mm(2); x += mm(8)) {
+			entities.push({ type: "window", x1: x, y1: 0, x2: x + mm(2), y2: 0, layer: "Windows" });
+			entities.push({ type: "window", x1: x, y1: H, x2: x + mm(2), y2: H, layer: "Windows" });
+		}
 
 		// Mob compound
 	} else if (
@@ -143,6 +154,13 @@ function generateEntities(goal: string): {
 		entities.push({ type: "text", x: mm(40), y: mm(9), h: 400, text: "POOL", layer: "Text" });
 		entities.push({ type: "text", x: mm(6), y: vy + vh + mm(5), h: 350, text: "GUEST", layer: "Text" });
 		entities.push({ type: "text", x: P / 2 - mm(2), y: mm(1), h: 300, text: "GATE", layer: "Text" });
+		// Villa entrance + windows, gate passage, guest house door
+		entities.push({ type: "door", x: vx + vw / 2 - 500, y: vy, w: 1000, angle: 0, layer: "Doors" });
+		for (let x = vx + mm(2); x < vx + vw - mm(3); x += mm(5)) {
+			entities.push({ type: "window", x1: x, y1: vy + vh, x2: x + mm(2), y2: vy + vh, layer: "Windows" });
+		}
+		entities.push({ type: "door", x: P / 2 - 1500, y: 0, w: 3000, angle: 0, layer: "Doors" });
+		entities.push({ type: "door", x: mm(9), y: vy + vh + mm(4), w: 900, angle: 0, layer: "Doors" });
 
 		// Versailles / palace
 	} else if (
@@ -728,6 +746,21 @@ export default function DemoPage() {
 											>
 												<Download size={14} /> Download DXF
 											</a>
+										)}
+										{result.dxf && (
+											<button
+												type="button"
+												onClick={async () => {
+													await fetch(`${API_BASE}/api/v1/qcad/show`, {
+														method: "POST",
+														headers: { "Content-Type": "application/json" },
+														body: JSON.stringify({ file_name: result.dxf }),
+													});
+												}}
+												className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold"
+											>
+												<Eye size={14} /> Open in QCAD Pro
+											</button>
 										)}
 									</div>
 								</div>

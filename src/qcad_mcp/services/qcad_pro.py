@@ -55,6 +55,41 @@ def is_running() -> bool:
         return False
 
 
+def show_in_gui(file_path: str) -> dict:
+    """Open a DXF/DWG file in the running QCAD Pro workspace.
+
+    Launches the GUI first when it is not running yet. QCAD opens the file
+    as a new tab in the existing window (single-instance behaviour), so
+    repeated calls never spawn extra windows.
+
+    Args:
+        file_path: Absolute path to the drawing file.
+
+    Returns:
+        {"success": bool, "path": str, "was_running": bool}
+    """
+    if not is_installed():
+        return {"success": False, "error": "QCAD Pro not installed."}
+    if not os.path.isfile(file_path):
+        return {"success": False, "error": f"File not found: {file_path}"}
+    qcad_exe = str(_qcad_base_dir() / "qcad.exe")
+    if not os.path.isfile(qcad_exe):
+        return {"success": False, "error": "qcad.exe not found."}
+    was_running = is_running()
+    try:
+        CREATE_NEW_CONSOLE = 0x00000010
+        subprocess.Popen(
+            [qcad_exe, os.path.abspath(file_path)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=CREATE_NEW_CONSOLE,
+        )
+        logger.info("Opened in QCAD Pro workspace: %s", Path(file_path).name)
+        return {"success": True, "path": os.path.abspath(file_path), "was_running": was_running}
+    except Exception as e:
+        return {"success": False, "error": f"Could not open in QCAD Pro: {e}"}
+
+
 def get_version() -> str:
     """Get QCAD Pro version string. Returns empty string if not found."""
     qcad_exe = _exe("qcad.exe")

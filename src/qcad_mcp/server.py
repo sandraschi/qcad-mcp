@@ -134,8 +134,29 @@ def _ensure_qcad_running():
     return False
 
 
+_QUIET_ACCESS_PATHS = ("/api/v1/status", "/api/v1/health", "/api/docs", "/openapi.json")
+
+
+class _QuietProbesFilter(logging.Filter):
+    """Drop uvicorn access-log lines for high-frequency health probes."""
+
+    def filter(self, record):
+        try:
+            return not any(p in record.getMessage() for p in _QUIET_ACCESS_PATHS)
+        except Exception:
+            return True
+
+
+def _quiet_probe_logs():
+    try:
+        logging.getLogger("uvicorn.access").addFilter(_QuietProbesFilter())
+    except Exception:
+        pass
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _quiet_probe_logs()
     _state["qcad_pro_ok"] = qcad_pro.is_installed()
     _state["qcad_pro_path"] = str(qcad_pro._qcad_base_dir())
     _ensure_qcad_running()
@@ -403,6 +424,25 @@ async def depot_get(filename: str):
     ext = Path(filename).suffix.lower()
     media_types = {".dxf": "application/dxf", ".dwg": "application/acad"}
     return FileResponse(path, media_type=media_types.get(ext, "application/octet-stream"), filename=filename)
+
+
+class _QcadShowRequest(BaseModel):
+    file_name: str = Field(description="Drawing filename in depot (or outputs).")
+
+
+@app.post("/api/v1/qcad/show")
+async def qcad_show(req: _QcadShowRequest):
+    """Open a drawing in the running QCAD Pro workspace (new tab)."""
+    if ".." in req.file_name or req.file_name.startswith(("/", "\\")):
+        raise HTTPException(400, "Invalid filename.")
+    for base in (DEPOT_DIR, OUTPUT_DIR):
+        path = os.path.join(base, req.file_name)
+        if os.path.isfile(path):
+            result = await asyncio.to_thread(qcad_pro.show_in_gui, path)
+            if not result.get("success"):
+                raise HTTPException(500, result.get("error", "Could not open in QCAD Pro."))
+            return {"success": True, "file": req.file_name, **result}
+    raise HTTPException(404, f"File '{req.file_name}' not found in depot or outputs.")
 
 
 @app.put("/api/v1/depot/{filename}")
