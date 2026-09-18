@@ -665,11 +665,13 @@ async def plan_obj(
         with open(obj_path, "w") as f:
             f.write(f"mtllib {mtl_name}\n")
             vi = 1
+            vti = 1
+            vni = 1
             for layer, corners in boxes:
                 f.write(f"usemtl {mats[layer]['mat']}\n")
                 for c in corners:
                     f.write(f"v {c[0]:.2f} {c[1]:.2f} {c[2]:.2f}\n")
-                # per-face UVs in tile units + normals
+                # per-face UVs in tile units + one normal per face
                 quads = [(0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)]
                 for q in quads:
                     pts = [corners[i] for i in q]
@@ -683,17 +685,13 @@ async def plan_obj(
                         f.write(f"vt {p[uu] / TILE_MM:.4f} {p[vv] / TILE_MM:.4f}\n")
                 base = vi
                 for q in range(6):
-                    v = [
-                        base + x
-                        for x in ([0, 3, 2, 1], [4, 5, 6, 7], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7])[q]
-                    ]
-                    # vt/vn indices parallel to v order
-                    t0 = base + 8 + q * 4
-                    f.write(
-                        f"f {v[0]}/{t0}/{t0} {v[1]}/{t0 + 1}/{t0 + 1} "
-                        f"{v[2]}/{t0 + 2}/{t0 + 2} {v[3]}/{t0 + 3}/{t0 + 3}\n"
-                    )
-                vi += 8 + 24
+                    v = [base + x for x in quads[q]]
+                    t0 = vti + q * 4
+                    n0 = vni + q
+                    f.write(f"f {v[0]}/{t0}/{n0} {v[1]}/{t0 + 1}/{n0} {v[2]}/{t0 + 2}/{n0} {v[3]}/{t0 + 3}/{n0}\n")
+                vi += 8
+                vti += 24
+                vni += 6
 
         with open(mtl_path, "w") as f:
             for layer, m in mats.items():
