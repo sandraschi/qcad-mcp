@@ -811,6 +811,80 @@ async def chat_completion(req: ChatRequest):
         return {"content": f"Error: {e}"}
 
 
+# ── FreeCAD Handoff (fleet cross-connect) ─────────────────────────────────
+# Sends qcad STL extrusion output to freecad-mcp for STL→B-Rep solid conversion.
+# Requires the freecad-mcp backend running (FreeCAD binary installed). All
+# failures surface as 502 with the FreeCAD side's message — never silent.
+
+_FREECAD_BASE = os.environ.get("FREECAD_MCP_URL", "http://127.0.0.1:10944")
+
+
+@app.get("/api/v1/freecad/status")
+async def freecad_status():
+    """Probe the freecad-mcp backend for the 3D handoff."""
+    for path in ("/api/v1/status", "/api/v1/health"):
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                r = await client.get(_FREECAD_BASE + path)
+                if r.status_code == 200:
+                    return {"reachable": True, "base": _FREECAD_BASE, "status": r.json()}
+        except Exception:
+            continue
+    return {
+        "reachable": False,
+        "base": _FREECAD_BASE,
+        "hint": "Start the freecad-mcp backend (needs FreeCAD installed) to enable STL-to-solid transfer.",
+    }
+
+
+class FreecadSolidRequest(BaseModel):
+    stl_name: str = Field(description="STL filename in qcad outputs, e.g. plan.stl")
+    output_name: str = Field(default="", description="Optional FCStd name on the FreeCAD side.")
+
+
+@app.post("/api/v1/freecad/solid")
+async def freecad_solid(req: FreecadSolidRequest):
+    """Transfer a qcad STL to FreeCAD and convert it to a B-Rep solid (FCStd)."""
+    stl_path = os.path.join(OUTPUT_DIR, req.stl_name)
+    if not os.path.isfile(stl_path):
+        raise HTTPException(404, f"STL '{req.stl_name}' not found in qcad outputs.")
+    try:
+        with open(stl_path, "rb") as f:
+            content = f.read()
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            up = await client.post(
+                _FREECAD_BASE + "/api/v1/upload",
+                files={"file": (req.stl_name, content, "application/octet-stream")},
+            )
+            if up.status_code >= 400:
+                raise HTTPException(502, f"FreeCAD upload failed ({up.status_code}): {up.text[:200]}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(502, f"FreeCAD backend unreachable at {_FREECAD_BASE}: {e}")
+    try:
+        args: dict = {"file_name": req.stl_name}
+        if req.output_name:
+            args["output_name"] = req.output_name
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            conv = await client.post(
+                _FREECAD_BASE + "/api/v1/control/tool",
+                json={"tool": "mesh_to_solid", "arguments": args},
+            )
+            body = conv.json()
+    except Exception as e:
+        raise HTTPException(502, f"FreeCAD mesh_to_solid call failed: {e}")
+    if not body.get("success"):
+        raise HTTPException(502, f"FreeCAD mesh_to_solid failed: {body.get('error', body)}")
+    out = body.get("output", "")
+    return {
+        "success": True,
+        "output": out,
+        "data": body.get("data", {}),
+        "download": f"{_FREECAD_BASE}/api/v1/download/{out}" if out else None,
+    }
+
+
 # ── Entry point ──────────────────────────────────────────────────────────────
 
 

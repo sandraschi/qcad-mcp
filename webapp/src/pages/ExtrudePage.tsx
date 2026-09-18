@@ -1,5 +1,5 @@
-import { Box, Download, Loader2, Settings2, Upload } from "lucide-react";
-import { useState } from "react";
+import { Box, Download, Loader2, Package, Settings2, Upload } from "lucide-react";
+import { useEffect, useState } from "react";
 import { API_BASE } from "../lib/api";
 
 interface ExtrudeData {
@@ -15,8 +15,25 @@ interface ExtrudeResult {
 	data: ExtrudeData;
 }
 
+interface FreecadStatus {
+	reachable: boolean;
+	base: string;
+	hint?: string;
+}
+
+interface FreecadResult {
+	success: boolean;
+	output: string;
+	download: string | null;
+	data: { vertices?: number; facets?: number; volume_mm3?: number };
+	error?: string;
+}
+
 export default function ExtrudePage() {
 	const [file, setFile] = useState<File | null>(null);
+	const [depotFiles, setDepotFiles] = useState<string[]>([]);
+	const [depotSelected, setDepotSelected] = useState("");
+	const [source, setSource] = useState<"upload" | "depot">("depot");
 	const [uploading, setUploading] = useState(false);
 	const [extruding, setExtruding] = useState(false);
 	const [result, setResult] = useState<ExtrudeResult | null>(null);
@@ -24,23 +41,49 @@ export default function ExtrudePage() {
 	const [wallHeight, setWallHeight] = useState(3.0);
 	const [wallThickness, setWallThickness] = useState(0.3);
 	const [wallLayers, setWallLayers] = useState("");
+	const [freecadStatus, setFreecadStatus] = useState<FreecadStatus | null>(null);
+	const [freecadSending, setFreecadSending] = useState(false);
+	const [freecadResult, setFreecadResult] = useState<FreecadResult | null>(null);
+
+	useEffect(() => {
+		fetch(API_BASE + "/api/v1/depot")
+			.then((r) => r.json())
+			.then((j) => {
+				const names: string[] = (j.files || [])
+					.map((f: { name: string }) => f.name)
+					.filter((n: string) => /\.(dxf|dwg)$/i.test(n));
+				setDepotFiles(names);
+				if (names.length > 0) setDepotSelected(names[0]);
+			})
+			.catch(() => {});
+		fetch(API_BASE + "/api/v1/freecad/status")
+			.then((r) => r.json())
+			.then((j) => setFreecadStatus(j))
+			.catch(() => {});
+	}, []);
+
+	const activeFileName = source === "depot" ? depotSelected : (file?.name ?? "");
 
 	const handleExtrude = async () => {
-		if (!file) return;
+		const fileName = activeFileName;
+		if (!fileName) return;
+		if (source === "upload" && !file) return;
 		setUploading(true);
 		setError("");
 
 		try {
-			const fd = new FormData();
-			fd.append("file", file);
-			const r = await fetch(API_BASE + "/api/v1/upload", { method: "POST", body: fd });
-			const j = await r.json();
-			if (!j.success) throw new Error(j.detail || "Upload failed");
+			if (source === "upload" && file) {
+				const fd = new FormData();
+				fd.append("file", file);
+				const r = await fetch(API_BASE + "/api/v1/upload", { method: "POST", body: fd });
+				const j = await r.json();
+				if (!j.success) throw new Error(j.detail || "Upload failed");
+			}
 
 			setUploading(false);
 			setExtruding(true);
 
-			const stlName = `${file.name.replace(/\.(dxf|dwg)$/i, "")}.stl`;
+			const stlName = `${fileName.replace(/\.(dxf|dwg)$/i, "")}.stl`;
 			const wl = wallLayers.trim() ? wallLayers.split(",").map((s) => s.trim()) : undefined;
 
 			const conv = await fetch(API_BASE + "/api/v1/control/tool", {
@@ -49,7 +92,7 @@ export default function ExtrudePage() {
 				body: JSON.stringify({
 					tool: "plan_extrude",
 					arguments: {
-						file_name: file.name,
+						file_name: fileName,
 						output_name: stlName,
 						wall_height: wallHeight,
 						wall_thickness: wallThickness,
@@ -60,6 +103,7 @@ export default function ExtrudePage() {
 			const cj = await conv.json();
 			if (cj.success) {
 				setResult(cj);
+				setFreecadResult(null);
 			} else {
 				setError(cj.error || "Extrusion failed");
 			}
@@ -71,13 +115,44 @@ export default function ExtrudePage() {
 		}
 	};
 
+	const handleFreecad = async () => {
+		if (!result?.output) return;
+		setFreecadSending(true);
+		try {
+			const r = await fetch(API_BASE + "/api/v1/freecad/solid", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ stl_name: result.output }),
+			});
+			const j = await r.json();
+			if (j.success) {
+				setFreecadResult(j);
+			} else {
+				setFreecadResult({ success: false, output: "", download: null, data: {}, error: j.detail || "Transfer failed" });
+			}
+		} catch (e: unknown) {
+			setFreecadResult({
+				success: false,
+				output: "",
+				download: null,
+				data: {},
+				error: e instanceof Error ? e.message : String(e),
+			});
+		} finally {
+			setFreecadSending(false);
+		}
+	};
+
+	const canRun = source === "depot" ? depotSelected !== "" : file !== null;
+
 	return (
 		<div className="max-w-3xl space-y-6">
 			<h1 className="text-2xl font-bold text-white flex items-center gap-3">
 				<Box className="text-amber-400" /> Wall Extrusion
 			</h1>
 			<p className="text-sm text-slate-300">
-				Upload a DXF floor plan, configure wall parameters, and generate a 3D STL mesh.
+				Pick a DXF floor plan from the depot or upload one, configure wall parameters, and generate a 3D
+				STL mesh — then optionally send it to FreeCAD for a solid 3D object.
 			</p>
 
 			<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 space-y-4">
@@ -126,24 +201,60 @@ export default function ExtrudePage() {
 			</div>
 
 			<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 space-y-4">
-				<label className="block border-2 border-dashed border-white/10 rounded-xl p-6 text-center cursor-pointer hover:border-amber-500/40 transition-all">
-					<Upload className="mx-auto mb-2 text-slate-300" size={28} />
-					<p className="text-slate-400 text-sm">{file ? file.name : "Drop a DXF floor plan here"}</p>
-					<input
-						type="file"
-						accept=".dxf,.dwg"
-						className="hidden"
-						onChange={(e) => setFile(e.target.files?.[0] || null)}
-					/>
-				</label>
+				<div className="flex gap-2">
+					<button
+						type="button"
+						onClick={() => setSource("depot")}
+						className={`px-4 py-2 rounded-xl text-sm font-bold ${source === "depot" ? "bg-amber-600 text-white" : "bg-white/5 text-slate-300"}`}
+					>
+						From depot ({depotFiles.length})
+					</button>
+					<button
+						type="button"
+						onClick={() => setSource("upload")}
+						className={`px-4 py-2 rounded-xl text-sm font-bold ${source === "upload" ? "bg-amber-600 text-white" : "bg-white/5 text-slate-300"}`}
+					>
+						Upload new
+					</button>
+				</div>
+				{source === "depot" ? (
+					depotFiles.length > 0 ? (
+						<select
+							value={depotSelected}
+							onChange={(e) => setDepotSelected(e.target.value)}
+							className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500/30"
+						>
+							{depotFiles.map((n) => (
+								<option key={n} value={n}>
+									{n}
+								</option>
+							))}
+						</select>
+					) : (
+						<p className="text-sm text-slate-500">
+							Depot is empty — create a plan on the Demo page or switch to Upload.
+						</p>
+					)
+				) : (
+					<label className="block border-2 border-dashed border-white/10 rounded-xl p-6 text-center cursor-pointer hover:border-amber-500/40 transition-all">
+						<Upload className="mx-auto mb-2 text-slate-300" size={28} />
+						<p className="text-slate-400 text-sm">{file ? file.name : "Drop a DXF floor plan here"}</p>
+						<input
+							type="file"
+							accept=".dxf,.dwg"
+							className="hidden"
+							onChange={(e) => setFile(e.target.files?.[0] || null)}
+						/>
+					</label>
+				)}
 				<button
 					type="button"
 					onClick={handleExtrude}
-					disabled={!file || uploading || extruding}
+					disabled={!canRun || uploading || extruding}
 					className="w-full py-3 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white font-bold flex items-center justify-center gap-2"
 				>
 					{uploading || extruding ? <Loader2 className="animate-spin" size={18} /> : <Box size={18} />}
-					{uploading ? "Uploading..." : extruding ? "Extruding walls..." : "Extrude to STL"}
+					{uploading ? "Uploading..." : extruding ? "Extruding walls..." : `Extrude ${activeFileName || "to STL"}`}
 				</button>
 				{error && (
 					<div className="p-3 rounded-xl bg-red-950/40 border border-red-500/20 text-red-400 text-sm">{error}</div>
@@ -180,10 +291,9 @@ export default function ExtrudePage() {
 						>
 							<Download size={16} /> Download 3D STL Mesh
 						</a>
-						{file && (
-							<button
-								type="button"
-								onClick={async () => {
+						<button
+							type="button"
+							onClick={async () => {
 									try {
 										const r = await fetch(`${API_BASE}/api/v1/control/tool`, {
 											method: "POST",
@@ -191,7 +301,7 @@ export default function ExtrudePage() {
 											body: JSON.stringify({
 												tool: "plan_to_ifc_data",
 												arguments: {
-													file_name: file.name,
+													file_name: activeFileName,
 													wall_height: wallHeight * 1000.0,
 													wall_thickness: wallThickness * 1000.0,
 												},
@@ -216,8 +326,60 @@ export default function ExtrudePage() {
 							>
 								<Box size={16} /> Export BIM JSON (IFC)
 							</button>
-						)}
 					</div>
+				</div>
+			)}
+
+			{result && (
+				<div className="p-5 rounded-2xl bg-indigo-950/30 border border-indigo-500/20 space-y-3">
+					<p className="text-indigo-300 font-bold flex items-center gap-2 text-base">
+						<Package size={18} /> FreeCAD 3D Object
+						{freecadStatus && (
+							<span
+								className={`ml-2 inline-block w-2.5 h-2.5 rounded-full ${freecadStatus.reachable ? "bg-emerald-400" : "bg-red-400"}`}
+								title={freecadStatus.reachable ? `FreeCAD reachable at ${freecadStatus.base}` : (freecadStatus.hint || "FreeCAD offline")}
+							/>
+						)}
+					</p>
+					<p className="text-sm text-slate-400">
+						Sends this STL to the freecad-mcp backend, which converts the mesh into a solid 3D
+						object (FCStd). Requires FreeCAD installed and the freecad-mcp backend running.
+					</p>
+					{freecadStatus && !freecadStatus.reachable && (
+						<p className="text-sm text-amber-400">{freecadStatus.hint}</p>
+					)}
+					<button
+						type="button"
+						onClick={handleFreecad}
+						disabled={freecadSending || (freecadStatus ? !freecadStatus.reachable : false)}
+						className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-sm font-bold transition-all"
+					>
+						{freecadSending ? <Loader2 className="animate-spin" size={16} /> : <Package size={16} />}
+						{freecadSending ? "Converting in FreeCAD..." : "Make 3D object in FreeCAD"}
+					</button>
+					{freecadResult && freecadResult.success && (
+						<div className="text-sm text-slate-300 space-y-1">
+							<div>
+								Solid: <span className="font-mono text-slate-100">{freecadResult.output}</span>
+							</div>
+							{freecadResult.data?.volume_mm3 !== undefined && (
+								<div>
+									Volume:{" "}
+									<span className="font-mono text-slate-100">{freecadResult.data.volume_mm3} mm³</span>
+								</div>
+							)}
+							{freecadResult.download && (
+								<a href={freecadResult.download} download className="inline-flex items-center gap-2 mt-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold">
+									<Download size={16} /> Download FCStd solid
+								</a>
+							)}
+						</div>
+					)}
+					{freecadResult && !freecadResult.success && (
+						<div className="p-3 rounded-xl bg-red-950/40 border border-red-500/20 text-red-400 text-sm">
+							{freecadResult.error}
+						</div>
+					)}
 				</div>
 			)}
 		</div>
