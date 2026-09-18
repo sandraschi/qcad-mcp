@@ -718,6 +718,134 @@ async def plan_obj(
         return {"success": False, "error": str(e)}
 
 
+def _blender_exe():
+    """Locate the Blender binary (env BLENDER_EXE or standard installs)."""
+    import shutil
+
+    cand = os.environ.get("BLENDER_EXE", "")
+    if cand and os.path.isfile(cand):
+        return cand
+    for p in (
+        r"C:\Program Files\Blender Foundation\Blender 4.4\blender.exe",
+        r"C:\Program Files\Blender Foundation\Blender 4.3\blender.exe",
+    ):
+        if os.path.isfile(p):
+            return p
+    found = shutil.which("blender") or shutil.which("blender.exe")
+    if found:
+        return found
+    return ""
+
+
+async def plan_glb(
+    file_name: Annotated[str, Field(description="DXF filename in the depot (walls exported via OBJ first).")] = "",
+    obj_name: Annotated[
+        str, Field(default="", description="Existing OBJ in outputs to convert. Takes precedence.")
+    ] = "",
+    output_name: Annotated[str, Field(default="", description="GLB filename. Default: <stem>.glb.")] = "",
+    wall_height: Annotated[float, Field(default=3.0, description="Default wall height in metres (DXF path).")] = 3.0,
+    wall_thickness: Annotated[float, Field(default=0.3, description="Wall thickness in metres (DXF path).")] = 0.3,
+    wall_layers: Annotated[
+        list[str] | None, Field(default=None, description="Wall layer names. Auto-detected if omitted.")
+    ] = None,
+    green_roof: Annotated[bool, Field(default=False, description="Grass slab material (DXF path).")] = False,
+) -> dict:
+    """
+    Convert a plan (or existing OBJ) to GLB via headless Blender.
+
+    Resonite only imports .glb/.gltf/.vrm — this is the ticket in. Materials
+    and PNG textures from plan_obj carry through Blender's glTF exporter.
+    Millimetre geometry is scaled to metres on export.
+
+    ## Return Format
+    {"success": bool, "output": str, "data": {"size_kb": float, ...}}
+
+    ## Examples
+    await plan_glb(file_name="office.dxf")
+    await plan_glb(obj_name="office.obj", output_name="office.glb")
+    """
+    import subprocess
+    import tempfile
+
+    blexe = _blender_exe()
+    if not blexe:
+        return {"success": False, "error": "Blender not found (set BLENDER_EXE)."}
+
+    try:
+        if obj_name:
+            src_obj = os.path.join(OUTPUT_DIR, obj_name)
+            if not os.path.isfile(src_obj):
+                return {"success": False, "error": f"OBJ not found in outputs: {obj_name}"}
+            stem = Path(obj_name).stem
+        elif file_name:
+            res = await plan_obj(
+                file_name=file_name,
+                output_name="",
+                wall_height=wall_height,
+                wall_thickness=wall_thickness,
+                wall_layers=wall_layers,
+                green_roof=green_roof,
+            )
+            if not res.get("success"):
+                return res
+            src_obj = os.path.join(OUTPUT_DIR, res["output"])
+            stem = Path(res["output"]).stem
+        else:
+            return {"success": False, "error": "Provide file_name (DXF) or obj_name (OBJ)."}
+
+        out_name = output_name or f"{stem}.glb"
+        dst_glb = os.path.join(OUTPUT_DIR, out_name)
+        script = (
+            "import bpy, mathutils\n"
+            "import sys\n"
+            f"src = r'''{src_obj}'''\n"
+            f"dst = r'''{dst_glb}'''\n"
+            "bpy.ops.wm.obj_import(filepath=src, forward_axis='NEGATIVE_Z', up_axis='Y',\n"
+            "                     use_split_objects=True, use_split_groups=True)\n"
+            "found = [o for o in bpy.data.objects if o.type == 'MESH']\n"
+            "if not found:\n"
+            "    print('GLB_CONVERT: no meshes')\n"
+            "    raise SystemExit(3)\n"
+            "m = mathutils.Matrix.Scale(0.001, 4)\n"
+            "for o in found:\n"
+            "    o.data.transform(m)\n"
+            "    o.select_set(True)\n"
+            "bpy.ops.export_scene.gltf(filepath=dst, export_format='GLB', use_selection=True,\n"
+            "                         export_materials='EXPORT', export_image_format='AUTO')\n"
+            "print('GLB_CONVERT: ok', len(found))\n"
+        )
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f:
+            f.write(script)
+            script_path = f.name
+        try:
+            proc = subprocess.run(
+                [blexe, "--background", "--factory-startup", "--python", script_path],
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+        finally:
+            try:
+                os.unlink(script_path)
+            except OSError:
+                pass
+        if proc.returncode != 0 or not os.path.isfile(dst_glb):
+            tail = (proc.stderr or proc.stdout or "")[-500:]
+            return {"success": False, "error": f"Blender GLB convert failed (rc={proc.returncode}): {tail}"}
+        return {
+            "success": True,
+            "output": out_name,
+            "data": {
+                "size_kb": round(os.path.getsize(dst_glb) / 1024, 1),
+                "source_obj": os.path.basename(src_obj),
+            },
+        }
+    except subprocess.TimeoutExpired:
+        return {"success": False, "error": "Blender GLB convert timed out."}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 async def plan_drawings(
     file_name: Annotated[str, Field(description="DXF filename in the depot.")],
     output_prefix: Annotated[str, Field(default="", description="Output filename prefix. Default: DXF stem.")] = "",
@@ -1339,6 +1467,7 @@ def register(mcp):
     mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_extrude)
     mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_stack)
     mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_obj)
+    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_glb)
     mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_drawings)
     mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_export)
     mcp.tool(annotations=_README_ONLY, version="0.3.0")(plan_analyse)

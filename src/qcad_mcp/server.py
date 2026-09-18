@@ -64,6 +64,7 @@ from qcad_mcp.tools.core_tools import (
     plan_drawings,
     plan_export,
     plan_extrude,
+    plan_glb,
     plan_info,
     plan_obj,
     plan_stack,
@@ -639,6 +640,19 @@ _register_tool(
     },
 )
 _register_tool(
+    "plan_glb",
+    plan_glb,
+    {
+        "file_name": "file_name",
+        "obj_name": "obj_name",
+        "output_name": "output_name",
+        "wall_height": "wall_height",
+        "wall_thickness": "wall_thickness",
+        "wall_layers": "wall_layers",
+        "green_roof": "green_roof",
+    },
+)
+_register_tool(
     "plan_drawings",
     plan_drawings,
     {
@@ -1020,6 +1034,94 @@ async def blender_import(req: BlenderImportRequest):
     if inner.get("status") != "SUCCESS":
         raise HTTPException(502, f"Blender import failed: {(inner.get('error') or detail)[:300]}")
     return {"success": True, "output": req.file_name, "data": inner, "detail": detail[:500]}
+
+
+# ── Resonite Handoff (fleet cross-connect) ─────────────────────────────────
+# Stages a GLB (Resonite imports .glb/.gltf/.vrm only) and attempts delivery
+# via resonite-mcp inventory upload. The final hop needs the Resonite game
+# (ResoniteLink) or a cloud token server-side; without them the GLB is
+# staged with a download link and the reason is reported honestly.
+
+_RESONITE_BASE = os.environ.get("RESONITE_MCP_URL", "http://127.0.0.1:10979")
+
+
+@app.get("/api/v1/resonite/status")
+async def resonite_status():
+    """Probe the resonite-mcp backend for the VR handoff."""
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            r = await client.get(_RESONITE_BASE + "/api/v1/health")
+            if r.status_code == 200:
+                return {"reachable": True, "base": _RESONITE_BASE, "status": r.json()}
+    except Exception:
+        pass
+    return {
+        "reachable": False,
+        "base": _RESONITE_BASE,
+        "hint": "Start the resonite-mcp backend to enable VR delivery.",
+    }
+
+
+class ResoniteImportRequest(BaseModel):
+    file_name: str = Field(description="DXF in depot or OBJ/GLB in outputs; GLB is produced as needed.")
+    output_name: str = Field(default="", description="GLB filename. Default: <stem>.glb.")
+
+
+@app.post("/api/v1/resonite/import")
+async def resonite_import(req: ResoniteImportRequest):
+    """Stage a GLB for Resonite and attempt inventory delivery."""
+    from qcad_mcp.tools.core_tools import plan_glb
+
+    ext = Path(req.file_name).suffix.lower()
+    if ext == ".dxf":
+        conv = await plan_glb(file_name=req.file_name, output_name=req.output_name)
+        if not conv.get("success"):
+            raise HTTPException(500, conv.get("error", "GLB conversion failed."))
+        glb_name = conv["output"]
+    elif ext in (".obj", ".glb", ".gltf"):
+        src = os.path.join(OUTPUT_DIR, req.file_name)
+        if not os.path.isfile(src):
+            raise HTTPException(404, f"File '{req.file_name}' not found in qcad outputs.")
+        if ext == ".obj":
+            conv = await plan_glb(obj_name=req.file_name, output_name=req.output_name)
+            if not conv.get("success"):
+                raise HTTPException(500, conv.get("error", "GLB conversion failed."))
+            glb_name = conv["output"]
+        else:
+            glb_name = req.file_name
+    else:
+        raise HTTPException(400, f"Unsupported file for Resonite: {ext} (use DXF, OBJ, GLB).")
+
+    glb_path = os.path.join(OUTPUT_DIR, glb_name)
+    glb_kb = round(os.path.getsize(glb_path) / 1024, 1) if os.path.isfile(glb_path) else 0.0
+    # Delivery needs the Resonite game (ResoniteLink) or a cloud token
+    # server-side; resonite-mcp exposes no generic tool bridge for inventory
+    # upload, so stage the GLB and report exactly what is missing.
+    delivery: dict = {"delivered": False, "reason": "not attempted"}
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            h = await client.post(
+                _RESONITE_BASE + "/api/v1/tool",
+                json={"tool": "health_check", "params": {}},
+            )
+            alive = h.status_code == 200 and h.json().get("success", False)
+    except Exception as e:
+        alive = False
+        delivery = {"delivered": False, "reason": f"resonite-mcp unreachable: {e}"}
+    if alive:
+        delivery = {
+            "delivered": False,
+            "reason": "Staged. Final hop needs the Resonite game client (ResoniteLink importFile) "
+            "or RESONITE_TOKEN (inventory upload) — neither is present.",
+        }
+
+    return {
+        "success": True,
+        "output": glb_name,
+        "download": f"/api/v1/download/{glb_name}",
+        "size_kb": glb_kb,
+        "delivery": delivery,
+    }
 
 
 # ── FreeCAD Handoff (fleet cross-connect) ─────────────────────────────────

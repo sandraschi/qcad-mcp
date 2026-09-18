@@ -42,6 +42,21 @@ interface BlenderResult {
 	error?: string;
 }
 
+interface ResoniteStatus {
+	reachable: boolean;
+	base: string;
+	hint?: string;
+}
+
+interface ResoniteResult {
+	success: boolean;
+	output: string;
+	download: string | null;
+	delivered: boolean;
+	detail: string;
+	error?: string;
+}
+
 export default function ExtrudePage() {
 	const [file, setFile] = useState<File | null>(null);
 	const [depotFiles, setDepotFiles] = useState<string[]>([]);
@@ -60,6 +75,9 @@ export default function ExtrudePage() {
 	const [blenderStatus, setBlenderStatus] = useState<BlenderStatus | null>(null);
 	const [blenderSending, setBlenderSending] = useState(false);
 	const [blenderResult, setBlenderResult] = useState<BlenderResult | null>(null);
+	const [resoniteStatus, setResoniteStatus] = useState<ResoniteStatus | null>(null);
+	const [resoniteSending, setResoniteSending] = useState(false);
+	const [resoniteResult, setResoniteResult] = useState<ResoniteResult | null>(null);
 
 	useEffect(() => {
 		fetch(API_BASE + "/api/v1/depot")
@@ -79,6 +97,10 @@ export default function ExtrudePage() {
 		fetch(API_BASE + "/api/v1/blender/status")
 			.then((r) => r.json())
 			.then((j) => setBlenderStatus(j))
+			.catch(() => {});
+		fetch(API_BASE + "/api/v1/resonite/status")
+			.then((r) => r.json())
+			.then((j) => setResoniteStatus(j))
 			.catch(() => {});
 	}, []);
 
@@ -160,6 +182,41 @@ export default function ExtrudePage() {
 			});
 		} finally {
 			setFreecadSending(false);
+		}
+	};
+
+	const handleResonite = async () => {
+		if (!activeFileName) return;
+		setResoniteSending(true);
+		try {
+			const r = await fetch(API_BASE + "/api/v1/resonite/import", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ file_name: activeFileName }),
+			});
+			const j = await r.json();
+			if (j.success) {
+				setResoniteResult({
+					success: true,
+					output: j.output,
+					download: j.download || null,
+					delivered: !!j.delivery?.delivered,
+					detail: j.delivery?.detail || j.delivery?.reason || "",
+				});
+			} else {
+				setResoniteResult({ success: false, output: "", download: null, delivered: false, detail: "", error: j.detail || "Transfer failed" });
+			}
+		} catch (e: unknown) {
+			setResoniteResult({
+				success: false,
+				output: "",
+				download: null,
+				delivered: false,
+				detail: "",
+				error: e instanceof Error ? e.message : String(e),
+			});
+		} finally {
+			setResoniteSending(false);
 		}
 	};
 
@@ -523,6 +580,58 @@ export default function ExtrudePage() {
 					{blenderResult && !blenderResult.success && (
 						<div className="p-3 rounded-xl bg-red-950/40 border border-red-500/20 text-red-400 text-sm">
 							{blenderResult.error}
+						</div>
+					)}
+				</div>
+			)}
+
+			{result && (
+				<div className="p-5 rounded-2xl bg-purple-950/30 border border-purple-500/20 space-y-3">
+					<p className="text-purple-300 font-bold flex items-center gap-2 text-base">
+						<Package size={18} /> Resonite VR Import
+						{resoniteStatus && (
+							<span
+								className={`ml-2 inline-block w-2.5 h-2.5 rounded-full ${resoniteStatus.reachable ? "bg-emerald-400" : "bg-red-400"}`}
+								title={resoniteStatus.reachable ? `Resonite reachable at ${resoniteStatus.base}` : (resoniteStatus.hint || "Resonite offline")}
+							/>
+						)}
+					</p>
+					<p className="text-sm text-slate-400">
+						Converts the plan to GLB (the only format Resonite imports) and stages it
+						for inventory delivery. Final hop needs the Resonite game or cloud token.
+					</p>
+					{resoniteStatus && !resoniteStatus.reachable && (
+						<p className="text-sm text-amber-400">{resoniteStatus.hint}</p>
+					)}
+					<button
+						type="button"
+						onClick={handleResonite}
+						disabled={resoniteSending}
+						className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white text-sm font-bold transition-all"
+					>
+						{resoniteSending ? <Loader2 className="animate-spin" size={16} /> : <Package size={16} />}
+						{resoniteSending ? "Preparing GLB..." : "Send to Resonite"}
+					</button>
+					{resoniteResult && resoniteResult.success && (
+						<div className="text-sm text-slate-300 space-y-1">
+							<div>
+								GLB: <span className="font-mono text-slate-100">{resoniteResult.output}</span>
+							</div>
+							{resoniteResult.download && (
+								<a href={resoniteResult.download} download className="inline-flex items-center gap-2 mt-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold">
+									<Download size={16} /> Download GLB
+								</a>
+							)}
+							<div className={resoniteResult.delivered ? "text-emerald-400" : "text-amber-400"}>
+								{resoniteResult.delivered
+									? "Delivered to Resonite inventory."
+									: `Staged only — ${resoniteResult.detail || "Resonite delivery unavailable."}`}
+							</div>
+						</div>
+					)}
+					{resoniteResult && !resoniteResult.success && (
+						<div className="p-3 rounded-xl bg-red-950/40 border border-red-500/20 text-red-400 text-sm">
+							{resoniteResult.error}
 						</div>
 					)}
 				</div>
