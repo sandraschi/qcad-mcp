@@ -218,6 +218,9 @@ async def plan_extrude(
             description="Layer names to treat as walls. Auto-detected if omitted (matches 'wall', 'mauer', 'wand').",
         ),
     ] = None,
+    base_elevation: Annotated[
+        float, Field(default=0.0, description="Storey base elevation in metres (stacked multilevel builds).")
+    ] = 0.0,
 ) -> dict:
     """
     Extrude walls from a DXF floor plan into a 3D STL mesh.
@@ -246,6 +249,7 @@ async def plan_extrude(
     stl_path = os.path.join(OUTPUT_DIR, output_name)
     height_mm = wall_height * 1000.0
     thick_mm = wall_thickness * 1000.0
+    base_mm = base_elevation * 1000.0
 
     try:
         msp = doc.modelspace()
@@ -257,52 +261,9 @@ async def plan_extrude(
                 "error": "No wall entities found. Try specifying wall_layers or use a DXF with LINE/LWPOLYLINE entities.",
             }
 
-        meshes = []
-        heights = set()
-        for seg in wall_segments:
-            x1, y1 = seg["start"]
-            x2, y2 = seg["end"]
-            seg_h = seg.get("h") or height_mm
-            heights.add(round(seg_h, 1))
-            dx, dy = x2 - x1, y2 - y1
-            length = np.sqrt(dx * dx + dy * dy)
-            if length < 1e-6:
-                continue
-            nx, ny = -dy / length, dx / length
-            hw = thick_mm / 2.0
-            v = np.array(
-                [
-                    [x1 - nx * hw, y1 - ny * hw, 0],
-                    [x1 + nx * hw, y1 + ny * hw, 0],
-                    [x2 + nx * hw, y2 + ny * hw, 0],
-                    [x2 - nx * hw, y2 - ny * hw, 0],
-                    [x1 - nx * hw, y1 - ny * hw, seg_h],
-                    [x1 + nx * hw, y1 + ny * hw, seg_h],
-                    [x2 + nx * hw, y2 + ny * hw, seg_h],
-                    [x2 - nx * hw, y2 - ny * hw, seg_h],
-                ]
-            )
-            triangles = np.array(
-                [
-                    [v[0], v[1], v[2]],
-                    [v[0], v[2], v[3]],
-                    [v[4], v[6], v[5]],
-                    [v[4], v[7], v[6]],
-                    [v[0], v[3], v[7]],
-                    [v[0], v[7], v[4]],
-                    [v[1], v[5], v[6]],
-                    [v[1], v[6], v[2]],
-                    [v[0], v[4], v[5]],
-                    [v[0], v[5], v[1]],
-                    [v[3], v[2], v[6]],
-                    [v[3], v[6], v[7]],
-                ]
-            )
-            for tri in triangles:
-                mesh_data = np.zeros(1, dtype=Mesh.dtype)
-                mesh_data["vectors"][0] = tri
-                meshes.append(Mesh(mesh_data))
-
+        meshes, heights = _extrude_segments(wall_segments, height_mm, thick_mm, base_mm)
+        if not meshes:
+            return {"success": False, "error": "Nothing to extrude (all segments degenerate)."}
         combined = Mesh(np.concatenate([m.data for m in meshes]))
         combined.save(stl_path)
 
@@ -316,6 +277,136 @@ async def plan_extrude(
                 "size_kb": round(os.path.getsize(stl_path) / 1024, 1),
                 "wall_height_m": wall_height,
                 "wall_thickness_m": wall_thickness,
+                "base_elevation_m": base_elevation,
+                "heights_mm": sorted(heights),
+            },
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def _extrude_segments(segments, height_mm, thick_mm, base_mm):
+    """Turn wall segments into numpy-stl Mesh boxes. Returns (meshes, heights_mm)."""
+    import numpy as np
+    from stl.mesh import Mesh
+
+    meshes = []
+    heights = set()
+    for seg in segments:
+        x1, y1 = seg["start"]
+        x2, y2 = seg["end"]
+        seg_h = seg.get("h") or height_mm
+        heights.add(round(seg_h, 1))
+        dx, dy = x2 - x1, y2 - y1
+        length = np.sqrt(dx * dx + dy * dy)
+        if length < 1e-6:
+            continue
+        nx, ny = -dy / length, dx / length
+        hw = thick_mm / 2.0
+        z0, z1 = base_mm, base_mm + seg_h
+        v = np.array(
+            [
+                [x1 - nx * hw, y1 - ny * hw, z0],
+                [x1 + nx * hw, y1 + ny * hw, z0],
+                [x2 + nx * hw, y2 + ny * hw, z0],
+                [x2 - nx * hw, y2 - ny * hw, z0],
+                [x1 - nx * hw, y1 - ny * hw, z1],
+                [x1 + nx * hw, y1 + ny * hw, z1],
+                [x2 + nx * hw, y2 + ny * hw, z1],
+                [x2 - nx * hw, y2 - ny * hw, z1],
+            ]
+        )
+        triangles = np.array(
+            [
+                [v[0], v[1], v[2]],
+                [v[0], v[2], v[3]],
+                [v[4], v[6], v[5]],
+                [v[4], v[7], v[6]],
+                [v[0], v[3], v[7]],
+                [v[0], v[7], v[4]],
+                [v[1], v[5], v[6]],
+                [v[1], v[6], v[2]],
+                [v[0], v[4], v[5]],
+                [v[0], v[5], v[1]],
+                [v[3], v[2], v[6]],
+                [v[3], v[6], v[7]],
+            ]
+        )
+        for tri in triangles:
+            mesh_data = np.zeros(1, dtype=Mesh.dtype)
+            mesh_data["vectors"][0] = tri
+            meshes.append(Mesh(mesh_data))
+    return meshes, heights
+
+
+async def plan_stack(
+    files: Annotated[
+        list[dict],
+        Field(
+            description="Storeys to stack: [{file_name, base_elevation (m, default = 3.5 x index)}]. "
+            "Example: [{'file_name': 'tower_L0.dxf', 'base_elevation': 0}, "
+            "{'file_name': 'tower_L1.dxf', 'base_elevation': 3.5}]."
+        ),
+    ],
+    output_name: Annotated[str, Field(default="stacked.stl", description="Combined STL filename.")] = "stacked.stl",
+    wall_height: Annotated[float, Field(default=3.0, description="Default wall height in metres.")] = 3.0,
+    wall_thickness: Annotated[float, Field(default=0.3, description="Wall thickness in metres.")] = 0.3,
+    wall_layers: Annotated[
+        list[str] | None, Field(default=None, description="Wall layer names. Auto-detected if omitted.")
+    ] = None,
+) -> dict:
+    """
+    Stack multiple single-storey DXF plans into one multilevel STL mesh.
+
+    Each file is extruded at its base_elevation (e.g. ground 0 m, L1 3.5 m).
+    Per-entity XDATA heights apply within each storey as usual.
+
+    ## Return Format
+    {"success": bool, "output": str, "data": {"levels": [...], "wall_count": int, ...}}
+
+    ## Examples
+    await plan_stack(files=[{"file_name": "tower_L0.dxf", "base_elevation": 0},
+                            {"file_name": "tower_L1.dxf", "base_elevation": 3.5}])
+    """
+    import numpy as np
+    from stl.mesh import Mesh
+
+    stl_path = os.path.join(OUTPUT_DIR, output_name)
+    height_mm = wall_height * 1000.0
+    thick_mm = wall_thickness * 1000.0
+
+    try:
+        all_meshes = []
+        heights = set()
+        levels_out = []
+        total_walls = 0
+        for i, spec in enumerate(files):
+            fname = spec.get("file_name", "")
+            base_mm = float(spec.get("base_elevation", 3.5 * i)) * 1000.0
+            doc, err = _load_dxf(fname)
+            if doc is None:
+                return {"success": False, "error": f"Level {i} ({fname}): {err}"}
+            segments, _used = _wall_segments(doc.modelspace(), wall_layers, doc, default_h_mm=height_mm)
+            if not segments:
+                return {"success": False, "error": f"Level {i} ({fname}): no wall entities found."}
+            meshes, lv_heights = _extrude_segments(segments, height_mm, thick_mm, base_mm)
+            heights.update(lv_heights)
+            all_meshes.extend(meshes)
+            total_walls += len(segments)
+            levels_out.append({"file": fname, "base_elevation_m": base_mm / 1000.0, "walls": len(segments)})
+        if not all_meshes:
+            return {"success": False, "error": "Nothing to stack."}
+        combined = Mesh(np.concatenate([m.data for m in all_meshes]))
+        combined.save(stl_path)
+        return {
+            "success": True,
+            "output": output_name,
+            "data": {
+                "vertices": len(combined.points),
+                "faces": len(combined.data),
+                "wall_count": total_walls,
+                "levels": levels_out,
+                "size_kb": round(os.path.getsize(stl_path) / 1024, 1),
                 "heights_mm": sorted(heights),
             },
         }
@@ -942,6 +1033,7 @@ def register(mcp):
     mcp.tool(annotations=_README_ONLY, version="0.3.0")(plan_info)
     mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_to_svg)
     mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_extrude)
+    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_stack)
     mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_drawings)
     mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_export)
     mcp.tool(annotations=_README_ONLY, version="0.3.0")(plan_analyse)

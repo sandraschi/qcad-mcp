@@ -16,6 +16,7 @@ interface DemoResult {
 	stl: string | null;
 	stl_vertices: number;
 	drawings: Record<string, string> | null;
+	levels: { title: string; dxf: string; svg: string | null }[] | null;
 	error: string | null;
 }
 
@@ -33,10 +34,20 @@ const DRAWING_ORDER = ["elev_n", "elev_s", "elev_e", "elev_w", "section_aa", "is
 
 type Entity = Record<string, unknown>;
 
+interface LevelSpec {
+	suffix: string;
+	title: string;
+	elevation: number;
+	entities: Entity[];
+	layers: { name: string; color: number; description: string }[];
+	inserts: Entity[];
+}
+
 function generateEntities(goal: string): {
 	entities: Entity[];
 	layers: { name: string; color: number; description: string }[];
 	inserts: Entity[];
+	levels?: LevelSpec[];
 } {
 	const g = goal.toLowerCase();
 	const mm = (m: number) => Math.round(m * 1000);
@@ -147,6 +158,121 @@ function generateEntities(goal: string): {
 			entities.push({ type: "window", x1: x, y1: 0, x2: x + mm(2), y2: 0, layer: "Windows" });
 			entities.push({ type: "window", x1: x, y1: H, x2: x + mm(2), y2: H, layer: "Windows" });
 		}
+
+	// Modern multilevel tower: shops + pizzeria at ground, flats above, roof garden
+	} else if (
+		g.includes("tower") ||
+		g.includes("high-rise") ||
+		g.includes("highrise") ||
+		g.includes("multilevel") ||
+		g.includes("multi-level") ||
+		g.includes("pizzeria") ||
+		g.includes("roof garden") ||
+		g.includes("storey") ||
+		(g.includes("mob") && g.includes("level"))
+	) {
+		const W = mm(30),
+			D = mm(12);
+		const L = (suffix: string, title: string, elevation: number): LevelSpec => ({
+			suffix,
+			title,
+			elevation,
+			entities: [],
+			layers,
+			inserts: [],
+		});
+		const levels: LevelSpec[] = [];
+		const txt = (E: Entity[], x: number, y: number, h: number, text: string) =>
+			E.push({ type: "text", x, y, h, text, layer: "Text" });
+
+		// L0 ground: 2 shops + pizzeria (4 m walls, storefront glass south)
+		{
+			const L0 = L("L0", "Ground floor — shops + pizzeria", 0);
+			const E = L0.entities;
+			E.push({ type: "rect", x1: 0, y1: 0, x2: W, y2: D, hgt: 4, layer: "Walls" });
+			E.push({ type: "line", x1: mm(10), y1: 0, x2: mm(10), y2: D, layer: "Walls" });
+			E.push({ type: "line", x1: mm(20), y1: 0, x2: mm(20), y2: D, hgt: 4, layer: "Walls" });
+			// Shop entrances + storefront windows (south facade)
+			E.push({ type: "door", x: mm(4), y: 0, w: 1200, angle: 0, layer: "Doors" });
+			E.push({ type: "door", x: mm(14), y: 0, w: 1200, angle: 0, layer: "Doors" });
+			E.push({ type: "window", x1: mm(6), y1: 0, x2: mm(9), y2: 0, layer: "Windows" });
+			E.push({ type: "window", x1: mm(11), y1: 0, x2: mm(14), y2: 0, layer: "Windows" });
+			E.push({ type: "window", x1: mm(21), y1: 0, x2: mm(26), y2: 0, layer: "Windows" });
+			// Pizzeria (east unit): oven, counter, tables
+			E.push({ type: "rect", x1: mm(26), y1: mm(8), x2: mm(29), y2: mm(11), hgt: 3, layer: "Walls" });
+			E.push({ type: "text", x: mm(26.4), y: mm(9), h: 300, text: "OVEN", layer: "Text" });
+			E.push({ type: "line", x1: mm(20), y1: mm(5), x2: mm(25), y2: mm(5), layer: "Furniture" });
+			E.push({ type: "text", x: mm(21), y: mm(5.4), h: 250, text: "COUNTER", layer: "Text" });
+			E.push({ type: "rect", x1: mm(21), y1: mm(1), x2: mm(23), y2: mm(3), layer: "Furniture" });
+			E.push({ type: "rect", x1: mm(24), y1: mm(1), x2: mm(26), y2: mm(3), layer: "Furniture" });
+			E.push({ type: "door", x: mm(22), y: D, w: 1000, angle: 0, layer: "Doors" });
+			txt(E, mm(2), mm(5), 500, "SHOP A");
+			txt(E, mm(12), mm(5), 500, "SHOP B");
+			txt(E, mm(21), mm(9.5), 600, "PIZZERIA");
+			// Stair core (west bay)
+			E.push({ type: "rect", x1: mm(0.5), y1: mm(8), x2: mm(3.5), y2: D, hgt: 4, layer: "Walls" });
+			E.push({ type: "door", x: mm(1.5), y: mm(8), w: 900, angle: 0, layer: "Doors" });
+			txt(E, mm(0.7), mm(10), 300, "STAIR");
+			L0.inserts.push({ block_name: "TABLE", x: mm(22), y: mm(2), layer: "Furniture" });
+			L0.inserts.push({ block_name: "WC", x: mm(28), y: mm(1), layer: "Furniture" });
+			levels.push(L0);
+		}
+
+		// L1-L3: two flats each with balconies (3 m walls)
+		for (let lv = 1; lv <= 3; lv++) {
+			const Ln = L(`L${lv}`, `Level ${lv} — apartments`, lv * 3.5);
+			const E = Ln.entities;
+			E.push({ type: "rect", x1: 0, y1: 0, x2: W, y2: D, hgt: 3, layer: "Walls" });
+			E.push({ type: "line", x1: mm(15), y1: 0, x2: mm(15), y2: D, hgt: 3, layer: "Walls" });
+			E.push({ type: "line", x1: mm(7.5), y1: 0, x2: mm(7.5), y2: D, layer: "Walls" });
+			E.push({ type: "line", x1: mm(22.5), y1: 0, x2: mm(22.5), y2: D, layer: "Walls" });
+			// Stair core continues
+			E.push({ type: "rect", x1: mm(0.5), y1: mm(8), x2: mm(3.5), y2: D, hgt: 3, layer: "Walls" });
+			// Flat doors + windows
+			for (const dx of [mm(7.5), mm(15), mm(22.5)]) {
+				E.push({ type: "door", x: dx - 1400, y: 0, w: 900, angle: 0, layer: "Doors" });
+				E.push({ type: "window", x1: dx + 800, y1: D, x2: dx + 2800, y2: D, layer: "Windows" });
+				E.push({ type: "window", x1: dx - 2800, y1: 0, x2: dx - 800, y2: 0, layer: "Windows" });
+			}
+			// Balconies on south facade: 1.1 m parapet (extrudes!) + slab outline
+			for (const bx of [mm(4), mm(11.5), mm(19), mm(26.5)]) {
+				E.push({ type: "rect", x1: bx, y1: -mm(1.6), x2: bx + mm(2.4), y2: 0, hgt: 1.1, layer: "Walls" });
+				E.push({ type: "line", x1: bx, y1: -mm(1.6), x2: bx + mm(2.4), y2: -mm(1.6), layer: "Detail" });
+			}
+			txt(E, mm(2), mm(5), 450, `FLAT ${lv}A`);
+			txt(E, mm(17), mm(5), 450, `FLAT ${lv}B`);
+			Ln.inserts.push({ block_name: "BED", x: mm(5.5), y: mm(8.5), layer: "Furniture" });
+			Ln.inserts.push({ block_name: "BED", x: mm(20.5), y: mm(8.5), layer: "Furniture" });
+			Ln.inserts.push({ block_name: "SOFA", x: mm(8), y: mm(2), layer: "Furniture" });
+			Ln.inserts.push({ block_name: "SOFA", x: mm(23), y: mm(2), layer: "Furniture" });
+			levels.push(Ln);
+		}
+
+		// L4 roof garden: parapet, planters, pergola, stair bulkhead
+		{
+			const L4 = L("L4", "Roof garden", 4 * 3.5);
+			const E = L4.entities;
+			E.push({ type: "rect", x1: 0, y1: 0, x2: W, y2: D, hgt: 1.1, layer: "Walls" });
+			for (const px of [mm(3), mm(9), mm(15), mm(21), mm(27)]) {
+				E.push({ type: "rect", x1: px, y1: mm(1), x2: px + mm(2.4), y2: mm(2), layer: "Detail" });
+				E.push({ type: "rect", x1: px, y1: mm(10), x2: px + mm(2.4), y2: mm(11), layer: "Detail" });
+			}
+			// Pergola: 4 columns + beams
+			for (const [px, py] of [[mm(12), mm(4)], [mm(18), mm(4)], [mm(12), mm(8)], [mm(18), mm(8)]]) {
+				E.push({ type: "circle", x: px, y: py, r: 150, layer: "Columns" });
+			}
+			E.push({ type: "line", x1: mm(12), y1: mm(4), x2: mm(18), y2: mm(4), layer: "Detail" });
+			E.push({ type: "line", x1: mm(12), y1: mm(8), x2: mm(18), y2: mm(8), layer: "Detail" });
+			// Stair bulkhead from L3
+			E.push({ type: "rect", x1: mm(0.5), y1: mm(8), x2: mm(3.5), y2: D, hgt: 2.5, layer: "Walls" });
+			E.push({ type: "door", x: mm(1.5), y: mm(8), w: 900, angle: 0, layer: "Doors" });
+			txt(E, mm(6), mm(5.5), 500, "ROOF GARDEN");
+			txt(E, mm(13), mm(5.8), 350, "PERGOLA");
+			L4.inserts.push({ block_name: "TABLE", x: mm(14), y: mm(5), layer: "Furniture" });
+			levels.push(L4);
+		}
+
+		return { entities, layers, inserts, levels };
 
 		// Mob compound
 	} else if (
@@ -383,6 +509,11 @@ const PRESETS = [
 		emoji: "🏢",
 		goal: "Office floor plan 20m x 15m with 6 private offices 3m x 3m, an open-plan workspace 12m x 8m, two meeting rooms, kitchen, two bathrooms.",
 	},
+	{
+		label: "Mob Tower",
+		emoji: "🏙️",
+		goal: "Modern 5-level mob tower 30m x 12m: shops and pizzeria at ground level, 3 apartment levels with balconies, roof garden with pergola.",
+	},
 ];
 
 export default function DemoPage() {
@@ -455,73 +586,144 @@ export default function DemoPage() {
 
 			let dxfFile: string;
 			let entityCount: number;
+			let towerLevels: { title: string; dxf: string; svg: string | null; elevation: number }[] | null = null;
 			if (agenticOk && agenticResult) {
 				dxfFile = agenticResult.output;
 				entityCount = agenticResult.data?.entity_count ?? 0;
 			} else {
 				// Fallback: generate rich geometry from goal description
-				const { entities, layers, inserts } = generateEntities(goal.trim());
-				const createResult = await callTool("plan_create", {
-					filename: dxfName,
-					description: goal.trim(),
-					entities,
-					layers,
-				});
-				if (!createResult.success) throw new Error(createResult.error || "Failed to create floor plan");
-				dxfFile = dxfName;
-				entityCount = createResult.data?.entity_count ?? 0;
-				// Furniture blocks from the bundled library (free ezdxf path, no Pro needed)
-				if (inserts.length > 0) {
-					const insResult = await callTool("plan_block_insert", {
-						file_name: dxfFile,
-						inserts,
-					}).catch(() => null);
-					if (insResult?.success && insResult.output) {
-						dxfFile = insResult.output;
-						entityCount = insResult.data?.entity_count ?? entityCount;
+				const { entities, layers, inserts, levels } = generateEntities(goal.trim());
+				if (levels && levels.length > 0) {
+					// Multilevel tower: one DXF per storey + stacked preview later
+					towerLevels = [];
+					let total = 0;
+					for (const lv of levels) {
+						const lvName = `${stem}_${lv.suffix}.dxf`;
+						const cr = await callTool("plan_create", {
+							filename: lvName,
+							description: `${goal.trim()} — ${lv.title}`,
+							entities: lv.entities,
+							layers: lv.layers,
+						});
+						if (!cr.success) throw new Error(cr.error || `Failed to create ${lv.title}`);
+						let lvFile: string = lvName;
+						total += cr.data?.entity_count ?? 0;
+						if (lv.inserts.length > 0) {
+							const ins = await callTool("plan_block_insert", {
+								file_name: lvFile,
+								inserts: lv.inserts,
+							}).catch(() => null);
+							if (ins?.success && ins.output) {
+								lvFile = ins.output;
+								total += (ins.data?.insert_count ?? 0);
+							}
+						}
+						towerLevels.push({ title: lv.title, dxf: lvFile, svg: null, elevation: lv.elevation });
+					}
+					dxfFile = towerLevels[0].dxf;
+					entityCount = total;
+				} else {
+					const createResult = await callTool("plan_create", {
+						filename: dxfName,
+						description: goal.trim(),
+						entities,
+						layers,
+					});
+					if (!createResult.success) throw new Error(createResult.error || "Failed to create floor plan");
+					dxfFile = dxfName;
+					entityCount = createResult.data?.entity_count ?? 0;
+					// Furniture blocks from the bundled library (free ezdxf path, no Pro needed)
+					if (inserts.length > 0) {
+						const insResult = await callTool("plan_block_insert", {
+							file_name: dxfFile,
+							inserts,
+						}).catch(() => null);
+						if (insResult?.success && insResult.output) {
+							dxfFile = insResult.output;
+							entityCount = insResult.data?.entity_count ?? entityCount;
+						}
 					}
 				}
 			}
 
 			updateStep(0, { status: "done", detail: `${entityCount} entities` });
-			setResult({ dxf: dxfFile, dxf_entities: entityCount, svg: null, stl: null, stl_vertices: 0, drawings: null, error: null });
+			setResult({ dxf: dxfFile, dxf_entities: entityCount, svg: null, stl: null, stl_vertices: 0, drawings: null, levels: null, error: null });
 
-			// Step 2: Render SVG preview
+			// Step 2: Render SVG preview (per level for towers)
 			updateStep(1, { status: "running" });
-			const svgResult = await callTool("plan_to_svg", {
-				file_name: dxfFile,
-				output_name: `${stem}.svg`,
-			});
-			updateStep(1, {
-				status: svgResult.success ? "done" : "error",
-				detail: svgResult.success ? svgResult.output : svgResult.error,
-			});
-			setResult((prev) => (prev ? { ...prev, svg: svgResult.success ? svgResult.output : null } : prev));
+			if (towerLevels) {
+				for (const lv of towerLevels) {
+					const sv = await callTool("plan_to_svg", {
+						file_name: lv.dxf,
+						output_name: lv.dxf.replace(/\.dxf$/i, ".svg"),
+					}).catch(() => null);
+					lv.svg = sv?.success ? sv.output : null;
+				}
+				updateStep(1, { status: "done", detail: `${towerLevels.length} storey previews` });
+				setResult((prev) =>
+					prev ? { ...prev, svg: towerLevels[0].svg, levels: towerLevels.map(({ title, dxf, svg }) => ({ title, dxf, svg })) } : prev,
+				);
+			} else {
+				const svgResult = await callTool("plan_to_svg", {
+					file_name: dxfFile,
+					output_name: `${stem}.svg`,
+				});
+				updateStep(1, {
+					status: svgResult.success ? "done" : "error",
+					detail: svgResult.success ? svgResult.output : svgResult.error,
+				});
+				setResult((prev) => (prev ? { ...prev, svg: svgResult.success ? svgResult.output : null } : prev));
+			}
 
-			// Step 3: Extrude to 3D STL
+			// Step 3: Extrude to 3D STL (stacked for towers)
 			updateStep(2, { status: "running" });
-			const stlResult = await callTool("plan_extrude", {
-				file_name: dxfFile,
-				output_name: `${stem}.stl`,
-				wall_height: 3.0,
-				wall_thickness: 0.15,
-				wall_layers: ["Walls", "Columns"],
-			});
-			updateStep(2, {
-				status: stlResult.success ? "done" : "error",
-				detail: stlResult.success
-					? `${stlResult.data?.vertices ?? "?"} vertices, ${stlResult.data?.faces ?? "?"} faces`
-					: stlResult.error,
-			});
-			setResult((prev) =>
-				prev
-					? {
-							...prev,
-							stl: stlResult.success ? stlResult.output : null,
-							stl_vertices: stlResult.success ? (stlResult.data?.vertices ?? 0) : 0,
-						}
-					: prev,
-			);
+			if (towerLevels) {
+				const stackResult = await callTool("plan_stack", {
+					files: towerLevels.map((lv) => ({ file_name: lv.dxf, base_elevation: lv.elevation })),
+					output_name: `${stem}_tower.stl`,
+					wall_height: 3.0,
+					wall_thickness: 0.15,
+					wall_layers: ["Walls", "Columns"],
+				});
+				updateStep(2, {
+					status: stackResult.success ? "done" : "error",
+					detail: stackResult.success
+						? `${stackResult.data?.levels?.length ?? "?"} storeys, ${stackResult.data?.faces ?? "?"} faces`
+						: stackResult.error,
+				});
+				setResult((prev) =>
+					prev
+						? {
+								...prev,
+								stl: stackResult.success ? stackResult.output : null,
+								stl_vertices: stackResult.success ? (stackResult.data?.vertices ?? 0) : 0,
+							}
+						: prev,
+				);
+			} else {
+				const stlResult = await callTool("plan_extrude", {
+					file_name: dxfFile,
+					output_name: `${stem}.stl`,
+					wall_height: 3.0,
+					wall_thickness: 0.15,
+					wall_layers: ["Walls", "Columns"],
+				});
+				updateStep(2, {
+					status: stlResult.success ? "done" : "error",
+					detail: stlResult.success
+						? `${stlResult.data?.vertices ?? "?"} vertices, ${stlResult.data?.faces ?? "?"} faces`
+						: stlResult.error,
+				});
+				setResult((prev) =>
+					prev
+						? {
+								...prev,
+								stl: stlResult.success ? stlResult.output : null,
+								stl_vertices: stlResult.success ? (stlResult.data?.vertices ?? 0) : 0,
+							}
+						: prev,
+				);
+			}
 
 			// Step 4: Generate full drawing set (elevations, section, iso, roof)
 			updateStep(3, { status: "running" });
@@ -557,6 +759,7 @@ export default function DemoPage() {
 				stl: null,
 				stl_vertices: 0,
 				drawings: null,
+				levels: null,
 				error: msg,
 			};
 			setResult((prev) => (prev ? { ...prev, error: msg } : empty));
@@ -691,6 +894,40 @@ export default function DemoPage() {
 									alt="Floor plan preview"
 									className="max-w-full max-h-[500px] object-contain"
 								/>
+							</div>
+						</div>
+					)}
+
+					{/* Storeys (multilevel builds) */}
+					{result.levels && result.levels.length > 0 && (
+						<div className="bg-[#1e1e26] border border-white/10 rounded-2xl overflow-hidden">
+							<div className="px-4 py-3 bg-white/5 border-b border-white/10 flex items-center justify-between">
+								<div className="flex items-center gap-2">
+									<Eye size={14} className="text-amber-400" />
+									<span className="text-sm font-bold text-slate-300">Storeys</span>
+									<span className="text-xs text-slate-500">({result.levels.length} levels)</span>
+								</div>
+							</div>
+							<div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">
+								{result.levels.map((lv) => (
+									<div key={lv.dxf} className="bg-[#0a0a0c] border border-white/10 rounded-xl overflow-hidden">
+										<div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
+											<span className="text-sm font-bold text-slate-300">{lv.title}</span>
+											<a
+												href={`/api/v1/download/${lv.dxf}`}
+												download
+												className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 font-bold"
+											>
+												<Download size={12} /> DXF
+											</a>
+										</div>
+										{lv.svg ? (
+											<img src={`/api/v1/download/${lv.svg}`} alt={lv.title} className="w-full" />
+										) : (
+											<p className="p-4 text-sm text-slate-500">Preview not available</p>
+										)}
+									</div>
+								))}
 							</div>
 						</div>
 					)}

@@ -596,7 +596,16 @@ async def _block_insert_free(file_name: str, inserts: list[dict], output_name: s
 
 
 async def _block_insert_pro(file_name: str, inserts: list[dict], output_name: str = "") -> dict:
-    """QCAD Pro ECMAScript insert path (requires Pro installed)."""
+    """QCAD Pro ECMAScript insert path (requires Pro installed).
+
+    Recipe (verified against QCAD 3.3x ExAddBlock + live probes):
+    di.importFile() each library file (brings its BLOCK definitions into the
+    block table — there is no di.importBlock API), then
+    new RBlockReferenceEntity(document,
+        new RBlockReferenceData(blockId, pos, scaleVec, angleRad)).
+    """
+    import ezdxf
+
     in_path = os.path.join(DEPOT_DIR, file_name)
     if not os.path.isfile(in_path):
         return {"success": False, "error": f"File not found: {file_name}"}
@@ -604,8 +613,49 @@ async def _block_insert_pro(file_name: str, inserts: list[dict], output_name: st
     out_name = output_name or f"{Path(file_name).stem}_blocks.dxf"
     out_path = os.path.join(OUTPUT_DIR, out_name)
 
-    lines = ["var op = new RAddObjectsOperation();"]
-    for i, ins in enumerate(inserts):
+    try:
+        have = set(b.name for b in ezdxf.readfile(in_path).blocks)
+    except Exception:
+        have = set()
+
+    repo_root = Path(__file__).resolve().parents[3]
+    lib_files: list[str] = []
+    for d in (repo_root / "libraries", Path(DEPOT_DIR)):
+        if d.is_dir():
+            lib_files.extend(sorted(str(p) for p in d.glob("*.dxf")))
+    block_src: dict[str, str] = {}
+    for ins in inserts:
+        name = ins.get("block_name", "")
+        if not name or name in block_src or name in have:
+            continue
+        for cand in lib_files:
+            try:
+                if name in ezdxf.readfile(cand).blocks:
+                    block_src[name] = cand.replace("\\", "/")
+                    break
+            except Exception:
+                continue
+
+    missing = [
+        ins.get("block_name", "")
+        for ins in inserts
+        if ins.get("block_name", "") not in block_src and ins.get("block_name", "") not in have
+    ]
+    do = [ins for ins in inserts if ins.get("block_name", "") in block_src or ins.get("block_name", "") in have]
+    if not do:
+        return {"success": False, "error": f"No known blocks. Missing definitions: {sorted(set(missing))}"}
+
+    used_layers = sorted({ins.get("layer", "Furniture") for ins in do})
+    lines = []
+    for src in sorted(set(block_src.values())):
+        lines.append(f'di.importFile("{src}");')
+    lines.append("var __layerIds = {};")
+    for lyr in used_layers:
+        safe = lyr.replace("\\", "/").replace('"', "")
+        lines.append(f'try {{ __layerIds["{safe}"] = document.getLayerId("{safe}"); }} catch (__e) {{}}')
+    lines.append("var op = new RAddObjectsOperation();")
+    for i, ins in enumerate(do):
+        name = ins.get("block_name", "")
         x, y = ins.get("x", 0), ins.get("y", 0)
         sx, sy = ins.get("scale_x", 1.0), ins.get("scale_y", 1.0)
         rotation = (ins.get("rotation", 0) * 3.141592653589793) / 180
@@ -613,18 +663,21 @@ async def _block_insert_pro(file_name: str, inserts: list[dict], output_name: st
         rows = ins.get("rows", 1)
         cs = ins.get("col_spacing", 0)
         rs = ins.get("row_spacing", 0)
-
+        lyr = ins.get("layer", "Furniture").replace("\\", "/").replace('"', "")
         for col in range(columns):
             for row in range(rows):
                 px = x + col * cs
                 py = y + row * rs
                 lines.append(
-                    f"var pt_{i}_{col}_{row} = new RVector({px}, {py});"
-                    f"op.addObject(new RBlockReferenceEntity(document, null, "
-                    f"new RBlockReferenceData(pt_{i}_{col}_{row}, new RVector({sx},{sy}), {rotation}, null)));"
+                    f'var __bid_{i}_{col}_{row} = document.getBlockId("{name}");'
+                    f"var __ref_{i}_{col}_{row} = new RBlockReferenceEntity(document, "
+                    f"new RBlockReferenceData(__bid_{i}_{col}_{row}, "
+                    f"new RVector({px}, {py}), new RVector({sx}, {sy}), {rotation}));"
+                    f'if (__layerIds["{lyr}"] !== undefined) '
+                    f'__ref_{i}_{col}_{row}.setLayerId(__layerIds["{lyr}"]);'
+                    f"op.addObject(__ref_{i}_{col}_{row});"
                 )
-
-    lines.append("op.apply(document);")
+    lines.append("di.applyOperation(op);")
     code = "\n".join(lines)
 
     result = qcad_pro.run_script(
@@ -637,7 +690,8 @@ async def _block_insert_pro(file_name: str, inserts: list[dict], output_name: st
     if result.get("success"):
         result["output"] = out_name
         data = result.get("data", {})
-        data["insert_count"] = sum(ins.get("columns", 1) * ins.get("rows", 1) for ins in inserts)
+        data["insert_count"] = sum(ins.get("columns", 1) * ins.get("rows", 1) for ins in do)
+        data["missing"] = sorted(set(missing))
         result["data"] = data
     return result
 
