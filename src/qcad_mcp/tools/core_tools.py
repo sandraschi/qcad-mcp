@@ -156,23 +156,30 @@ def _wall_segments(msp, wall_layers, doc, default_h_mm=None):
     wall_filter = {w.lower() for w in wall_layers} if wall_layers else set()
     segments = []
     for e in msp:
-        if e.get_dxf_attrib("layer", "").lower() not in wall_filter:
+        layer_name = e.get_dxf_attrib("layer", "")
+        if layer_name.lower() not in wall_filter:
             continue
         h = _ent_height_mm(e, default_h_mm) if default_h_mm else None
         if e.dxftype() == "LINE":
             segments.append(
-                {"type": "line", "start": (e.dxf.start.x, e.dxf.start.y), "end": (e.dxf.end.x, e.dxf.end.y), "h": h}
+                {
+                    "type": "line",
+                    "start": (e.dxf.start.x, e.dxf.start.y),
+                    "end": (e.dxf.end.x, e.dxf.end.y),
+                    "h": h,
+                    "layer": layer_name,
+                }
             )
         elif e.dxftype() == "LWPOLYLINE":
             pts = [(p[0], p[1]) for p in e.get_points("xy")]
             for i in range(len(pts) - 1):
-                segments.append({"type": "line", "start": pts[i], "end": pts[i + 1], "h": h})
+                segments.append({"type": "line", "start": pts[i], "end": pts[i + 1], "h": h, "layer": layer_name})
             if e.closed and len(pts) > 2:
-                segments.append({"type": "line", "start": pts[-1], "end": pts[0], "h": h})
+                segments.append({"type": "line", "start": pts[-1], "end": pts[0], "h": h, "layer": layer_name})
         elif e.dxftype() == "POLYLINE":
             pts = [(p[0], p[1]) for p in e.points()]
             for i in range(len(pts) - 1):
-                segments.append({"type": "line", "start": pts[i], "end": pts[i + 1], "h": h})
+                segments.append({"type": "line", "start": pts[i], "end": pts[i + 1], "h": h, "layer": layer_name})
     return segments, wall_layers
 
 
@@ -339,6 +346,72 @@ def _extrude_segments(segments, height_mm, thick_mm, base_mm):
     return meshes, heights
 
 
+def _layer_material(layer_name):
+    """(material, Kd rgb 0-1, texture_kind|None, opacity) for a layer."""
+    u = layer_name.upper()
+    if "WINDOW" in u or "GLASS" in u:
+        return ("Windows_Glass", (0.62, 0.77, 0.91), None, 0.55)
+    if "DOOR" in u:
+        return ("Doors_Wood", (0.55, 0.38, 0.2), "wood", 1.0)
+    if "COLUMN" in u or "PILLAR" in u:
+        return ("Columns_Concrete", (0.6, 0.63, 0.65), "concrete", 1.0)
+    if "ROOF" in u:
+        return ("Roof_Gravel", (0.45, 0.43, 0.4), "gravel", 1.0)
+    if "BRICK" in u:
+        return ("Walls_Brick", (0.72, 0.42, 0.32), "brick", 1.0)
+    return ("Walls_Plaster", (0.91, 0.89, 0.83), "plaster", 1.0)
+
+
+def _procedural_texture(kind, size=256):
+    """PIL-generated tileable texture PNG. Returns PIL Image."""
+    import random
+
+    from PIL import Image, ImageDraw
+
+    rng = random.Random(hash(kind) & 0xFFFFFFFF)  # noqa: S311 — texture speckle, not crypto
+    if kind == "brick":
+        img = Image.new("RGB", (size, size), (168, 106, 82))
+        dr = ImageDraw.Draw(img)
+        bh = size // 8
+        for row in range(8):
+            y = row * bh
+            off = (size // 4) if row % 2 else 0
+            for x in range(-1, 3):
+                x0 = x * (size // 2) + off
+                shade = rng.randint(-14, 14)
+                dr.rectangle(
+                    [x0 + 2, y + 2, x0 + size // 2 - 2, y + bh - 2],
+                    fill=(168 + shade, 106 + shade // 2, 82 + shade // 2),
+                )
+            dr.line([0, y, size, y], fill=(210, 205, 195), width=2)
+        return img
+    if kind == "wood":
+        img = Image.new("RGB", (size, size), (139, 95, 52))
+        dr = ImageDraw.Draw(img)
+        for _ in range(40):
+            x = rng.randint(0, size)
+            shade = rng.randint(-18, 18)
+            dr.line([x, 0, x + rng.randint(-8, 8), size], fill=(139 + shade, 95 + shade, 52 + shade), width=2)
+        return img
+    if kind == "grass":
+        img = Image.new("RGB", (size, size), (96, 140, 72))
+        dr = ImageDraw.Draw(img)
+        for _ in range(2500):
+            x, y = rng.randint(0, size - 1), rng.randint(0, size - 1)
+            shade = rng.randint(-25, 25)
+            dr.point((x, y), fill=(96 + shade, 140 + shade, 72 + shade // 2))
+        return img
+    # plaster / concrete speckle (kind selects base tone)
+    base = (232, 227, 212) if kind == "plaster" else (153, 160, 166) if kind == "concrete" else (115, 110, 102)
+    img = Image.new("RGB", (size, size), base)
+    dr = ImageDraw.Draw(img)
+    for _ in range(1800):
+        x, y = rng.randint(0, size - 1), rng.randint(0, size - 1)
+        shade = rng.randint(-12, 12)
+        dr.point((x, y), fill=(base[0] + shade, base[1] + shade, base[2] + shade))
+    return img
+
+
 async def plan_stack(
     files: Annotated[
         list[dict],
@@ -408,6 +481,170 @@ async def plan_stack(
                 "levels": levels_out,
                 "size_kb": round(os.path.getsize(stl_path) / 1024, 1),
                 "heights_mm": sorted(heights),
+            },
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+async def plan_obj(
+    file_name: Annotated[str, Field(description="DXF filename in the depot.")],
+    output_name: Annotated[
+        str, Field(default="", description="OBJ filename. Default: <stem>.obj (+ .mtl, textures).")
+    ] = "",
+    wall_height: Annotated[float, Field(default=3.0, description="Default wall height in metres.")] = 3.0,
+    wall_thickness: Annotated[float, Field(default=0.3, description="Wall thickness in metres.")] = 0.3,
+    wall_layers: Annotated[
+        list[str] | None, Field(default=None, description="Wall layer names. Auto-detected if omitted.")
+    ] = None,
+    base_elevation: Annotated[float, Field(default=0.0, description="Base elevation in metres.")] = 0.0,
+    textured: Annotated[bool, Field(default=True, description="Emit procedural textures (plaster/brick/wood).")] = True,
+) -> dict:
+    """
+    Export walls to a COLORED Wavefront OBJ + MTL with procedural textures.
+
+    Same wall detection as plan_extrude (incl. per-entity XDATA heights), but
+    each layer gets an architectural material: plaster/brick walls, concrete
+    columns, wood doors, translucent glass windows. Textures are generated
+    PIL tiles (world-scale UVs, set RepeatWrapping in the viewer).
+
+    ## Return Format
+    {"success": bool, "output": str, "data": {"materials": [...], "textures": [...], ...}}
+
+    ## Examples
+    await plan_obj(file_name="office.dxf")
+    await plan_obj(file_name="church.dxf", output_name="church.obj")
+    """
+    import math
+
+    doc, err = _load_dxf(file_name)
+    if doc is None:
+        return {"success": False, "error": err}
+
+    try:
+        out_name = output_name or f"{Path(file_name).stem}.obj"
+        obj_path = os.path.join(OUTPUT_DIR, out_name)
+        mtl_name = Path(out_name).stem + ".mtl"
+        mtl_path = os.path.join(OUTPUT_DIR, mtl_name)
+
+        height_mm = wall_height * 1000.0
+        thick_mm = wall_thickness * 1000.0
+        base_mm = base_elevation * 1000.0
+        msp = doc.modelspace()
+        segments, _used = _wall_segments(msp, wall_layers, doc, default_h_mm=height_mm)
+        if not segments:
+            return {
+                "success": False,
+                "error": "No wall entities found. Try specifying wall_layers or use a DXF with LINE/LWPOLYLINE entities.",
+            }
+
+        # Group boxes per layer for material assignment.
+
+        # Group boxes per layer for material assignment.
+        boxes = []  # (layer, corners[8])
+        for s in segments:
+            (x1, y1), (x2, y2) = s["start"], s["end"]
+            sh = s.get("h") or height_mm
+            dx, dy = x2 - x1, y2 - y1
+            length = math.hypot(dx, dy)
+            if length < 1e-6:
+                continue
+            nx, ny = -dy / length, dx / length
+            hw = thick_mm / 2.0
+            z0, z1 = base_mm, base_mm + sh
+            boxes.append(
+                (
+                    s.get("layer", "Walls"),
+                    [
+                        (x1 - nx * hw, y1 - ny * hw, z0),
+                        (x1 + nx * hw, y1 + ny * hw, z0),
+                        (x2 + nx * hw, y2 + ny * hw, z0),
+                        (x2 - nx * hw, y2 - ny * hw, z0),
+                        (x1 - nx * hw, y1 - ny * hw, z1),
+                        (x1 + nx * hw, y1 + ny * hw, z1),
+                        (x2 + nx * hw, y2 + ny * hw, z1),
+                        (x2 - nx * hw, y2 - ny * hw, z1),
+                    ],
+                )
+            )
+        if not boxes:
+            return {"success": False, "error": "Nothing to export (all segments degenerate)."}
+
+        # Boxes carry their source layer (set by _wall_segments) for materials.
+        mats: dict[str, dict] = {}
+        tex_files: dict[str, str] = {}
+        for layer, _c in boxes:
+            if layer in mats:
+                continue
+            mat, rgb, tex, opacity = _layer_material(layer)
+            mats[layer] = {"mat": mat, "rgb": rgb, "tex": tex, "opacity": opacity}
+            if textured and tex and tex not in tex_files:
+                png_name = f"{Path(out_name).stem}_{tex}.png"
+                _procedural_texture(tex).save(os.path.join(OUTPUT_DIR, png_name))
+                tex_files[tex] = png_name
+
+        TILE_MM = 2000.0  # texture tile = 2 m in world units
+
+        def _normal(a, b, c):
+            ux, uy, uz = b[0] - a[0], b[1] - a[1], b[2] - a[2]
+            vx, vy, vz = c[0] - a[0], c[1] - a[1], c[2] - a[2]
+            nx, ny, nz = uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx
+            ln = math.sqrt(nx * nx + ny * ny + nz * nz) or 1.0
+            return (nx / ln, ny / ln, nz / ln)
+
+        # Box faces as corner index quads (outward winding).
+
+        with open(obj_path, "w") as f:
+            f.write(f"mtllib {mtl_name}\n")
+            vi = 1
+            for layer, corners in boxes:
+                f.write(f"usemtl {mats[layer]['mat']}\n")
+                for c in corners:
+                    f.write(f"v {c[0]:.2f} {c[1]:.2f} {c[2]:.2f}\n")
+                # per-face UVs in tile units + normals
+                quads = [(0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)]
+                for q in quads:
+                    pts = [corners[i] for i in q]
+                    n = _normal(pts[0], pts[1], pts[2])
+                    f.write(f"vn {n[0]:.4f} {n[1]:.4f} {n[2]:.4f}\n")
+                    # planar UV: use two dominant axes by normal
+                    ax = max(range(3), key=lambda a: abs(n[a]))
+                    uu = [1, 2, 0][ax]
+                    vv = [2, 0, 1][ax]
+                    for p in pts:
+                        f.write(f"vt {p[uu] / TILE_MM:.4f} {p[vv] / TILE_MM:.4f}\n")
+                base = vi
+                for q in range(6):
+                    v = [
+                        base + x
+                        for x in ([0, 3, 2, 1], [4, 5, 6, 7], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7])[q]
+                    ]
+                    # vt/vn indices parallel to v order
+                    t0 = base + 8 + q * 4
+                    f.write(
+                        f"f {v[0]}/{t0}/{t0} {v[1]}/{t0 + 1}/{t0 + 1} "
+                        f"{v[2]}/{t0 + 2}/{t0 + 2} {v[3]}/{t0 + 3}/{t0 + 3}\n"
+                    )
+                vi += 8 + 24
+
+        with open(mtl_path, "w") as f:
+            for layer, m in mats.items():
+                r, g, b = m["rgb"]
+                f.write(f"newmtl {m['mat']}\nKd {r:.3f} {g:.3f} {b:.3f}\n")
+                if m["opacity"] < 1.0:
+                    f.write(f"d {m['opacity']:.2f}\n")
+                if m["tex"] and m["tex"] in tex_files:
+                    f.write(f"map_Kd {tex_files[m['tex']]}\n")
+
+        return {
+            "success": True,
+            "output": out_name,
+            "data": {
+                "mtl": mtl_name,
+                "textures": sorted(tex_files.values()),
+                "materials": sorted(m["mat"] for m in mats.values()),
+                "boxes": len(boxes),
+                "size_kb": round(os.path.getsize(obj_path) / 1024, 1),
             },
         }
     except Exception as e:
@@ -1034,6 +1271,7 @@ def register(mcp):
     mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_to_svg)
     mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_extrude)
     mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_stack)
+    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_obj)
     mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_drawings)
     mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_export)
     mcp.tool(annotations=_README_ONLY, version="0.3.0")(plan_analyse)

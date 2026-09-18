@@ -64,6 +64,7 @@ from qcad_mcp.tools.core_tools import (
     plan_export,
     plan_extrude,
     plan_info,
+    plan_obj,
     plan_stack,
     plan_to_svg,
 )
@@ -614,6 +615,19 @@ _register_tool(
         "wall_height": "wall_height",
         "wall_thickness": "wall_thickness",
         "wall_layers": "wall_layers",
+    },
+)
+_register_tool(
+    "plan_obj",
+    plan_obj,
+    {
+        "file_name": "file_name",
+        "output_name": "output_name",
+        "wall_height": "wall_height",
+        "wall_thickness": "wall_thickness",
+        "wall_layers": "wall_layers",
+        "base_elevation": "base_elevation",
+        "textured": "textured",
     },
 )
 _register_tool(

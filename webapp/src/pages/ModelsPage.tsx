@@ -1,5 +1,6 @@
 import { Box, Download, FileText, Loader2, RefreshCw, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import ObjViewer from "../components/ObjViewer";
 import StlViewer from "../components/StlViewer";
 import { API_BASE } from "../lib/api";
 
@@ -8,6 +9,7 @@ export default function ModelsPage() {
 	const [outputs, setOutputs] = useState<{ name: string; size_kb: number }[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [selectedStl, setSelectedStl] = useState<string | null>(null);
+	const [selectedObj, setSelectedObj] = useState<string | null>(null);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -29,6 +31,7 @@ export default function ModelsPage() {
 	const fileIcon = (name: string) => {
 		const ext = name.split(".").pop()?.toLowerCase();
 		if (ext === "stl") return <Box size={14} className="text-emerald-400" />;
+		if (ext === "obj") return <Box size={14} className="text-amber-400" />;
 		if (ext === "svg") return <FileText size={14} className="text-indigo-400" />;
 		if (ext === "pdf") return <FileText size={14} className="text-red-400" />;
 		return <FileText size={14} className="text-amber-400" />;
@@ -70,6 +73,30 @@ export default function ModelsPage() {
 					<StlViewer url={`/api/v1/download/${selectedStl}`} filename={selectedStl} />
 				</div>
 			)}
+			{selectedObj && (
+				<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-2">
+					<div className="flex items-center justify-between">
+						<h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider">3D Preview (textured)</h2>
+						<div className="flex items-center gap-2">
+							<a
+								href={`/api/v1/download/${selectedObj}`}
+								download
+								className="flex items-center gap-1 text-sm text-emerald-400 hover:text-emerald-300 font-bold"
+							>
+								<Download size={14} /> {selectedObj}
+							</a>
+							<button
+								type="button"
+								onClick={() => setSelectedObj(null)}
+								className="text-slate-400 hover:text-slate-300 p-1"
+							>
+								<X size={14} />
+							</button>
+						</div>
+					</div>
+					<ObjViewer url={`/api/v1/download/${selectedObj}`} filename={selectedObj} />
+				</div>
+			)}
 			<div className="grid grid-cols-2 gap-6">
 				<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-2">
 					<h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Uploads</h2>
@@ -95,20 +122,32 @@ export default function ModelsPage() {
 					) : (
 						outputs.map((f) => {
 							const isStl = /\.stl$/i.test(f.name);
+							const isObj = /\.obj$/i.test(f.name);
+							const isViewable = isStl || isObj;
+							const selected = f.name === selectedStl || f.name === selectedObj;
 							return (
 								<div
 									key={f.name}
-									role={isStl ? "button" : undefined}
-									tabIndex={isStl ? 0 : undefined}
-									onClick={isStl ? () => setSelectedStl(f.name) : undefined}
-									onKeyDown={
+									role={isViewable ? "button" : undefined}
+									tabIndex={isViewable ? 0 : undefined}
+									onClick={
 										isStl
+											? () => { setSelectedStl(f.name); setSelectedObj(null); }
+											: isObj
+												? () => { setSelectedObj(f.name); setSelectedStl(null); }
+												: undefined
+									}
+									onKeyDown={
+										isViewable
 											? (e) => {
-													if (e.key === "Enter") setSelectedStl(f.name);
+													if (e.key === "Enter") {
+														if (isStl) { setSelectedStl(f.name); setSelectedObj(null); }
+														else { setSelectedObj(f.name); setSelectedStl(null); }
+													}
 												}
 											: undefined
 									}
-									className={`flex items-center justify-between p-3 rounded-xl bg-white/10 text-sm ${isStl ? "cursor-pointer hover:bg-white/[0.15]" : ""} ${selectedStl === f.name ? "ring-1 ring-amber-500/50" : ""}`}
+									className={`flex items-center justify-between p-3 rounded-xl bg-white/10 text-sm ${isViewable ? "cursor-pointer hover:bg-white/[0.15]" : ""} ${selected ? "ring-1 ring-amber-500/50" : ""}`}
 								>
 									<span className="flex items-center gap-2">
 										{fileIcon(f.name)} {f.name}

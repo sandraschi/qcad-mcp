@@ -294,6 +294,38 @@ export default function ExtrudePage() {
 						<button
 							type="button"
 							onClick={async () => {
+								try {
+									const r = await fetch(`${API_BASE}/api/v1/control/tool`, {
+										method: "POST",
+										headers: { "Content-Type": "application/json" },
+										body: JSON.stringify({
+											tool: "plan_obj",
+											arguments: {
+												file_name: activeFileName,
+												output_name: result.output.replace(/\.stl$/i, ".obj"),
+												wall_height: wallHeight,
+												wall_thickness: wallThickness,
+											},
+										}),
+									});
+									const j = await r.json();
+									if (j.success && j.output) {
+										const a = document.createElement("a");
+										a.href = `${API_BASE}/api/v1/case-files/${j.output}`;
+										a.download = j.output;
+										a.click();
+									}
+								} catch (e) {
+									console.error(e);
+								}
+							}}
+							className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold transition-all shadow-lg"
+						>
+							<Download size={16} /> Colored OBJ + textures
+						</button>
+						<button
+							type="button"
+							onClick={async () => {
 									try {
 										const r = await fetch(`${API_BASE}/api/v1/control/tool`, {
 											method: "POST",
