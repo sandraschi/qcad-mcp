@@ -36,6 +36,7 @@ type Entity = Record<string, unknown>;
 function generateEntities(goal: string): {
 	entities: Entity[];
 	layers: { name: string; color: number; description: string }[];
+	inserts: Entity[];
 } {
 	const g = goal.toLowerCase();
 	const mm = (m: number) => Math.round(m * 1000);
@@ -52,6 +53,7 @@ function generateEntities(goal: string): {
 	];
 
 	const entities: Entity[] = [];
+	const inserts: Entity[] = [];
 
 	// Baroque church
 	if (g.includes("baroque") || g.includes("church") || g.includes("cathedral") || g.includes("basilica")) {
@@ -266,6 +268,14 @@ function generateEntities(goal: string): {
 						layer: "Furniture",
 					});
 				}
+				// Furniture blocks from libraries/furniture.dxf (inserted post-create)
+				const idx = roomRects.length - 1;
+				inserts.push({ block_name: "DESK", x: rx + 600, y: ry + 600, layer: "Furniture" });
+				if (rw > 6000) inserts.push({ block_name: "DESK", x: rx + 2600, y: ry + 600, layer: "Furniture" });
+				if (idx === 1) inserts.push({ block_name: "SOFA", x: rx + 600, y: ry + 2000, layer: "Furniture" });
+				if (idx === roomCount - 1 && roomCount > 1) {
+					inserts.push({ block_name: "WC", x: rx + rw - 1400, y: ry + 600, layer: "Furniture" });
+				}
 			}
 		}
 		// Main entrance door (south wall) + windows along outer walls
@@ -291,7 +301,7 @@ function generateEntities(goal: string): {
 		});
 	}
 
-	return { entities, layers };
+	return { entities, layers, inserts };
 }
 
 const PRESETS = [
@@ -379,7 +389,7 @@ export default function DemoPage() {
 				entityCount = agenticResult.data?.entity_count ?? 0;
 			} else {
 				// Fallback: generate rich geometry from goal description
-				const { entities, layers } = generateEntities(goal.trim());
+				const { entities, layers, inserts } = generateEntities(goal.trim());
 				const createResult = await callTool("plan_create", {
 					filename: dxfName,
 					description: goal.trim(),
@@ -389,6 +399,17 @@ export default function DemoPage() {
 				if (!createResult.success) throw new Error(createResult.error || "Failed to create floor plan");
 				dxfFile = dxfName;
 				entityCount = createResult.data?.entity_count ?? 0;
+				// Furniture blocks from the bundled library (free ezdxf path, no Pro needed)
+				if (inserts.length > 0) {
+					const insResult = await callTool("plan_block_insert", {
+						file_name: dxfFile,
+						inserts,
+					}).catch(() => null);
+					if (insResult?.success && insResult.output) {
+						dxfFile = insResult.output;
+						entityCount = insResult.data?.entity_count ?? entityCount;
+					}
+				}
 			}
 
 			updateStep(0, { status: "done", detail: `${entityCount} entities` });

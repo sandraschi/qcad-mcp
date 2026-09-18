@@ -5,6 +5,7 @@ ECMAScript engine: aligned/radial/diametric dimensions, geometry measurements,
 text labels with full styling, and hatch/fill patterns.
 """
 
+import logging
 import os
 from pathlib import Path
 from typing import Annotated
@@ -14,6 +15,8 @@ from pydantic import Field
 from qcad_mcp.config import DEPOT_DIR, OUTPUT_DIR
 from qcad_mcp.services import qcad_pro
 from qcad_mcp.services.qcad_pro import parse_marker
+
+logger = logging.getLogger("qcad-mcp")
 
 _README_ONLY = {"readonly": True}
 _MUTATING = {}
@@ -460,9 +463,13 @@ async def plan_block_insert(
     """Insert block references (doors, windows, furniture) into a DXF drawing.
 
     Blocks are reusable symbols stored in the drawing. Use plan_blocks to
-    search/download blocks to the depot first, then insert them.
+    search/download blocks to the depot first, then insert them. The bundled
+    libraries/*.dxf files (e.g. libraries/furniture.dxf with SOFA, DESK,
+    CHAIR, BED, TABLE, WC, SINK, BATHTUB) are searched automatically.
 
-    Requires QCAD Pro.
+    With QCAD Pro installed the insert runs through its ECMAScript engine;
+    otherwise a built-in ezdxf path imports the block definition and places
+    INSERT entities — no Pro required.
 
     ## Return Format
     {"success": bool, "output": str, "data": {"entity_count": int, "insert_count": int}}
@@ -473,9 +480,123 @@ async def plan_block_insert(
         {"block_name": "WINDOW", "x": 5000, "y": 3000, "scale_x": 1.5},
     ])
     """
-    if not qcad_pro.is_installed():
-        return {"success": False, "error": "QCAD Pro required."}
+    # Free path first: ezdxf block import + INSERT works with or without Pro
+    # and does not depend on the Pro script engine. Pro is the fallback.
+    free = await _block_insert_free(file_name, inserts, output_name)
+    if free.get("success"):
+        return free
+    if qcad_pro.is_installed():
+        logger.warning("Free block insert failed (%s), trying Pro: ", free.get("error"))
+        return await _block_insert_pro(file_name, inserts, output_name)
+    return free
 
+
+async def _block_insert_free(file_name: str, inserts: list[dict], output_name: str = "") -> dict:
+    """ezdxf block import + INSERT (no QCAD Pro needed)."""
+    import ezdxf
+    from ezdxf.addons import Importer
+
+    from qcad_mcp.helpers import _load_dxf
+
+    doc, err = _load_dxf(file_name)
+    if doc is None:
+        return {"success": False, "error": err}
+
+    repo_root = Path(__file__).resolve().parents[3]
+    lib_dirs = [repo_root / "libraries", Path(DEPOT_DIR)]
+    importers: dict[str, Importer] = {}
+
+    def _ensure_block(name: str) -> bool:
+        if name in doc.blocks:
+            return True
+        for d in lib_dirs:
+            if not d.is_dir():
+                continue
+            for cand in sorted(d.glob("*.dxf")):
+                try:
+                    src = ezdxf.readfile(str(cand))
+                except Exception:
+                    continue
+                if name in src.blocks:
+                    key = str(cand)
+                    imp = importers.get(key)
+                    if imp is None:
+                        imp = Importer(src, doc)
+                        importers[key] = imp
+                    try:
+                        imp.import_block(name)
+                        imp.finalize()
+                    except Exception:
+                        continue
+                    try:
+                        src.close()
+                    except Exception:
+                        pass
+                    if name in doc.blocks:
+                        return True
+        return False
+
+    out_name = output_name or f"{Path(file_name).stem}_blocks.dxf"
+    out_path = os.path.join(OUTPUT_DIR, out_name)
+    try:
+        msp = doc.modelspace()
+        placed = 0
+        missing: list[str] = []
+        for ins in inserts:
+            name = ins.get("block_name", "")
+            if not name or not _ensure_block(name):
+                missing.append(name)
+                continue
+            for col in range(ins.get("columns", 1)):
+                for row in range(ins.get("rows", 1)):
+                    px = ins.get("x", 0) + col * ins.get("col_spacing", 0)
+                    py = ins.get("y", 0) + row * ins.get("row_spacing", 0)
+                    msp.add_blockref(
+                        name,
+                        (px, py),
+                        dxfattribs={
+                            "layer": ins.get("layer", "Furniture"),
+                            "xscale": ins.get("scale_x", 1.0),
+                            "yscale": ins.get("scale_y", 1.0),
+                            "rotation": ins.get("rotation", 0),
+                        },
+                    )
+                    placed += 1
+        if placed == 0:
+            return {"success": False, "error": f"No blocks placed. Missing definitions: {sorted(set(missing))}"}
+        doc.saveas(out_path)
+        # A furnished plan is a working file: mirror it into the depot so
+        # downstream tools (svg, extrude, drawings) can consume it directly.
+        import shutil
+        from datetime import datetime
+
+        from qcad_mcp.helpers import _write_meta
+
+        shutil.copy(out_path, os.path.join(DEPOT_DIR, out_name))
+        _write_meta(
+            out_name,
+            {
+                "created": datetime.now().isoformat(),
+                "description": f"Block inserts into {file_name}",
+                "tags": [],
+                "entity_count": len(list(msp)),
+            },
+        )
+        return {
+            "success": True,
+            "output": out_name,
+            "data": {
+                "entity_count": len(list(msp)),
+                "insert_count": placed,
+                "missing": sorted(set(missing)),
+            },
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+async def _block_insert_pro(file_name: str, inserts: list[dict], output_name: str = "") -> dict:
+    """QCAD Pro ECMAScript insert path (requires Pro installed)."""
     in_path = os.path.join(DEPOT_DIR, file_name)
     if not os.path.isfile(in_path):
         return {"success": False, "error": f"File not found: {file_name}"}
