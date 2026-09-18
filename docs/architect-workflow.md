@@ -133,3 +133,25 @@ One room program in, one coordinated drawing set out — plans, elevations,
 sections, 3D, schedules — with library objects filling the repetitive 80%
 and the architect spending judgment on the 20% that matters. The floor-plan
 half of that pipeline works today; elevations and schedules are next.
+
+## Cross-connect: Blender (rendering & presentation)
+
+`blender-mcp` (backend `:10849`, frontend `:10848`) is the presentation end
+of the pipeline — PBR rendering, animation, VR walkthroughs alongside
+`godot-mcp` / `resonite-mcp`. Verified seams (read from its import handlers,
+not guessed):
+
+| Direction | Seam | Notes |
+|---|---|---|
+| qcad → blender, textured | `blender_import` / `import_obj` with our `.obj` + `.mtl` + PNG tiles | Materials carry over; set `global_scale: 0.001` (our mm → Blender m), `import_shading: true` |
+| qcad → blender, print massing | `blender_import` / `import_stl` | Geometry only, no color |
+| qcad → blender, 2D plan | `import_scene.dxf` direct | Plan arrives as curves for drafting over |
+| qcad → blender, future | glTF/GLB (`import_scene.gltf`) | Native PBR; needs a `plan_gltf` exporter on our side |
+| blender → qcad | STEP via its Mayo/FreeCAD CAD converters, then our `plan_convert` | Round-trip for engineered parts |
+
+Status 2026-09-18: blender backend was DOWN, so no live import has run yet
+and no `/api/v1/blender/import` shuttle exists on our side (unlike the
+working FreeCAD one — blender has no generic REST tool dispatcher; calls go
+through MCP `/mcp` or the `/api/v1/blender/exec` addon bridge, both needing
+its backend + Blender GUI up). Next step: start blender-mcp, import one of
+our textured OBJs with scale 0.001, then build the one-click shuttle.

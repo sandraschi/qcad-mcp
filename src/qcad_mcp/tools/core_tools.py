@@ -228,6 +228,8 @@ async def plan_extrude(
     base_elevation: Annotated[
         float, Field(default=0.0, description="Storey base elevation in metres (stacked multilevel builds).")
     ] = 0.0,
+    slab: Annotated[bool, Field(default=True, description="Add a floor slab under the walls.")] = True,
+    slab_thickness: Annotated[float, Field(default=0.25, description="Slab thickness in metres.")] = 0.25,
 ) -> dict:
     """
     Extrude walls from a DXF floor plan into a 3D STL mesh.
@@ -269,6 +271,14 @@ async def plan_extrude(
             }
 
         meshes, heights = _extrude_segments(wall_segments, height_mm, thick_mm, base_mm)
+        slab_info = None
+        if slab:
+            xs = [p for s in wall_segments for p in (s["start"][0], s["end"][0])]
+            ys = [p for s in wall_segments for p in (s["start"][1], s["end"][1])]
+            meshes.extend(
+                _box_meshes(_slab_box(min(xs), max(xs), min(ys), max(ys), base_mm, slab_thickness * 1000.0)[1])
+            )
+            slab_info = {"thickness_m": slab_thickness, "base_elevation_m": base_elevation}
         if not meshes:
             return {"success": False, "error": "Nothing to extrude (all segments degenerate)."}
         combined = Mesh(np.concatenate([m.data for m in meshes]))
@@ -286,16 +296,45 @@ async def plan_extrude(
                 "wall_thickness_m": wall_thickness,
                 "base_elevation_m": base_elevation,
                 "heights_mm": sorted(heights),
+                "slab": slab_info,
             },
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
+def _box_meshes(corners):
+    """Triangulate an 8-corner box into numpy-stl Mesh objects."""
+    import numpy as np
+    from stl.mesh import Mesh
+
+    triangles = np.array(
+        [
+            [corners[0], corners[1], corners[2]],
+            [corners[0], corners[2], corners[3]],
+            [corners[4], corners[6], corners[5]],
+            [corners[4], corners[7], corners[6]],
+            [corners[0], corners[3], corners[7]],
+            [corners[0], corners[7], corners[4]],
+            [corners[1], corners[5], corners[6]],
+            [corners[1], corners[6], corners[2]],
+            [corners[0], corners[4], corners[5]],
+            [corners[0], corners[5], corners[1]],
+            [corners[3], corners[2], corners[6]],
+            [corners[3], corners[6], corners[7]],
+        ]
+    )
+    out = []
+    for tri in triangles:
+        mesh_data = np.zeros(1, dtype=Mesh.dtype)
+        mesh_data["vectors"][0] = tri
+        out.append(Mesh(mesh_data))
+    return out
+
+
 def _extrude_segments(segments, height_mm, thick_mm, base_mm):
     """Turn wall segments into numpy-stl Mesh boxes. Returns (meshes, heights_mm)."""
     import numpy as np
-    from stl.mesh import Mesh
 
     meshes = []
     heights = set()
@@ -311,55 +350,58 @@ def _extrude_segments(segments, height_mm, thick_mm, base_mm):
         nx, ny = -dy / length, dx / length
         hw = thick_mm / 2.0
         z0, z1 = base_mm, base_mm + seg_h
-        v = np.array(
-            [
-                [x1 - nx * hw, y1 - ny * hw, z0],
-                [x1 + nx * hw, y1 + ny * hw, z0],
-                [x2 + nx * hw, y2 + ny * hw, z0],
-                [x2 - nx * hw, y2 - ny * hw, z0],
-                [x1 - nx * hw, y1 - ny * hw, z1],
-                [x1 + nx * hw, y1 + ny * hw, z1],
-                [x2 + nx * hw, y2 + ny * hw, z1],
-                [x2 - nx * hw, y2 - ny * hw, z1],
-            ]
+        meshes.extend(
+            _box_meshes(
+                [
+                    [x1 - nx * hw, y1 - ny * hw, z0],
+                    [x1 + nx * hw, y1 + ny * hw, z0],
+                    [x2 + nx * hw, y2 + ny * hw, z0],
+                    [x2 - nx * hw, y2 - ny * hw, z0],
+                    [x1 - nx * hw, y1 - ny * hw, z1],
+                    [x1 + nx * hw, y1 + ny * hw, z1],
+                    [x2 + nx * hw, y2 + ny * hw, z1],
+                    [x2 - nx * hw, y2 - ny * hw, z1],
+                ]
+            )
         )
-        triangles = np.array(
-            [
-                [v[0], v[1], v[2]],
-                [v[0], v[2], v[3]],
-                [v[4], v[6], v[5]],
-                [v[4], v[7], v[6]],
-                [v[0], v[3], v[7]],
-                [v[0], v[7], v[4]],
-                [v[1], v[5], v[6]],
-                [v[1], v[6], v[2]],
-                [v[0], v[4], v[5]],
-                [v[0], v[5], v[1]],
-                [v[3], v[2], v[6]],
-                [v[3], v[6], v[7]],
-            ]
-        )
-        for tri in triangles:
-            mesh_data = np.zeros(1, dtype=Mesh.dtype)
-            mesh_data["vectors"][0] = tri
-            meshes.append(Mesh(mesh_data))
     return meshes, heights
 
 
 def _layer_material(layer_name):
-    """(material, Kd rgb 0-1, texture_kind|None, opacity) for a layer."""
+    """(material, Kd rgb 0-1, Ks specular 0-1, Ns shininess, texture|None, opacity)."""
     u = layer_name.upper()
     if "WINDOW" in u or "GLASS" in u:
-        return ("Windows_Glass", (0.62, 0.77, 0.91), None, 0.55)
+        return ("Windows_Glass", (0.62, 0.77, 0.91), 0.9, 120.0, None, 0.55)
     if "DOOR" in u:
-        return ("Doors_Wood", (0.55, 0.38, 0.2), "wood", 1.0)
+        return ("Doors_Wood", (0.55, 0.38, 0.2), 0.3, 40.0, "wood", 1.0)
     if "COLUMN" in u or "PILLAR" in u:
-        return ("Columns_Concrete", (0.6, 0.63, 0.65), "concrete", 1.0)
+        return ("Columns_Concrete", (0.6, 0.63, 0.65), 0.15, 20.0, "concrete", 1.0)
     if "ROOF" in u:
-        return ("Roof_Gravel", (0.45, 0.43, 0.4), "gravel", 1.0)
+        return ("Roof_Gravel", (0.45, 0.43, 0.4), 0.05, 8.0, "gravel", 1.0)
+    if "SLAB" in u:
+        return ("Slab_Concrete", (0.58, 0.6, 0.62), 0.1, 12.0, "concrete", 1.0)
+    if "GARDEN" in u or "GRASS" in u or "LAWN" in u:
+        return ("Garden_Grass", (0.38, 0.55, 0.28), 0.0, 5.0, "grass", 1.0)
     if "BRICK" in u:
-        return ("Walls_Brick", (0.72, 0.42, 0.32), "brick", 1.0)
-    return ("Walls_Plaster", (0.91, 0.89, 0.83), "plaster", 1.0)
+        return ("Walls_Brick", (0.72, 0.42, 0.32), 0.05, 8.0, "brick", 1.0)
+    return ("Walls_Plaster", (0.91, 0.89, 0.83), 0.1, 10.0, "plaster", 1.0)
+
+
+def _slab_box(x0, x1, y0, y1, z_top, thick_mm, layer="Slab"):
+    """Axis-aligned slab box corners (same 8-corner order as wall boxes)."""
+    return (
+        layer,
+        [
+            (x0, y0, z_top - thick_mm),
+            (x1, y0, z_top - thick_mm),
+            (x1, y1, z_top - thick_mm),
+            (x0, y1, z_top - thick_mm),
+            (x0, y0, z_top),
+            (x1, y0, z_top),
+            (x1, y1, z_top),
+            (x0, y1, z_top),
+        ],
+    )
 
 
 def _procedural_texture(kind, size=256):
@@ -427,12 +469,15 @@ async def plan_stack(
     wall_layers: Annotated[
         list[str] | None, Field(default=None, description="Wall layer names. Auto-detected if omitted.")
     ] = None,
+    slab: Annotated[bool, Field(default=True, description="Add a floor slab under every storey.")] = True,
+    slab_thickness: Annotated[float, Field(default=0.25, description="Slab thickness in metres.")] = 0.25,
 ) -> dict:
     """
     Stack multiple single-storey DXF plans into one multilevel STL mesh.
 
     Each file is extruded at its base_elevation (e.g. ground 0 m, L1 3.5 m).
-    Per-entity XDATA heights apply within each storey as usual.
+    Per-entity XDATA heights apply within each storey as usual. A floor slab
+    is added under every storey (set slab=False to skip).
 
     ## Return Format
     {"success": bool, "output": str, "data": {"levels": [...], "wall_count": int, ...}}
@@ -465,6 +510,12 @@ async def plan_stack(
             meshes, lv_heights = _extrude_segments(segments, height_mm, thick_mm, base_mm)
             heights.update(lv_heights)
             all_meshes.extend(meshes)
+            if slab:
+                sxs = [p for s in segments for p in (s["start"][0], s["end"][0])]
+                sys = [p for s in segments for p in (s["start"][1], s["end"][1])]
+                all_meshes.extend(
+                    _box_meshes(_slab_box(min(sxs), max(sxs), min(sys), max(sys), base_mm, slab_thickness * 1000.0)[1])
+                )
             total_walls += len(segments)
             levels_out.append({"file": fname, "base_elevation_m": base_mm / 1000.0, "walls": len(segments)})
         if not all_meshes:
@@ -499,6 +550,9 @@ async def plan_obj(
     ] = None,
     base_elevation: Annotated[float, Field(default=0.0, description="Base elevation in metres.")] = 0.0,
     textured: Annotated[bool, Field(default=True, description="Emit procedural textures (plaster/brick/wood).")] = True,
+    slab: Annotated[bool, Field(default=True, description="Add a floor slab under the walls.")] = True,
+    slab_thickness: Annotated[float, Field(default=0.25, description="Slab thickness in metres.")] = 0.25,
+    green_roof: Annotated[bool, Field(default=False, description="Grass material on the slab (roof gardens).")] = False,
 ) -> dict:
     """
     Export walls to a COLORED Wavefront OBJ + MTL with procedural textures.
@@ -569,6 +623,20 @@ async def plan_obj(
             )
         if not boxes:
             return {"success": False, "error": "Nothing to export (all segments degenerate)."}
+        if slab:
+            xs = [c[0] for _l, corners in boxes for c in corners]
+            ys = [c[1] for _l, corners in boxes for c in corners]
+            boxes.append(
+                _slab_box(
+                    min(xs),
+                    max(xs),
+                    min(ys),
+                    max(ys),
+                    base_mm,
+                    slab_thickness * 1000.0,
+                    layer="Garden" if green_roof else "Slab",
+                )
+            )
 
         # Boxes carry their source layer (set by _wall_segments) for materials.
         mats: dict[str, dict] = {}
@@ -576,8 +644,8 @@ async def plan_obj(
         for layer, _c in boxes:
             if layer in mats:
                 continue
-            mat, rgb, tex, opacity = _layer_material(layer)
-            mats[layer] = {"mat": mat, "rgb": rgb, "tex": tex, "opacity": opacity}
+            mat, rgb, ks, ns, tex, opacity = _layer_material(layer)
+            mats[layer] = {"mat": mat, "rgb": rgb, "ks": ks, "ns": ns, "tex": tex, "opacity": opacity}
             if textured and tex and tex not in tex_files:
                 png_name = f"{Path(out_name).stem}_{tex}.png"
                 _procedural_texture(tex).save(os.path.join(OUTPUT_DIR, png_name))
@@ -631,6 +699,7 @@ async def plan_obj(
             for layer, m in mats.items():
                 r, g, b = m["rgb"]
                 f.write(f"newmtl {m['mat']}\nKd {r:.3f} {g:.3f} {b:.3f}\n")
+                f.write(f"Ks {m['ks']:.3f} {m['ks']:.3f} {m['ks']:.3f}\nNs {m['ns']:.1f}\n")
                 if m["opacity"] < 1.0:
                     f.write(f"d {m['opacity']:.2f}\n")
                 if m["tex"] and m["tex"] in tex_files:

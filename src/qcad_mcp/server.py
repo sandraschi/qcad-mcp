@@ -603,6 +603,8 @@ _register_tool(
         "wall_thickness": "wall_thickness",
         "wall_layers": "wall_layers",
         "base_elevation": "base_elevation",
+        "slab": "slab",
+        "slab_thickness": "slab_thickness",
     },
 )
 _register_tool("plan_export", plan_export, {"file_name": "file_name", "format": "format", "output_name": "output_name"})
@@ -615,6 +617,8 @@ _register_tool(
         "wall_height": "wall_height",
         "wall_thickness": "wall_thickness",
         "wall_layers": "wall_layers",
+        "slab": "slab",
+        "slab_thickness": "slab_thickness",
     },
 )
 _register_tool(
@@ -628,6 +632,9 @@ _register_tool(
         "wall_layers": "wall_layers",
         "base_elevation": "base_elevation",
         "textured": "textured",
+        "slab": "slab",
+        "slab_thickness": "slab_thickness",
+        "green_roof": "green_roof",
     },
 )
 _register_tool(
