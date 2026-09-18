@@ -94,6 +94,10 @@ async def plan_to_svg(
             out = MatplotlibBackend(ax)
             frontend = Frontend(ctx, out)
             frontend.draw_entities(entities if entities else list(msp))
+            # ezdxf paints the axes patch CAD-black by default; match it to the
+            # requested background or the preview is a black square on white.
+            ax.set_facecolor(background)
+            fig.patch.set_facecolor(background)
             fig.savefig(svg_path, format="svg", facecolor=background)
             plt.close(fig)
         else:
@@ -103,6 +107,8 @@ async def plan_to_svg(
             out = MatplotlibBackend(ax)
             frontend = Frontend(ctx, out)
             frontend.draw_layout(msp, finalize=True)
+            ax.set_facecolor(background)
+            fig.patch.set_facecolor(background)
             fig.savefig(svg_path, format="svg", facecolor=background)
             plt.close(fig)
 
@@ -449,11 +455,15 @@ async def plan_create(
     """
     Create a new DXF file from primitive entities and store it in the depot.
 
-    Supported entity types:
+    Supported entity types (lenient key aliases accepted — the webapp Demo page
+    sends x1/y1/x2/y2 shapes, MCP clients may send x/y/w/h):
     - line:   {"type": "line", "x1": 0, "y1": 0, "x2": 100, "y2": 0, "layer": "walls"}
     - rect:   {"type": "rect", "x": 10, "y": 10, "w": 80, "h": 60, "layer": "rooms"}
+      alias:  {"type": "rect", "x1": 10, "y1": 10, "x2": 90, "y2": 70, "layer": "rooms"}
     - circle: {"type": "circle", "cx": 50, "cy": 50, "r": 20, "layer": "columns"}
+      alias:  {"type": "circle", "x": 50, "y": 50, "r": 20, "layer": "columns"}
     - text:   {"type": "text", "x": 50, "y": 50, "content": "Label", "height": 5, "layer": "labels"}
+      alias:  {"type": "text", "x": 50, "y": 50, "text": "Label", "h": 5, "layer": "labels"}
     - polyline: {"type": "polyline", "points": [[0,0], [100,0], [100,50], [0,50]], "closed": true, "layer": "walls"}
 
     ## Return Format
@@ -506,18 +516,29 @@ async def plan_create(
                     msp.add_line((ent["x1"], ent["y1"]), (ent["x2"], ent["y2"]), dxfattribs={"layer": layer})
                     count += 1
                 elif etype == "rect":
-                    x, y, w, h = ent["x"], ent["y"], ent["w"], ent["h"]
+                    if "x1" in ent and "x2" in ent:
+                        # Corner-shape (webapp Demo page): normalise to x/y/w/h.
+                        x0, x1 = sorted([ent["x1"], ent["x2"]])
+                        y0, y1 = sorted([ent["y1"], ent["y2"]])
+                        x, y, w, h = x0, y0, x1 - x0, y1 - y0
+                    else:
+                        x, y, w, h = ent["x"], ent["y"], ent["w"], ent["h"]
                     msp.add_lwpolyline(
                         [(x, y), (x + w, y), (x + w, y + h), (x, y + h)], close=True, dxfattribs={"layer": layer}
                     )
                     count += 1
                 elif etype == "circle":
-                    msp.add_circle((ent["cx"], ent["cy"]), ent["r"], dxfattribs={"layer": layer})
+                    cx = ent.get("cx", ent.get("x"))
+                    cy = ent.get("cy", ent.get("y"))
+                    msp.add_circle((cx, cy), ent["r"], dxfattribs={"layer": layer})
                     count += 1
                 elif etype == "text":
-                    msp.add_text(ent["content"], dxfattribs={"layer": layer}).set_pos(
-                        (ent["x"], ent["y"]), align="LEFT"
-                    )
+                    content = ent.get("content", ent.get("text", ""))
+                    height = ent.get("height", ent.get("h", 2.5))
+                    t = msp.add_text(content, dxfattribs={"layer": layer})
+                    # Direct attrib writes (ezdxf 1.x dropped Text.set_pos).
+                    t.dxf.insert = (ent["x"], ent["y"])
+                    t.dxf.height = height
                     count += 1
                 elif etype == "polyline":
                     pts = [Vec2(p[0], p[1]) for p in ent.get("points", [])]

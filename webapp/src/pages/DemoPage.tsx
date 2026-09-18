@@ -205,7 +205,7 @@ function generateEntities(goal: string): {
 		const nums = dimMatch ? dimMatch.map((s) => parseInt(s.replace(/\D/g, ""))) : [8, 6];
 		const w = mm(nums[0] || 8);
 		const h = mm(nums[1] || nums[0] || 6);
-		const roomCount = Math.min(Math.max(parseInt(g.match(/(\d+)\s*(?:bed|room|bath)/)?.[1] || "4"), 1), 12);
+		const roomCount = Math.min(Math.max(parseInt(g.match(/(\d+)\s*(?:bed|room|bath|office|offic)/)?.[1] || "4"), 1), 12);
 
 		entities.push({ type: "rect", x1: 0, y1: 0, x2: w, y2: h, layer: "Walls" });
 		// Subdivide into rooms
@@ -304,6 +304,10 @@ export default function DemoPage() {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tool, arguments: args }),
 			});
+			if (!r.ok) {
+				const text = await r.text();
+				throw new Error(`${tool} failed (${r.status}): ${text.slice(0, 200)}`);
+			}
 			return r.json();
 		};
 
@@ -313,12 +317,12 @@ export default function DemoPage() {
 			const timestamp = Date.now();
 			const dxfName = `demo_${timestamp}.dxf`;
 
-			const agenticResult = await callTool("plan_agentic", { goal: goal.trim() });
-			const agenticOk = agenticResult.success;
+			const agenticResult = await callTool("plan_agentic", { goal: goal.trim() }).catch(() => null);
+			const agenticOk = !!agenticResult?.success;
 
 			let dxfFile: string;
 			let entityCount: number;
-			if (agenticOk) {
+			if (agenticOk && agenticResult) {
 				dxfFile = agenticResult.output;
 				entityCount = agenticResult.data?.entity_count ?? 0;
 			} else {
