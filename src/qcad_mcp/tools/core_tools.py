@@ -117,6 +117,63 @@ async def plan_to_svg(
         return {"success": False, "error": f"SVG rendering failed: {e}"}
 
 
+def _wall_segments(msp, wall_layers, doc):
+    """Shared wall detection for extrude/drawings: auto-detect wall layers
+    (case-insensitive keyword match), return (segments, used_layers).
+    Each segment: {"start": (x, y), "end": (x, y)} in DXF units (mm)."""
+    wall_keywords = ["wall", "mauer", "wand", "mur", "parete", "pared"]
+    if not wall_layers:
+        all_layers = {layer.dxf.name.lower() for layer in doc.layers}
+        wall_layers = [name for name in all_layers if any(kw in name for kw in wall_keywords)]
+        if not wall_layers:
+            wall_layers = [layer.dxf.name for layer in doc.layers]
+
+    wall_filter = {w.lower() for w in wall_layers} if wall_layers else set()
+    segments = []
+    for e in msp:
+        if e.get_dxf_attrib("layer", "").lower() not in wall_filter:
+            continue
+        if e.dxftype() == "LINE":
+            segments.append(
+                {"type": "line", "start": (e.dxf.start.x, e.dxf.start.y), "end": (e.dxf.end.x, e.dxf.end.y)}
+            )
+        elif e.dxftype() == "LWPOLYLINE":
+            pts = [(p[0], p[1]) for p in e.get_points("xy")]
+            for i in range(len(pts) - 1):
+                segments.append({"type": "line", "start": pts[i], "end": pts[i + 1]})
+            if e.closed and len(pts) > 2:
+                segments.append({"type": "line", "start": pts[-1], "end": pts[0]})
+        elif e.dxftype() == "POLYLINE":
+            pts = [(p[0], p[1]) for p in e.points()]
+            for i in range(len(pts) - 1):
+                segments.append({"type": "line", "start": pts[i], "end": pts[i + 1]})
+    return segments, wall_layers
+
+
+def _drawing_openings(msp):
+    """Find door/window markers: INSERT/CIRCLE/ARC on DOOR/WINDOW/OPENING layers."""
+    openings = []
+    for e in msp:
+        if e.dxftype() not in ("INSERT", "CIRCLE", "ARC"):
+            continue
+        layer_upper = e.get_dxf_attrib("layer", "").upper()
+        if "DOOR" in layer_upper:
+            kind = "door"
+        elif "WINDOW" in layer_upper or "OPENING" in layer_upper:
+            kind = "window"
+        else:
+            continue
+        try:
+            if e.dxftype() == "INSERT":
+                pos = (e.dxf.insert.x, e.dxf.insert.y)
+            else:
+                pos = (e.dxf.center.x, e.dxf.center.y)
+        except Exception:
+            continue
+        openings.append({"kind": kind, "x": pos[0], "y": pos[1], "layer": e.get_dxf_attrib("layer", "")})
+    return openings
+
+
 async def plan_extrude(
     file_name: Annotated[str, Field(description="DXF filename in the depot.")],
     output_name: Annotated[
@@ -140,6 +197,10 @@ async def plan_extrude(
     Finds LINE and LWPOLYLINE entities on wall layers, extrudes them vertically
     to wall_height with wall_thickness on each side.
 
+    Unit convention: DXF units are millimetres (1 unit = 1 mm, real-world
+    scale). wall_height / wall_thickness are given in METRES and converted
+    internally (x1000).
+
     ## Return Format
     {"success": bool, "output": str, "data": {"vertices": int, "faces": int, "wall_count": int, "size_kb": float}}
 
@@ -155,36 +216,12 @@ async def plan_extrude(
         return {"success": False, "error": err}
 
     stl_path = os.path.join(OUTPUT_DIR, output_name)
+    height_mm = wall_height * 1000.0
+    thick_mm = wall_thickness * 1000.0
 
     try:
         msp = doc.modelspace()
-        wall_keywords = ["wall", "mauer", "wand", "mur", "parete", "pared"]
-        if wall_layers is None:
-            all_layers = {layer.dxf.name.lower() for layer in doc.layers}
-            wall_layers = [name for name in all_layers if any(kw in name for kw in wall_keywords)]
-            if not wall_layers:
-                wall_layers = [layer.dxf.name for layer in doc.layers]
-
-        wall_segments = []
-        wall_filter = {w.lower() for w in wall_layers} if wall_layers else set()
-        for e in msp:
-            layer_name = e.get_dxf_attrib("layer", "")
-            if wall_filter and layer_name.lower() not in wall_filter:
-                continue
-            if e.dxftype() == "LINE":
-                wall_segments.append(
-                    {"type": "line", "start": (e.dxf.start.x, e.dxf.start.y), "end": (e.dxf.end.x, e.dxf.end.y)}
-                )
-            elif e.dxftype() == "LWPOLYLINE":
-                pts = [(p[0], p[1]) for p in e.get_points("xy")]
-                for i in range(len(pts) - 1):
-                    wall_segments.append({"type": "line", "start": pts[i], "end": pts[i + 1]})
-                if e.closed and len(pts) > 2:
-                    wall_segments.append({"type": "line", "start": pts[-1], "end": pts[0]})
-            elif e.dxftype() == "POLYLINE":
-                pts = [(p[0], p[1]) for p in e.points()]
-                for i in range(len(pts) - 1):
-                    wall_segments.append({"type": "line", "start": pts[i], "end": pts[i + 1]})
+        wall_segments, _used_layers = _wall_segments(msp, wall_layers, doc)
 
         if not wall_segments:
             return {
@@ -201,17 +238,17 @@ async def plan_extrude(
             if length < 1e-6:
                 continue
             nx, ny = -dy / length, dx / length
-            hw = wall_thickness / 2.0
+            hw = thick_mm / 2.0
             v = np.array(
                 [
                     [x1 - nx * hw, y1 - ny * hw, 0],
                     [x1 + nx * hw, y1 + ny * hw, 0],
                     [x2 + nx * hw, y2 + ny * hw, 0],
                     [x2 - nx * hw, y2 - ny * hw, 0],
-                    [x1 - nx * hw, y1 - ny * hw, wall_height],
-                    [x1 + nx * hw, y1 + ny * hw, wall_height],
-                    [x2 + nx * hw, y2 + ny * hw, wall_height],
-                    [x2 - nx * hw, y2 - ny * hw, wall_height],
+                    [x1 - nx * hw, y1 - ny * hw, height_mm],
+                    [x1 + nx * hw, y1 + ny * hw, height_mm],
+                    [x2 + nx * hw, y2 + ny * hw, height_mm],
+                    [x2 - nx * hw, y2 - ny * hw, height_mm],
                 ]
             )
             triangles = np.array(
@@ -248,6 +285,225 @@ async def plan_extrude(
                 "size_kb": round(os.path.getsize(stl_path) / 1024, 1),
                 "wall_height_m": wall_height,
                 "wall_thickness_m": wall_thickness,
+            },
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+async def plan_drawings(
+    file_name: Annotated[str, Field(description="DXF filename in the depot.")],
+    output_prefix: Annotated[str, Field(default="", description="Output filename prefix. Default: DXF stem.")] = "",
+    wall_height: Annotated[float, Field(default=3.0, description="Wall height in metres.")] = 3.0,
+    wall_thickness: Annotated[float, Field(default=0.3, description="Wall thickness in metres.")] = 0.3,
+    wall_layers: Annotated[
+        list[str] | None, Field(default=None, description="Wall layer names. Auto-detected if omitted.")
+    ] = None,
+    views: Annotated[
+        str,
+        Field(default="elevations,section,iso,roof", description="Comma list: elevations,section,iso,roof."),
+    ] = "elevations,section,iso,roof",
+    background: Annotated[str, Field(default="white", description="SVG background colour.")] = "white",
+) -> dict:
+    """
+    Generate the full architectural drawing set from a floor plan DXF.
+
+    Derives elevations (N/S/E/W), a cross-section (A-A), an axonometric
+    isometric, and a roof plan from the detected wall segments — the standard
+    drawings an architect produces beyond the floor plan. Openings (doors /
+    windows on DOOR/WINDOW layers) are cut into elevations when present.
+
+    Unit convention: DXF units are millimetres; wall_height in metres.
+
+    ## Return Format
+    {"success": bool, "outputs": {"elev_n": ..., ...}, "data": {"wall_count": int, "views": [...], ...}}
+
+    ## Examples
+    await plan_drawings(file_name="office.dxf")
+    await plan_drawings(file_name="office.dxf", views="elevations,iso")
+    """
+    import math
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Polygon, Rectangle
+
+    doc, err = _load_dxf(file_name)
+    if doc is None:
+        return {"success": False, "error": err}
+
+    try:
+        msp = doc.modelspace()
+        segments, used_layers = _wall_segments(msp, wall_layers, doc)
+        if not segments:
+            return {
+                "success": False,
+                "error": "No wall entities found. Try specifying wall_layers or use a DXF with LINE/LWPOLYLINE entities.",
+            }
+        openings = _drawing_openings(msp)
+
+        H = wall_height * 1000.0
+        T = wall_thickness * 1000.0
+        xs = [p for s in segments for p in (s["start"][0], s["end"][0])]
+        ys = [p for s in segments for p in (s["start"][1], s["end"][1])]
+        x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+        W, D = x1 - x0, y1 - y0
+        prefix = output_prefix or Path(file_name).stem
+        want = {v.strip().lower() for v in views.split(",") if v.strip()}
+
+        outputs: dict[str, str] = {}
+
+        def _save(fig, key):
+            out_name = f"{prefix}_{key}.svg"
+            fig.savefig(os.path.join(OUTPUT_DIR, out_name), format="svg", facecolor=background)
+            plt.close(fig)
+            outputs[key] = out_name
+
+        def _opening_rects(proj):
+            """White opening rects (pos, w, y0, h) projected onto an axis."""
+            rects = []
+            for o in openings:
+                p = o["x"] if proj == "x" else o["y"]
+                if o["kind"] == "door":
+                    rects.append((p - 450, 0, 900, 2100))
+                else:
+                    rects.append((p - 600, 900, 1200, 1200))
+            return rects
+
+        def _elevation(proj, title, key):
+            fig, ax = plt.subplots(figsize=(12, 5))
+            span0, span1 = (x0, x1) if proj == "x" else (y0, y1)
+            for s in segments:
+                a = min(s["start"][0 if proj == "x" else 1], s["end"][0 if proj == "x" else 1])
+                b = max(s["start"][0 if proj == "x" else 1], s["end"][0 if proj == "x" else 1])
+                ax.add_patch(Rectangle((a, 0), max(b - a, T * 0.5), H, facecolor="#e8e8e8", edgecolor="black", lw=1))
+            for ox, oy, ow, oh in _opening_rects(proj):
+                ax.add_patch(Rectangle((ox, oy), ow, oh, facecolor="white", edgecolor="black", lw=1.2))
+            ax.plot([span0, span1], [0, 0], color="black", lw=2.5)
+            ax.text(
+                (span0 + span1) / 2,
+                H * 1.06,
+                f"{(span1 - span0) / 1000:.1f} m  |  height {H / 1000:.1f} m  |  {len(openings)} openings",
+                ha="center",
+                fontsize=10,
+            )
+            ax.set_title(title, fontsize=13, fontweight="bold")
+            ax.set_aspect("equal")
+            ax.margins(0.04)
+            ax.axis("off")
+            _save(fig, key)
+
+        if "elevations" in want:
+            _elevation("x", f"Elevation North — {prefix}", "elev_n")
+            _elevation("x", f"Elevation South — {prefix}", "elev_s")
+            _elevation("y", f"Elevation East — {prefix}", "elev_e")
+            _elevation("y", f"Elevation West — {prefix}", "elev_w")
+
+        if "section" in want:
+            fig, ax = plt.subplots(figsize=(12, 5))
+            cut = (y0 + y1) / 2
+            for s in segments:
+                (sx1, sy1), (sx2, sy2) = s["start"], s["end"]
+                if min(sy1, sy2) - T <= cut <= max(sy1, sy2) + T:
+                    a, b = min(sx1, sx2), max(sx1, sx2)
+                    ax.add_patch(
+                        Rectangle((a, 0), max(b - a, T * 0.5), H, facecolor="#e8e8e8", edgecolor="black", lw=1)
+                    )
+            ax.plot([x0, x1], [0, 0], color="black", lw=2.5)  # ground slab
+            ax.plot([x0, x1], [H, H], color="black", lw=1.5)  # ceiling slab
+            for gx in [x0 + i * max(W / 40, T) for i in range(int(W / max(W / 40, T)) + 1)]:
+                ax.plot([gx, gx - T * 0.4], [0, -T * 0.4], color="black", lw=0.8)  # ground hatch
+            ax.text(
+                (x0 + x1) / 2,
+                H * 1.06,
+                f"Section A-A (cut at y={(cut - y0) / 1000:.1f} m)  |  {W / 1000:.1f} m span",
+                ha="center",
+                fontsize=10,
+            )
+            ax.set_title(f"Section A-A — {prefix}", fontsize=13, fontweight="bold")
+            ax.set_aspect("equal")
+            ax.margins(0.04)
+            ax.axis("off")
+            _save(fig, "section_aa")
+
+        if "iso" in want:
+            fig, ax = plt.subplots(figsize=(10, 8))
+            c30, s30 = math.cos(math.radians(30)), math.sin(math.radians(30))
+
+            def _proj(x, y, z):
+                return ((x - y) * c30, (x + y) * s30 - z)
+
+            for s in segments:
+                (sx1, sy1), (sx2, sy2) = s["start"], s["end"]
+                dx, dy = sx2 - sx1, sy2 - sy1
+                length = math.hypot(dx, dy)
+                if length < 1e-6:
+                    continue
+                nx, ny = -dy / length, dx / length
+                hw = T / 2.0
+                corners = [
+                    (sx1 - nx * hw, sy1 - ny * hw, 0),
+                    (sx1 + nx * hw, sy1 + ny * hw, 0),
+                    (sx2 + nx * hw, sy2 + ny * hw, 0),
+                    (sx2 - nx * hw, sy2 - ny * hw, 0),
+                    (sx1 - nx * hw, sy1 - ny * hw, H),
+                    (sx1 + nx * hw, sy1 + ny * hw, H),
+                    (sx2 + nx * hw, sy2 + ny * hw, H),
+                    (sx2 - nx * hw, sy2 - ny * hw, H),
+                ]
+                p = [_proj(*c) for c in corners]
+                ax.add_patch(Polygon([p[4], p[5], p[6], p[7]], fc="#dedede", ec="black", lw=0.8))  # top
+                ax.add_patch(Polygon([p[0], p[1], p[5], p[4]], fc="#bdbdbd", ec="black", lw=0.8))  # side A
+                ax.add_patch(Polygon([p[1], p[2], p[6], p[5]], fc="#9a9a9a", ec="black", lw=0.8))  # side B
+            g = [_proj(x, y, 0) for x, y in ((x0, y0), (x1, y0), (x1, y1), (x0, y1))]
+            ax.add_patch(Polygon(g, fc="none", ec="black", lw=1.5))
+            ax.text(
+                sum(p[0] for p in g) / 4,
+                max(p[1] for p in g) * 1.02,
+                f"Axonometric  |  {W / 1000:.1f} x {D / 1000:.1f} x {H / 1000:.1f} m",
+                ha="center",
+                fontsize=10,
+            )
+            ax.set_title(f"Isometric — {prefix}", fontsize=13, fontweight="bold")
+            ax.set_aspect("equal")
+            ax.margins(0.06)
+            ax.axis("off")
+            _save(fig, "iso")
+
+        if "roof" in want:
+            fig, ax = plt.subplots(figsize=(10, 8))
+            ax.add_patch(Rectangle((x0, y0), W, D, fc="none", ec="black", lw=2))
+            inset = 300.0
+            if W > inset * 2 and D > inset * 2:
+                ax.add_patch(
+                    Rectangle((x0 + inset, y0 + inset), W - inset * 2, D - inset * 2, fc="#f0f0f0", ec="black", lw=1)
+                )
+            ax.plot([x0, x1], [(y0 + y1) / 2, (y0 + y1) / 2], color="black", lw=1, ls="--")  # ridge
+            ax.text(
+                (x0 + x1) / 2,
+                y1 + D * 0.04,
+                f"Roof plan (flat, parapet 300)  |  {W / 1000:.1f} x {D / 1000:.1f} m",
+                ha="center",
+                fontsize=10,
+            )
+            ax.set_title(f"Roof plan — {prefix}", fontsize=13, fontweight="bold")
+            ax.set_aspect("equal")
+            ax.margins(0.06)
+            ax.axis("off")
+            _save(fig, "roof")
+
+        return {
+            "success": True,
+            "outputs": outputs,
+            "data": {
+                "views": sorted(outputs.keys()),
+                "wall_count": len(segments),
+                "wall_layers": used_layers,
+                "bbox_mm": {"x0": x0, "x1": x1, "y0": y0, "y1": y1},
+                "height_mm": H,
+                "openings": len(openings),
             },
         }
     except Exception as e:
@@ -580,6 +836,7 @@ def register(mcp):
     mcp.tool(annotations=_README_ONLY, version="0.3.0")(plan_info)
     mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_to_svg)
     mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_extrude)
+    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_drawings)
     mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_export)
     mcp.tool(annotations=_README_ONLY, version="0.3.0")(plan_analyse)
     mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_create)

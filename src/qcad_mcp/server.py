@@ -60,6 +60,7 @@ from qcad_mcp.tools.core_tools import (
     plan_analyse,
     plan_create,
     plan_depot,
+    plan_drawings,
     plan_export,
     plan_extrude,
     plan_info,
@@ -562,6 +563,19 @@ _register_tool(
     },
 )
 _register_tool("plan_export", plan_export, {"file_name": "file_name", "format": "format", "output_name": "output_name"})
+_register_tool(
+    "plan_drawings",
+    plan_drawings,
+    {
+        "file_name": "file_name",
+        "output_prefix": "output_prefix",
+        "wall_height": "wall_height",
+        "wall_thickness": "wall_thickness",
+        "wall_layers": "wall_layers",
+        "views": "views",
+        "background": "background",
+    },
+)
 _register_tool("plan_analyse", plan_analyse, {"file_name": "file_name"})
 _register_tool(
     "plan_create",

@@ -15,8 +15,21 @@ interface DemoResult {
 	svg: string | null;
 	stl: string | null;
 	stl_vertices: number;
+	drawings: Record<string, string> | null;
 	error: string | null;
 }
+
+const DRAWING_LABELS: Record<string, string> = {
+	elev_n: "Elevation North",
+	elev_s: "Elevation South",
+	elev_e: "Elevation East",
+	elev_w: "Elevation West",
+	section_aa: "Section A-A",
+	iso: "Isometric",
+	roof: "Roof plan",
+};
+
+const DRAWING_ORDER = ["elev_n", "elev_s", "elev_e", "elev_w", "section_aa", "iso", "roof"];
 
 type Entity = Record<string, unknown>;
 
@@ -294,6 +307,7 @@ export default function DemoPage() {
 			{ label: "AI generates floor plan", status: "waiting" },
 			{ label: "Render 2D SVG preview", status: "waiting" },
 			{ label: "Extrude walls to 3D", status: "waiting" },
+			{ label: "Generate drawing set", status: "waiting" },
 			{ label: "Ready for import", status: "waiting" },
 		];
 		setSteps(baseSteps);
@@ -340,7 +354,7 @@ export default function DemoPage() {
 			}
 
 			updateStep(0, { status: "done", detail: `${entityCount} entities` });
-			setResult({ dxf: dxfFile, dxf_entities: entityCount, svg: null, stl: null, stl_vertices: 0, error: null });
+			setResult({ dxf: dxfFile, dxf_entities: entityCount, svg: null, stl: null, stl_vertices: 0, drawings: null, error: null });
 
 			// Step 2: Render SVG preview
 			updateStep(1, { status: "running" });
@@ -379,8 +393,28 @@ export default function DemoPage() {
 					: prev,
 			);
 
-			// Step 4: Done
+			// Step 4: Generate full drawing set (elevations, section, iso, roof)
+			updateStep(3, { status: "running" });
+			const drawingsResult = await callTool("plan_drawings", {
+				file_name: dxfFile,
+				output_prefix: `demo_${timestamp}_set`,
+				wall_height: 3.0,
+				wall_thickness: 0.15,
+				wall_layers: ["Walls", "Columns"],
+			}).catch((e: unknown) => ({ success: false as const, error: e instanceof Error ? e.message : String(e) }));
+			const drawingsOk = !!drawingsResult.success;
 			updateStep(3, {
+				status: drawingsOk ? "done" : "error",
+				detail: drawingsOk
+					? `${Object.keys(drawingsResult.outputs ?? {}).length} drawings`
+					: drawingsResult.error,
+			});
+			setResult((prev) =>
+				prev ? { ...prev, drawings: drawingsOk ? (drawingsResult.outputs ?? null) : null } : prev,
+			);
+
+			// Step 5: Done
+			updateStep(4, {
 				status: "done",
 				detail: "Ready for Resonite, Unity3D, or 3D printing",
 			});
@@ -392,6 +426,7 @@ export default function DemoPage() {
 				svg: null,
 				stl: null,
 				stl_vertices: 0,
+				drawings: null,
 				error: msg,
 			};
 			setResult((prev) => (prev ? { ...prev, error: msg } : empty));
@@ -548,6 +583,38 @@ export default function DemoPage() {
 							</div>
 							<div className="h-[450px]">
 								<StlViewer url={`/api/v1/download/${result.stl}`} />
+							</div>
+						</div>
+					)}
+
+					{/* Drawing set: elevations, section, iso, roof */}
+					{result.drawings && Object.keys(result.drawings).length > 0 && (
+						<div className="bg-[#1e1e26] border border-white/10 rounded-2xl overflow-hidden">
+							<div className="px-4 py-3 bg-white/5 border-b border-white/10 flex items-center justify-between">
+								<div className="flex items-center gap-2">
+									<Eye size={14} className="text-amber-400" />
+									<span className="text-sm font-bold text-slate-300">Drawing set</span>
+									<span className="text-xs text-slate-500">
+										({Object.keys(result.drawings).length} drawings)
+									</span>
+								</div>
+							</div>
+							<div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">
+								{DRAWING_ORDER.filter((k) => result.drawings?.[k]).map((k) => (
+									<div key={k} className="bg-[#0a0a0c] border border-white/10 rounded-xl overflow-hidden">
+										<div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
+											<span className="text-sm font-bold text-slate-300">{DRAWING_LABELS[k] ?? k}</span>
+											<a
+												href={`/api/v1/download/${result.drawings?.[k]}`}
+												download
+												className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 font-bold"
+											>
+												<Download size={12} /> SVG
+											</a>
+										</div>
+										<img src={`/api/v1/download/${result.drawings?.[k]}`} alt={DRAWING_LABELS[k] ?? k} className="w-full" />
+									</div>
+								))}
 							</div>
 						</div>
 					)}
