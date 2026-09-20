@@ -1,7 +1,7 @@
-import { Box, CheckCircle, Download, ExternalLink, Eye, Loader2, Sparkles, Wand2 } from "lucide-react";
-import { useState } from "react";
+import { Box, CheckCircle, Download, ExternalLink, Eye, Loader2, Send, Sparkles, Wand2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import StlViewer from "../components/StlViewer";
-import { API_BASE } from "../lib/api";
+import { API_BASE, apiPath } from "../lib/api";
 
 interface Step {
 	label: string;
@@ -16,8 +16,22 @@ interface DemoResult {
 	stl: string | null;
 	stl_vertices: number;
 	drawings: Record<string, string> | null;
-	levels: { title: string; dxf: string; svg: string | null }[] | null;
+	levels: { title: string; dxf: string; svg: string | null; elevation: number }[] | null;
 	error: string | null;
+}
+
+interface ResoniteSession {
+	sessionName: string;
+	sessionID: string;
+	linkPort: number;
+	host: string;
+	lastSeen: number;
+}
+
+interface ResoniteSpawn {
+	delivered: boolean;
+	detail: string;
+	glb?: string;
 }
 
 const DRAWING_LABELS: Record<string, string> = {
@@ -521,9 +535,116 @@ export default function DemoPage() {
 	const [running, setRunning] = useState(false);
 	const [steps, setSteps] = useState<Step[]>([]);
 	const [result, setResult] = useState<DemoResult | null>(null);
+	const [resoniteSessions, setResoniteSessions] = useState<ResoniteSession[]>([]);
+	const [resonitePort, setResonitePort] = useState(0);
+	const [resonitePos, setResonitePos] = useState({ x: 0, y: 1, z: 0 });
+	const [resoniteSending, setResoniteSending] = useState(false);
+	const [resoniteSpawn, setResoniteSpawn] = useState<ResoniteSpawn | null>(null);
+	const [llmKick, setLlmKick] = useState<string | null>(null);
+	const [llmKicking, setLlmKicking] = useState(false);
+
+	useEffect(() => {
+		fetch(API_BASE + "/api/v1/resonite/sessions?timeout_seconds=6")
+			.then((r) => r.json())
+			.then((j) => {
+				const ss: ResoniteSession[] = j.sessions || [];
+				setResoniteSessions(ss);
+				if (ss.length > 0) {
+					const newest = ss.reduce((a, b) => (b.lastSeen > a.lastSeen ? b : a));
+					setResonitePort(newest.linkPort);
+				}
+			})
+			.catch(() => {});
+	}, []);
+
+	const spawnInResonite = async () => {
+		if (!result?.dxf || resoniteSending) return;
+		setResoniteSending(true);
+		setResoniteSpawn(null);
+		try {
+			const r = await fetch(API_BASE + "/api/v1/resonite/import", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					file_name: result.dxf,
+					link_port: resonitePort || 0,
+					pos_x: resonitePos.x,
+					pos_y: resonitePos.y,
+					pos_z: resonitePos.z,
+				}),
+			});
+			const j = await r.json();
+			if (j.success) {
+				setResoniteSpawn({
+					delivered: !!j.delivery?.delivered,
+					detail: j.delivery?.detail || j.delivery?.reason || "",
+					glb: j.output,
+				});
+			} else {
+				setResoniteSpawn({ delivered: false, detail: j.detail || "Spawn failed" });
+			}
+		} catch (e: unknown) {
+			setResoniteSpawn({ delivered: false, detail: e instanceof Error ? e.message : String(e) });
+		} finally {
+			setResoniteSending(false);
+		}
+	};
+
+	const spawnTowerInResonite = async () => {
+		if (!result?.levels?.length || resoniteSending) return;
+		setResoniteSending(true);
+		setResoniteSpawn(null);
+		try {
+			const r = await fetch(API_BASE + "/api/v1/resonite/import-tower", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					levels: result.levels.map((lv) => ({ file_name: lv.dxf, y: lv.elevation })),
+					link_port: resonitePort || 0,
+					pos_x: resonitePos.x,
+					pos_z: resonitePos.z,
+				}),
+			});
+			const j = await r.json();
+			if (j.success) {
+				const n = (j.spawned || []).filter((s: { delivered?: boolean }) => s.delivered).length;
+				setResoniteSpawn({
+					delivered: !!j.delivery?.delivered,
+					detail: `${j.delivery?.detail || ""} (${n}/${result.levels.length} storeys)`,
+				});
+			} else {
+				setResoniteSpawn({ delivered: false, detail: j.detail || "Tower spawn failed" });
+			}
+		} catch (e: unknown) {
+			setResoniteSpawn({ delivered: false, detail: e instanceof Error ? e.message : String(e) });
+		} finally {
+			setResoniteSending(false);
+		}
+	};
 
 	const updateStep = (idx: number, patch: Partial<Step>) => {
 		setSteps((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
+	};
+
+	// Kick the resident LLM out of VRAM (frees gigabytes for Resonite/Blender).
+	const kickLlm = async () => {
+		if (llmKicking) return;
+		setLlmKicking(true);
+		setLlmKick(null);
+		try {
+			const r = await fetch(API_BASE + "/api/llm/unload", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: "{}",
+			});
+			const j = await r.json();
+			const ev = (j.evicted || []).join(", ");
+			setLlmKick(ev ? `Evicted: ${ev} — VRAM free.` : "Nothing resident — VRAM already free.");
+		} catch (e: unknown) {
+			setLlmKick(e instanceof Error ? e.message : String(e));
+		} finally {
+			setLlmKicking(false);
+		}
 	};
 
 	const slugify = (s: string) => {
@@ -541,8 +662,9 @@ export default function DemoPage() {
 		if (!goal.trim()) return;
 		setRunning(true);
 		setResult(null);
+		setResoniteSpawn(null);
 		const baseSteps: Step[] = [
-			{ label: "AI generates floor plan", status: "waiting" },
+			{ label: "Generate floor plan", status: "waiting" },
 			{ label: "Render 2D SVG preview", status: "waiting" },
 			{ label: "Extrude walls to 3D", status: "waiting" },
 			{ label: "Generate drawing set", status: "waiting" },
@@ -581,19 +703,63 @@ export default function DemoPage() {
 			} catch {}
 			const stem = dxfName.replace(/\.dxf$/i, "");
 
-			const agenticResult = await callTool("plan_agentic", { goal: goal.trim() }).catch(() => null);
-			const agenticOk = !!agenticResult?.success;
-
-			let dxfFile: string;
-			let entityCount: number;
-			let towerLevels: { title: string; dxf: string; svg: string | null; elevation: number }[] | null = null;
-			if (agenticOk && agenticResult) {
-				dxfFile = agenticResult.output;
-				entityCount = agenticResult.data?.entity_count ?? 0;
+		// Step 1: floor-plan geometry — local LLM first, keyword template fallback.
+		updateStep(0, { status: "running", detail: "contacting local LLM..." });
+		let planSpec: {
+			entities: Entity[];
+			layers: LevelSpec["layers"];
+			inserts: Entity[];
+			levels?: LevelSpec[] | null;
+		} | null = null;
+		let planSource: "llm" | "template" = "template";
+		let planNote = "";
+		try {
+			const pr = await fetch(API_BASE + "/api/v1/ai/generate-plan", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ goal: goal.trim() }),
+				// Local LLM on a busy GPU can take minutes: give up and use the
+				// template rather than hang the demo.
+				signal: AbortSignal.timeout(150000),
+			});
+			const pj = await pr.json();
+			if (pj.success && ((pj.entities?.length ?? 0) > 0 || (pj.levels?.length ?? 0) > 0)) {
+				planSpec = {
+					entities: pj.entities ?? [],
+					layers: pj.layers ?? [],
+					inserts: pj.inserts ?? [],
+					levels: (pj.levels as LevelSpec[] | undefined) ?? null,
+				};
+				planSource = "llm";
+				planNote = pj.model + ((pj.warnings?.length ?? 0) > 0 ? ` (${pj.warnings.length} fixed)` : "");
 			} else {
-				// Fallback: generate rich geometry from goal description
-				const { entities, layers, inserts, levels } = generateEntities(goal.trim());
-				if (levels && levels.length > 0) {
+				planNote = pj.error || "LLM unavailable";
+			}
+		} catch (e: unknown) {
+			planNote =
+				e instanceof Error && e.name === "TimeoutError"
+					? "LLM timed out after 150s (GPU busy?)"
+					: e instanceof Error
+						? e.message
+						: String(e);
+		}
+		if (planSource === "template") {
+			// Fallback: deterministic keyword geometry (no model involved).
+			const t = generateEntities(goal.trim());
+			planSpec = { entities: t.entities, layers: t.layers, inserts: t.inserts, levels: t.levels ?? null };
+			planNote = planNote ? `template (LLM: ${planNote})` : "template";
+		}
+		updateStep(0, {
+			status: "running",
+			detail: planSource === "llm" ? `LLM ${planNote}` : planNote,
+		});
+		if (!planSpec) throw new Error(planNote || "No plan generated");
+		const { entities, layers, inserts } = planSpec;
+		const levels = planSpec.levels ?? undefined;
+		let dxfFile: string;
+		let entityCount: number;
+		let towerLevels: { title: string; dxf: string; svg: string | null; elevation: number }[] | null = null;
+		if (levels && levels.length > 0) {
 					// Multilevel tower: one DXF per storey + stacked preview later
 					towerLevels = [];
 					let total = 0;
@@ -644,9 +810,8 @@ export default function DemoPage() {
 						}
 					}
 				}
-			}
 
-			updateStep(0, { status: "done", detail: `${entityCount} entities` });
+			updateStep(0, { status: "done", detail: `${entityCount} entities via ${planSource}${planSource === "llm" ? ` (${planNote})` : ""}` });
 			setResult({ dxf: dxfFile, dxf_entities: entityCount, svg: null, stl: null, stl_vertices: 0, drawings: null, levels: null, error: null });
 
 			// Step 2: Render SVG preview (per level for towers)
@@ -661,7 +826,9 @@ export default function DemoPage() {
 				}
 				updateStep(1, { status: "done", detail: `${towerLevels.length} storey previews` });
 				setResult((prev) =>
-					prev ? { ...prev, svg: towerLevels[0].svg, levels: towerLevels.map(({ title, dxf, svg }) => ({ title, dxf, svg })) } : prev,
+					prev
+						? { ...prev, svg: towerLevels[0].svg, levels: towerLevels.map(({ title, dxf, svg, elevation }) => ({ title, dxf, svg, elevation })) }
+						: prev,
 				);
 			} else {
 				const svgResult = await callTool("plan_to_svg", {
@@ -820,7 +987,7 @@ export default function DemoPage() {
 				</div>
 
 				{/* Quick Presets */}
-				<div className="flex flex-wrap gap-2">
+				<div className="flex flex-wrap gap-2 items-center">
 					<span className="text-xs text-slate-500 self-center mr-1">Try:</span>
 					{PRESETS.map((p) => (
 						<button
@@ -833,7 +1000,17 @@ export default function DemoPage() {
 							{p.emoji} {p.label}
 						</button>
 					))}
+					<button
+						type="button"
+						onClick={kickLlm}
+						disabled={llmKicking || running}
+						title="Evict the resident LLM from VRAM (frees gigabytes for Resonite/Blender)"
+						className="ml-auto px-3 py-1.5 rounded-xl bg-red-600/20 hover:bg-red-600/40 disabled:opacity-50 text-xs text-red-400 font-bold transition-all border border-red-500/20"
+					>
+						{llmKicking ? "Evicting..." : "Free VRAM"}
+					</button>
 				</div>
+				{llmKick && <p className="text-xs text-slate-500">{llmKick}</p>}
 			</div>
 
 			{/* Progress Tracker */}
@@ -882,7 +1059,7 @@ export default function DemoPage() {
 									<span className="text-xs text-slate-500">({result.dxf_entities} entities)</span>
 								</div>
 								<a
-									href={`/api/v1/download/${result.svg}`}
+									href={apiPath(`/api/v1/download/${result.svg}`)}
 									className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 text-sm font-bold"
 								>
 									<Download size={12} /> Download SVG
@@ -890,9 +1067,12 @@ export default function DemoPage() {
 							</div>
 							<div className="p-4 bg-[#18181c] flex items-center justify-center min-h-[300px]">
 								<img
-									src={`/api/v1/download/${result.svg}`}
+									src={apiPath(`/api/v1/download/${result.svg}`)}
 									alt="Floor plan preview"
-									className="max-w-full max-h-[500px] object-contain"
+									className="max-w-full max-h-[500px] object-contain bg-white rounded-lg"
+									onError={(e) => {
+										(e.target as HTMLImageElement).style.outline = "2px dashed #f59e0b";
+									}}
 								/>
 							</div>
 						</div>
@@ -914,7 +1094,7 @@ export default function DemoPage() {
 										<div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
 											<span className="text-sm font-bold text-slate-300">{lv.title}</span>
 											<a
-												href={`/api/v1/download/${lv.dxf}`}
+												href={apiPath(`/api/v1/download/${lv.dxf}`)}
 												download
 												className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 font-bold"
 											>
@@ -922,7 +1102,7 @@ export default function DemoPage() {
 											</a>
 										</div>
 										{lv.svg ? (
-											<img src={`/api/v1/download/${lv.svg}`} alt={lv.title} className="w-full" />
+											<img src={apiPath(`/api/v1/download/${lv.svg}`)} alt={lv.title} className="w-full bg-white" />
 										) : (
 											<p className="p-4 text-sm text-slate-500">Preview not available</p>
 										)}
@@ -942,14 +1122,14 @@ export default function DemoPage() {
 									<span className="text-xs text-slate-500">({result.stl_vertices} vertices)</span>
 								</div>
 								<a
-									href={`/api/v1/download/${result.stl}`}
+									href={apiPath(`/api/v1/download/${result.stl}`)}
 									className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 text-sm font-bold"
 								>
 									<Download size={12} /> Download STL
 								</a>
 							</div>
 							<div className="h-[450px]">
-								<StlViewer url={`/api/v1/download/${result.stl}`} />
+								<StlViewer url={apiPath(`/api/v1/download/${result.stl}`)} />
 							</div>
 						</div>
 					)}
@@ -972,14 +1152,14 @@ export default function DemoPage() {
 										<div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
 											<span className="text-sm font-bold text-slate-300">{DRAWING_LABELS[k] ?? k}</span>
 											<a
-												href={`/api/v1/download/${result.drawings?.[k]}`}
+												href={apiPath(`/api/v1/download/${result.drawings?.[k]}`)}
 												download
 												className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 font-bold"
 											>
 												<Download size={12} /> SVG
 											</a>
 										</div>
-										<img src={`/api/v1/download/${result.drawings?.[k]}`} alt={DRAWING_LABELS[k] ?? k} className="w-full" />
+										<img src={apiPath(`/api/v1/download/${result.drawings?.[k]}`)} alt={DRAWING_LABELS[k] ?? k} className="w-full bg-white" />
 									</div>
 								))}
 							</div>
@@ -996,19 +1176,90 @@ export default function DemoPage() {
 								<div className="space-y-2">
 									<h3 className="text-lg font-bold text-white flex items-center gap-2">Resonite-Ready</h3>
 									<p className="text-sm text-slate-300">
-										Download the STL file above and import it directly into Resonite. The extrusion preserves real-world
-										scale (1 DXF unit = 1 mm). Use the STL as a static world mesh or add interactivity.
+										Spawn this building straight into a running Resonite world — DXF converts to GLB
+										via Blender, then delivers over the live link (1 DXF unit = 1 mm). The spawn
+										point is the building corner: it extends +X / -Z from there, so fly to the
+										centre after spawning. In Resonite open the Inspector, search the slot name,
+										and double-click to focus. Or grab the files below for a manual import.
 									</p>
+									{resoniteSessions.length === 0 && (
+										<p className="text-xs text-amber-400">
+											No worlds announcing via discovery right now — spawn still works if the link
+											is connected (the backend falls back to the live link).
+										</p>
+									)}
+									<div className="grid grid-cols-3 gap-2">
+										{(["x", "y", "z"] as const).map((axis) => (
+											<label key={axis} className="block space-y-1">
+												<span className="text-xs text-slate-400">Spawn {axis.toUpperCase()}</span>
+												<input
+													type="number"
+													step="0.5"
+													value={resonitePos[axis]}
+													onChange={(e) =>
+														setResonitePos((p) => ({ ...p, [axis]: Number.parseFloat(e.target.value) || 0 }))
+													}
+													className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 outline-none focus:border-purple-500/30"
+												/>
+											</label>
+										))}
+									</div>
+									{resoniteSessions.length > 1 && (
+										<label className="block space-y-1">
+											<span className="text-xs text-slate-400">
+												Target world ({resoniteSessions.length} announcing)
+											</span>
+											<select
+												value={resonitePort}
+												onChange={(e) => setResonitePort(Number(e.target.value))}
+												className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 outline-none focus:border-purple-500/30"
+											>
+												{resoniteSessions.map((s) => (
+													<option key={s.linkPort} value={s.linkPort}>
+														{s.sessionName} (:{s.linkPort})
+													</option>
+												))}
+											</select>
+										</label>
+									)}
+									{resoniteSpawn && (
+										<p
+											className={`text-sm ${resoniteSpawn.delivered ? "text-emerald-400" : "text-amber-400"}`}
+										>
+											{resoniteSpawn.delivered ? "Delivered: " : "Not delivered: "}
+											{resoniteSpawn.detail}
+										</p>
+									)}
 									<div className="flex flex-wrap gap-2">
+										<button
+											type="button"
+											onClick={spawnInResonite}
+											disabled={resoniteSending || !result.dxf}
+											className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-sm font-bold"
+										>
+											{resoniteSending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+											{resoniteSending ? "Spawning..." : "Spawn in Resonite"}
+										</button>
+										{result.levels && result.levels.length > 0 && (
+											<button
+												type="button"
+												onClick={spawnTowerInResonite}
+												disabled={resoniteSending}
+												className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-bold"
+											>
+												{resoniteSending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+												{resoniteSending ? "Spawning..." : `Spawn whole tower (${result.levels.length} storeys)`}
+											</button>
+										)}
 										<a
-											href={`/api/v1/download/${result.stl}`}
+											href={apiPath(`/api/v1/download/${result.stl}`)}
 											className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold"
 										>
 											<Download size={14} /> Download STL for Resonite
 										</a>
 										{result.dxf && (
 											<a
-												href={`/api/v1/download/${result.dxf}`}
+												href={apiPath(`/api/v1/download/${result.dxf}`)}
 												className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 text-sm"
 											>
 												<Download size={14} /> Download DXF

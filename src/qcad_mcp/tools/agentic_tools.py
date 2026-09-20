@@ -12,13 +12,40 @@ from pydantic import Field
 
 from qcad_mcp.config import DEPOT_DIR, OUTPUT_DIR
 from qcad_mcp.helpers import _depot_list, _read_meta
-from qcad_mcp.services import qcad_pro
+from qcad_mcp.services import plan_llm, qcad_pro
+from qcad_mcp.tools.core_tools import plan_create
 from qcad_mcp.tools.lisp_transpiler import transpile as _heuristic_transpile
 
 _README_ONLY = {"readonly": True}
 _MUTATING = {}
 
 logger = logging.getLogger("qcad-mcp")
+
+
+def _sampling_text(result: object) -> str:
+    """Unwrap FastMCP sampling results (str, .text, or .content blocks) to plain text."""
+    if result is None:
+        return ""
+    if isinstance(result, str):
+        return result
+    text = getattr(result, "text", None)
+    if isinstance(text, str) and text.strip():
+        return text
+    content = getattr(result, "content", None)
+    if isinstance(content, str) and content.strip():
+        return content
+    if isinstance(content, (list, tuple)):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            else:
+                t = getattr(block, "text", None)
+                if isinstance(t, str):
+                    parts.append(t)
+        if parts:
+            return "".join(parts)
+    return ""
 
 
 def _agentic_fallback(goal: str) -> str:
@@ -182,11 +209,12 @@ Key rules:
 
     if ctx is not None:
         try:
-            sampling_result = await ctx.request_sampling(
-                messages=[{"role": "user", "content": prompt}],
+            sampling_result = await ctx.sample_step(
+                messages=[prompt],
+                temperature=0.7,
                 max_tokens=4096,
             )
-            response_text = sampling_result.get("content", "")
+            response_text = _sampling_text(sampling_result)
             if "```javascript" in response_text:
                 script = response_text.split("```javascript")[1].split("```")[0].strip()
             elif "```js" in response_text:
@@ -294,11 +322,12 @@ Rules:
 
     if ctx is not None:
         try:
-            sampling_result = await ctx.request_sampling(
-                messages=[{"role": "user", "content": transpile_prompt}],
+            sampling_result = await ctx.sample_step(
+                messages=[transpile_prompt],
+                temperature=0.2,
                 max_tokens=4096,
             )
-            response_text = sampling_result.get("content", "")
+            response_text = _sampling_text(sampling_result)
             if "```javascript" in response_text:
                 transpiled_js = response_text.split("```javascript")[1].split("```")[0].strip()
             elif "```js" in response_text:
@@ -394,7 +423,148 @@ Help the user with their CAD task. Be precise and suggest concrete tool calls.
     return base
 
 
+def _unique_depot_name(stem: str, suffix: str = ".dxf") -> str:
+    """Depot filename that does not collide (appends _2, _3, ...)."""
+    stem = re.sub(r"[^a-z0-9]+", "_", stem.lower()).strip("_")[:48] or "plan"
+    name = f"{stem}{suffix}"
+    n = 2
+    while os.path.isfile(os.path.join(DEPOT_DIR, name)):
+        name = f"{stem}_{n}{suffix}"
+        n += 1
+    return name
+
+
+async def plan_generate(
+    goal: Annotated[
+        str,
+        Field(
+            description="Natural-language floor plan description. E.g. 'L-shaped pottery workshop 12m x 9m with a darkroom and a kiln room'."
+        ),
+    ],
+    filename: Annotated[str, Field(default="", description="Output DXF name. Empty = slug from the goal.")] = "",
+    model: Annotated[
+        str, Field(default="", description="Ollama model override for the fallback path. Default: Settings model.")
+    ] = "",
+    create_dxf: Annotated[
+        bool, Field(default=True, description="Create depot DXF file(s). False = return the entity spec only.")
+    ] = True,
+    ctx: Context = None,
+) -> dict:
+    """Design a floor plan from natural language: LLM geometry -> validated entities -> DXF.
+
+    Sampling-first agentic workflow: with a sampling-capable client (Claude
+    Desktop) the host model designs the plan via ``ctx.sample_step``. Without
+    sampling it falls back to the local Ollama model from Settings, and
+    refuses (no silent substitution) when none is selected.
+
+    Output is validated (known types, finite mm coordinates, sane bounds) and
+    bad entities are dropped with warnings before anything is created.
+
+    ## Return Format
+    {"success": bool, "output": str | list, "source": "sampling" | "ollama",
+     "model": str, "data": {"entity_count": int, "warnings": [...]}}
+
+    ## Examples
+    await plan_generate(goal="Tiny shed 3m x 2m with one door")
+    await plan_generate(goal="Corner bakery 8m x 6m with an oven room", create_dxf=False)
+    """
+    goal = (goal or "").strip()
+    if not goal:
+        return {"success": False, "error": "Empty goal."}
+
+    raw: str = ""
+    source = "sampling"
+    used_model = "sampling-client"
+    if ctx is not None:
+        try:
+            sampling_result = await ctx.sample_step(
+                messages=[plan_llm.build_user_prompt(goal)],
+                system_prompt=plan_llm.SYSTEM_PROMPT,
+                temperature=0.2,
+                max_tokens=4096,
+            )
+            raw = _sampling_text(sampling_result)
+        except Exception as e:
+            logger.warning("plan_generate sampling failed, trying local Ollama: %s", e)
+    if not raw.strip():
+        source = "ollama"
+        sel_model, url = plan_llm.load_server_llm_settings()
+        used_model = model or sel_model
+        if not used_model:
+            return {
+                "success": False,
+                "error": "No sampling client and no Ollama model selected - pick one in Settings > LLM Provider.",
+                "code": "no-model",
+            }
+        try:
+            raw = await plan_llm.chat_generate(goal, used_model, url)
+        except plan_llm.PlanLlmError as e:
+            return {"success": False, "error": str(e), "code": e.code}
+    try:
+        data = plan_llm.extract_plan_json(raw)
+    except plan_llm.PlanLlmError as e:
+        return {"success": False, "error": str(e), "code": e.code, "source": source}
+    try:
+        spec, warnings = plan_llm.validate_plan(data)
+    except plan_llm.PlanLlmError as e:
+        return {"success": False, "error": str(e), "code": e.code, "source": source}
+
+    if not create_dxf:
+        count = sum(len(lv["entities"]) for lv in spec.get("levels") or []) or len(spec["entities"])
+        return {
+            "success": True,
+            "output": "",
+            "source": source,
+            "model": used_model,
+            "data": {"entity_count": count, "warnings": warnings, "spec": spec},
+        }
+
+    stem = _unique_depot_name(filename or goal, "").replace(".dxf", "")
+    outputs: list[str] = []
+    total = 0
+    levels = spec.get("levels")
+    if levels:
+        for lv in levels:
+            lv_name = _unique_depot_name(f"{stem}_{lv['suffix']}")
+            cr = await plan_create(
+                filename=lv_name,
+                entities=lv["entities"],
+                layers=lv["layers"],
+                description=f"{goal} - {lv['title']}",
+            )
+            if not cr.get("success"):
+                return {
+                    "success": False,
+                    "error": cr.get("error", f"Failed to create {lv['title']}"),
+                    "source": source,
+                    "model": used_model,
+                }
+            outputs.append(lv_name)
+            total += (cr.get("data") or {}).get("entity_count", 0) or len(lv["entities"])
+        output: str | list = outputs
+    else:
+        dxf_name = _unique_depot_name(stem)
+        cr = await plan_create(filename=dxf_name, entities=spec["entities"], layers=spec["layers"], description=goal)
+        if not cr.get("success"):
+            return {
+                "success": False,
+                "error": cr.get("error", "Failed to create floor plan"),
+                "source": source,
+                "model": used_model,
+            }
+        output = dxf_name
+        total = (cr.get("data") or {}).get("entity_count", 0) or len(spec["entities"])
+    return {
+        "success": True,
+        "output": output,
+        "source": source,
+        "model": used_model,
+        "data": {"entity_count": total, "warnings": warnings},
+    }
+
+
 def register(mcp):
+    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_generate)
     mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_agentic)
     mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_transpile)
     mcp.tool(annotations=_README_ONLY, version="0.3.0")(cad_sampling)
