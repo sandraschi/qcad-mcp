@@ -55,6 +55,7 @@ ignore = ["S101", "S106", "S110", "S112", "S101", "S106", "S110", "S112", "RUF01
 "src/qcad_mcp/server.py" = ["E501", "S110", "S603"]
 "src/qcad_mcp/services/*.py" = ["S603", "S607"]
 "tests/**/*.py" = ["E501", "S101"]
+"scripts/**" = ["E501", "S310"]
 
 [dependency-groups]
 dev = [
