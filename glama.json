@@ -1,6 +1,7 @@
 {
   "$schema": "https://glama.ai/mcp/schema/2026",
   "name": "qcad-mcp",
+  "version": "0.3.0",
   "description": "2D CAD operations via QCAD — floor plans, DXF conversion, SVG preview, STL extrusion, architecture analysis, structural beam analysis, and natural-language CAD workflows",
   "repository": "https://github.com/sandraschi/qcad-mcp",
   "command": "uv",
@@ -12,12 +13,19 @@
     {"name": "plan_info", "description": "Read DXF metadata: layers, entity counts, bounding box, blocks"},
     {"name": "plan_to_svg", "description": "Convert DXF to SVG preview image with layer filtering"},
     {"name": "plan_extrude", "description": "Extrude DXF walls to 3D STL mesh"},
+    {"name": "plan_stack", "description": "Multi-storey DXF wall extrusion to STL"},
+    {"name": "plan_obj", "description": "Convert extrusion output to OBJ with materials"},
+    {"name": "plan_glb", "description": "Convert extrusion output to GLB for Resonite/game import"},
+    {"name": "plan_drawings", "description": "Drawing set helpers for multi-sheet DXF"},
     {"name": "plan_export", "description": "Export DXF to SVG, PDF, or PNG"},
     {"name": "plan_analyse", "description": "Analyse floor plan: detect rooms, areas, doors, windows"},
     {"name": "plan_create", "description": "Create DXF from geometric primitives"},
     {"name": "plan_depot", "description": "List files in persistent CAD depot with metadata"},
     {"name": "plan_convert", "description": "Convert DWG to DXF or DXF to DWG via QCAD Pro"},
     {"name": "plan_modify", "description": "Modify entities and layers: delete, offset, rename, freeze, lock, merge"},
+    {"name": "plan_auto_dimension", "description": "Auto-dimension wall geometry for BIM output"},
+    {"name": "plan_building_meta", "description": "Building/storey metadata for BIM handoff"},
+    {"name": "plan_to_ifc_data", "description": "Wall data as IFC-shaped JSON"},
     {"name": "qcad_status", "description": "Check QCAD Pro installation and version status"},
     {"name": "plan_script", "description": "Execute arbitrary ECMAScript against DXF in QCAD Pro"},
     {"name": "plan_render", "description": "High-fidelity DXF/DWG rendering via QCAD Pro engine"},
@@ -34,9 +42,16 @@
     {"name": "plan_blocks_download", "description": "Download CAD blocks to local depot"},
     {"name": "plan_scripts_search", "description": "Search QCAD ECMAScript script libraries"},
     {"name": "plan_scripts_download", "description": "Download ECMAScript scripts to local depot"},
+    {"name": "plan_generate", "description": "Generate floor-plan DXF from a text brief via local LLM"},
     {"name": "plan_agentic", "description": "Natural-language CAD goal to ECMAScript execution"},
     {"name": "plan_transpile", "description": "Translate AutoLISP to QCAD ECMAScript and execute"},
-    {"name": "cad_sampling", "description": "Host LLM reasoning for CAD problems via MCP sampling"}
+    {"name": "cad_sampling", "description": "Host LLM reasoning for CAD problems via MCP sampling"},
+    {"name": "qcad_help", "description": "Live help catalog: tools, REST routes, config"},
+    {"name": "qcad_shutdown", "description": "Orderly server shutdown (confirm=true)"},
+    {"name": "show_qcad_status_card", "description": "Prefab card: QCAD Pro status"},
+    {"name": "show_depot_card", "description": "Prefab card: depot files"},
+    {"name": "show_beam_analysis_card", "description": "Prefab card: beam analysis results"},
+    {"name": "show_building_meta_card", "description": "Prefab card: building metadata"}
   ],
   "prompts": [
     {"name": "cad_expert", "description": "Get CAD expertise and tool guidance"},
@@ -48,4 +63,3 @@
     {"uri": "cad://depot/{filename}", "description": "Get info about a specific depot file"}
   ]
 }
-

@@ -14,11 +14,11 @@
       "args": [
         "run",
         "--directory",
-        "${PWD}",
+        "${__dirname}",
         "run_server.py"
       ],
       "env": {
-        "PYTHONPATH": "${PWD}/src",
+        "PYTHONPATH": "${__dirname}/src",
         "PYTHONUNBUFFERED": "1"
       }
     }
