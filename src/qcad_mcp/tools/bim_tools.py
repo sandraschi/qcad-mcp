@@ -57,8 +57,8 @@ async def plan_auto_dimension(
             try:
                 for p in entity.get_points():
                     pts.append((p[0], p[1]))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Polyline point read failed: %s", e)
 
     if not pts:
         return {"success": False, "error": "No wall geometry found to dimension"}
@@ -189,9 +189,7 @@ async def plan_to_ifc_data(
     file_name: Annotated[str, Field(description="DXF filename in depot.")],
     wall_layers: Annotated[list[str] | None, Field(default=None, description="Wall layer names.")] = None,
     wall_height: Annotated[float, Field(default=3000.0, description="Default wall extrusion height in mm.")] = 3000.0,
-    wall_thickness: Annotated[
-        float, Field(default=200.0, description="Default wall thickness in mm.")
-    ] = 200.0,
+    wall_thickness: Annotated[float, Field(default=200.0, description="Default wall thickness in mm.")] = 200.0,
 ) -> dict:
     """Extract wall lines, doors, and windows as a structured BIM schema JSON.
 
@@ -222,7 +220,7 @@ async def plan_to_ifc_data(
             end = entity.dxf.end
             walls.append(
                 {
-                    "id": f"WALL_{len(walls)+1}",
+                    "id": f"WALL_{len(walls) + 1}",
                     "start": [start.x, start.y, 0.0],
                     "end": [end.x, end.y, 0.0],
                     "height": wall_height,
@@ -235,7 +233,7 @@ async def plan_to_ifc_data(
             if pos:
                 openings.append(
                     {
-                        "id": f"OPENING_{len(openings)+1}",
+                        "id": f"OPENING_{len(openings) + 1}",
                         "type": "DOOR" if "DOOR" in layer_upper else "WINDOW",
                         "position": [pos.x, pos.y, 0.0],
                         "layer": entity.dxf.layer,

@@ -70,12 +70,14 @@ async def plan_to_svg(
     await plan_to_svg(file_name="floorplan.dxf")
     """
     from ezdxf.addons.drawing import Frontend, RenderContext
+    from ezdxf.addons.drawing.config import ColorPolicy, Configuration
     from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
 
     doc, err = _load_dxf(file_name)
     if doc is None:
         return {"success": False, "error": err}
 
+    output_name = Path(output_name).name
     svg_path = os.path.join(OUTPUT_DIR, output_name)
 
     try:
@@ -86,31 +88,65 @@ async def plan_to_svg(
 
         msp = doc.modelspace()
 
+        # ACI 7 (white) walls on a light background render invisible
+        # (white-on-white: the reported "empty white square"). Pick the
+        # color policy from the background luminance: light bg swaps
+        # white->black, dark bg keeps CAD white-on-black. Hues survive
+        # either way.
+        _light_names = {
+            "white",
+            "snow",
+            "ivory",
+            "white smoke",
+            "whitesmoke",
+            "ghostwhite",
+            "floralwhite",
+            "aliceblue",
+            "mintcream",
+            "honeydew",
+            "beige",
+        }
+        _dark_names = {"black", "dimgray", "dimgrey"}
+        _bg = (background or "white").strip().lower()
+        if _bg.startswith("#"):
+            try:
+                _h = _bg[1:]
+                if len(_h) == 3:
+                    _h = "".join(c * 2 for c in _h)
+                _r, _g, _b = (int(_h[i : i + 2], 16) for i in (0, 2, 4))
+                _is_light = (0.299 * _r + 0.587 * _g + 0.114 * _b) / 255.0 >= 0.5
+            except Exception:
+                _is_light = True
+        elif _bg in _dark_names or "black" in _bg or "#18181c" in _bg:
+            _is_light = False
+        else:
+            # Unknown names default to light: swapping white->black keeps
+            # walls visible on the default white background.
+            _is_light = True
+        _policy = ColorPolicy.COLOR_SWAP_BW if _is_light else ColorPolicy.COLOR
+        config = Configuration(color_policy=_policy)
+        ctx = RenderContext(doc)
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        out = MatplotlibBackend(ax)
+        frontend = Frontend(ctx, out, config=config)
         if layers:
             entities = [e for e in msp if e.dxftype() != "VERTEX" and e.get_dxf_attrib("layer", "") in layers]
-            ctx = RenderContext(doc)
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            out = MatplotlibBackend(ax)
-            frontend = Frontend(ctx, out)
             frontend.draw_entities(entities if entities else list(msp))
-            # ezdxf paints the axes patch CAD-black by default; match it to the
-            # requested background or the preview is a black square on white.
-            ax.set_facecolor(background)
-            fig.patch.set_facecolor(background)
-            fig.savefig(svg_path, format="svg", facecolor=background)
-            plt.close(fig)
         else:
-            ctx = RenderContext(doc)
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            out = MatplotlibBackend(ax)
-            frontend = Frontend(ctx, out)
             frontend.draw_layout(msp, finalize=True)
-            ax.set_facecolor(background)
-            fig.patch.set_facecolor(background)
-            fig.savefig(svg_path, format="svg", facecolor=background)
-            plt.close(fig)
+        # ezdxf paints the axes patch CAD-black by default; match it to the
+        # requested background or the preview is a black square on white.
+        ax.set_facecolor(background)
+        fig.patch.set_facecolor(background)
+        # Frame the plan like plan_drawings does: equal aspect, no axes,
+        # tight bounding box. Without this the default 6.4x4.8in figure
+        # leaves a huge white margin with a tiny plan inside.
+        ax.set_aspect("equal")
+        ax.margins(0.04)
+        ax.axis("off")
+        fig.savefig(svg_path, format="svg", facecolor=background, bbox_inches="tight")
+        plt.close(fig)
 
         return {"success": True, "output": output_name, "data": {"size_kb": round(os.path.getsize(svg_path) / 1024, 1)}}
     except Exception as e:
@@ -125,8 +161,8 @@ def _set_height_tag(ent, spec):
         return
     try:
         ent.set_xdata("QCADMCP", [(1040, float(h))])
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("XDATA height tag write failed: %s", e)
 
 
 def _ent_height_mm(ent, default_mm):
@@ -136,8 +172,8 @@ def _ent_height_mm(ent, default_mm):
             for tag in ent.get_xdata("QCADMCP"):
                 if tag.code == 1040:
                     return float(tag.value) * 1000.0
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("XDATA height tag read failed: %s", e)
     return default_mm
 
 
@@ -203,7 +239,8 @@ def _drawing_openings(msp):
                 pos = ((e.dxf.start.x + e.dxf.end.x) / 2, (e.dxf.start.y + e.dxf.end.y) / 2)
             else:
                 pos = (e.dxf.center.x, e.dxf.center.y)
-        except Exception:
+        except Exception as e:
+            logger.debug("Opening position read failed: %s", e)
             continue
         openings.append({"kind": kind, "x": pos[0], "y": pos[1], "layer": e.get_dxf_attrib("layer", "")})
     return openings
@@ -1442,6 +1479,7 @@ async def plan_create(
         return {
             "success": True,
             "filename": filename,
+            "output": filename,
             "data": {"size_kb": round(os.path.getsize(path) / 1024, 1), "entity_count": count},
         }
     except Exception as e:

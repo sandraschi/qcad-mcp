@@ -515,7 +515,8 @@ async def _block_insert_free(file_name: str, inserts: list[dict], output_name: s
             for cand in sorted(d.glob("*.dxf")):
                 try:
                     src = ezdxf.readfile(str(cand))
-                except Exception:
+                except Exception as e:
+                    logger.debug("Skipping unreadable block lib %s: %s", cand, e)
                     continue
                 if name in src.blocks:
                     key = str(cand)
@@ -526,12 +527,13 @@ async def _block_insert_free(file_name: str, inserts: list[dict], output_name: s
                     try:
                         imp.import_block(name)
                         imp.finalize()
-                    except Exception:
+                    except Exception as e:
+                        logger.debug("Block import %r failed: %s", name, e)
                         continue
                     try:
                         src.close()
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("Block lib close failed: %s", e)
                     if name in doc.blocks:
                         return True
         return False
@@ -633,7 +635,8 @@ async def _block_insert_pro(file_name: str, inserts: list[dict], output_name: st
                 if name in ezdxf.readfile(cand).blocks:
                     block_src[name] = cand.replace("\\", "/")
                     break
-            except Exception:
+            except Exception as e:
+                logger.debug("Block lib scan failed for %s: %s", cand, e)
                 continue
 
     missing = [

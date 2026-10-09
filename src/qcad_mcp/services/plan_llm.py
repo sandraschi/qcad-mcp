@@ -404,6 +404,6 @@ def load_server_llm_settings() -> tuple[str, str]:
             model = data.get("model") or ""
             url = data.get("ollama_url") or default_url
             return (model if isinstance(model, str) else "", url if isinstance(url, str) else default_url)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("LLM settings file unreadable, using defaults: %s", e)
     return "", default_url

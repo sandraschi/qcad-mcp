@@ -98,7 +98,11 @@ async def show_building_meta_card(file_name: str = "simple_floorplan.dxf") -> To
         app.add(Heading(f"Building Levels — {file_name}"))
         storeys = res.get("data", {}).get("storeys", [])
         for s in storeys:
-            app.add(Row(label=s.get("name", "Storey"), value=f"Elev: {s.get('elevation')}mm ({s.get('layer_count')} layers)"))
+            app.add(
+                Row(
+                    label=s.get("name", "Storey"), value=f"Elev: {s.get('elevation')}mm ({s.get('layer_count')} layers)"
+                )
+            )
         return ToolResult(content=text, structured_content=app)
     except Exception as e:
         logger.warning("PrefabApp failed: %s", e)
