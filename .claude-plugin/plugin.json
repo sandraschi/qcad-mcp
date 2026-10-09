@@ -1,0 +1,1 @@
+{"hooks": {"SessionStart": [{"action": "QCAD MCP: plan_depot lists depot files, qcad_status checks QCAD Pro. Depot at %LOCALAPPDATA%\\qcad-mcp\\depot. Close out with pytest + CHANGELOG, never commit dist/ or .env.", "type": "text"}]}, "name": "qcad-mcp", "version": "0.3.0"}
