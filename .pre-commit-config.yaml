@@ -5,3 +5,13 @@ repos:
       - id: ruff
         args: [--fix]
       - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: biome-web
+        name: biome check (webapp)
+        entry: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/pre-commit-biome.ps1
+        language: system
+        files: ^(webapp(/frontend)?|web_sota|web-sota|web|frontend|ui|web_app)/(.*\.(ts|tsx|js|jsx)|biome\.json)$
+        pass_filenames: false
+        require_serial: true
