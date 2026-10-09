@@ -1,11 +1,12 @@
 # Status — qcad-mcp
 
-**Status**: v0.3.0 — 28+ tools, zero lint errors, 39 tests, SOTA annotations.
+**Status**: v0.3.0 — 42 tools, ruff+biome+tsc green, 78 pytest pass, SOTA annotations.
 
 **Repo**: `D:\Dev\repos\qcad-mcp`
 **Ports**: Backend 11966, Frontend 11967
+**Assfix**: 2026-10-09 (report: reports/assess-2026-10-09.md, docs/assess-reports/2026-10-09.md).
 
-## MCP Tools (26)
+## MCP Tools (42 — full catalog in docs/TOOLS.md; table below shows the original 26)
 
 ### Core (7)
 | Tool | Annotation | Description |

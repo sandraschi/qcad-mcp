@@ -8,7 +8,7 @@
   <a href="https://github.com/PrefectHQ/fastmcp"><img src="https://img.shields.io/badge/FastMCP-3.2-7c5cfc?style=flat-square" alt="FastMCP"></a>
 </p>
 
-**AI-driven 2D CAD automation — DXF/DWG parsing, 3D extrusion, persistent file depot, room analysis, and full CRUD management.** 7 MCP tools for DXF processing. Your AI assistant becomes a QCAD Pro operator.
+**AI-driven 2D CAD automation — DXF/DWG parsing, 3D extrusion, persistent file depot, room analysis, and full CRUD management.** 42 MCP tools for DXF processing. Your AI assistant becomes a QCAD Pro operator.
 
 | | |
 |--:|--|
@@ -48,6 +48,26 @@
 | `qcad_status` | READ | QCAD Pro install/running/version report |
 | `plan_agentic` | MUTATE | NL → ECMAScript via AI sampling (MCP only, needs QCAD Pro) |
 | `plan_transpile` | MUTATE | AutoLISP → QCAD ECMAScript translation (MCP only, needs QCAD Pro) |
+| `plan_generate` | MUTATE | Floor-plan DXF from a text brief via local LLM |
+| `plan_stack` | MUTATE | Multi-storey wall extrusion to STL |
+| `plan_obj` / `plan_glb` | MUTATE | Extrusion output → OBJ / GLB (Resonite path) |
+| `plan_drawings` | READ | Drawing-set helpers for multi-sheet DXF |
+| `plan_auto_dimension` | MUTATE | Auto-dimension wall geometry (BIM) |
+| `plan_building_meta` | READ | Building/storey metadata for BIM handoff |
+| `plan_to_ifc_data` | READ | Wall data as IFC-shaped JSON |
+| `qcad_help` | READ | Live help catalog: tools, REST routes, config |
+| `qcad_shutdown` | READ | Orderly server shutdown (confirm=true) |
+
+## Fleet Crossconnects (Companions)
+
+`qcad-mcp` works completely standalone. You can optionally connect it with companion servers in the `sandraschi` fleet to unlock extended features:
+
+| Companion Server | Feature Unlocked | Status | Setup |
+|---|---|---|---|
+| [`blender-mcp`](https://github.com/sandraschi/blender-mcp) | 3d-scene-extrusion, render-dxf-layouts | Optional | [Install Guide](https://github.com/sandraschi/blender-mcp#quick-install) |
+| [`freecad-mcp`](https://github.com/sandraschi/freecad-mcp) | 2d-draft-to-parametric-3d | Optional | [Install Guide](https://github.com/sandraschi/freecad-mcp#quick-install) |
+
+> **Self-Contained Companions**: Fleet companions operate independently. Installing companions does not trigger transitive dependency chains.
 
 ## CAD Depot (Persistent File Storage)
 
@@ -106,6 +126,26 @@ All CAD files are stored in a persistent depot at `%LOCALAPPDATA%\qcad-mcp\depot
 ```powershell
 just bootstrap   # uv sync + npm install
 start.ps1        # kills zombies, starts backend + frontend, opens browser
+```
+
+## Install (Claude Desktop, Windows)
+
+```powershell
+irm https://github.com/sandraschi/qcad-mcp/releases/latest/download/install.ps1 | iex
+```
+
+Installs the stable `qcad-mcp.mcpb` bundle into Claude Desktop. Other
+clients (Cursor, VS Code, OpenCode): use `uvx` with the stdio entry:
+
+```json
+{
+  "mcpServers": {
+    "qcad-mcp": {
+      "command": "uv",
+      "args": ["run", "--directory", "D:\\Dev\\repos\\qcad-mcp", "run_server.py"]
+    }
+  }
+}
 ```
 
 ## MCP Client Config
@@ -179,11 +219,12 @@ RibbonSoft is a Swiss **GmbH** (limited company) based in Sarnen, not retirees. 
 
 ## Quality Stack
 
-- **Python**: [Ruff](https://astral.sh/ruff) linter — zero errors across 5 MCP tools + depot CRUD
-- **Frontend**: [Biome](https://biomejs.dev/) + `tsc` — zero errors across 9 TypeScript pages
-- **Protocol**: FastMCP 3.2 SSE transport + 10 REST endpoints
+- **Python**: [Ruff](https://astral.sh/ruff) linter + format, [Pyright](https://microsoft.github.io/pyright/) typecheck — `src/` + `run_server.py`
+- **Frontend**: [Biome](https://biomejs.dev/) + `tsc --noEmit` — 18 TypeScript pages
+- **Protocol**: FastMCP 3.4 (stdio + HTTP `/mcp`) + 40 REST routes
+- **Tools**: 42 MCP tools with READ_ONLY/MUTATING annotations
 - **Automation**: [Justfile](./justfile) recipes for all fleet operations
-- **AI Protocol**: FastMCP 3.2 with SSE transport
+- **Tests**: pytest (78+) + Playwright e2e specs
 
 ## License
 

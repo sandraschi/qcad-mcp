@@ -2,7 +2,7 @@
 
 ## Overview
 
-QCAD MCP is a FastMCP 3.2 server that provides AI-driven 2D CAD automation. It turns natural-language CAD goals into real DXF/DWG drawings, previews, and 3D STL meshes. Runs on port 11966 (backend/REST API) with webapp at port 11967.
+QCAD MCP is a FastMCP 3.4 server that provides AI-driven 2D CAD automation. It turns natural-language CAD goals into real DXF/DWG drawings, previews, and 3D STL meshes. Runs on port 11966 (backend/REST API) with webapp at port 11967.
 
 Key capabilities: DXF/DWG parsing with ezdxf, SVG/PNG/PDF preview generation, wall extrusion to 3D STL, room/area analysis, DXF creation from primitives, persistent file depot with full CRUD, QCAD Pro ECMAScript bridge for advanced operations (dimensions, hatches, text, measurements, arrays, block insertion), AutoLISP-to-ECMAScript transpilation, CAD block library search, and structural beam analysis.
 
@@ -32,7 +32,8 @@ Start with webapp: `powershell -File start.ps1`
 
 ## Tools
 
-All 28 tools registered as FastMCP 3.2 @mcp.tool() across 7 modules.
+All 42 tools registered via register(mcp) portmanteau across 10 modules
+(core, modify, blocks, qcad, annotation, agentic, scripts, bim, prefab, meta).
 
 ### Core Tools (ezdxf-based, no QCAD Pro required)
 
@@ -132,6 +133,31 @@ All 28 tools registered as FastMCP 3.2 @mcp.tool() across 7 modules.
 - `cad_sampling(goal, ctx)` -- Use the host LLM (via MCP sampling) to reason about a CAD problem or plan a multi-step operation. The host's LLM analyzes the goal and returns a structured plan or explanation. Falls back to a static response if sampling is unavailable.
   Example: await cad_sampling(goal="What wall height should I use for a residential floor plan?")
 
+### Meta Tools
+
+- `qcad_help(topic="")` -- Live help catalog: all 42 tool names, key REST routes, ports, docs pointers. Filter by substring.
+  Example: await qcad_help(topic="extrude")
+
+- `qcad_shutdown(confirm=True)` -- Orderly server shutdown. Responds first, exits ~500 ms later so depot/settings writes flush.
+  Example: await qcad_shutdown(confirm=True)
+
+### Prefab card tools (structured_content=PrefabApp)
+
+- `show_qcad_status_card()`, `show_depot_card()`, `show_beam_analysis_card(file_name)`, `show_building_meta_card(file_name)` -- rich UI cards for list/status/stats surfaces.
+
+### BIM extras
+
+- `plan_stack`, `plan_obj`, `plan_glb`, `plan_drawings` -- multi-storey extrusion, OBJ/GLB shuttles (Resonite path), drawing sets.
+- `plan_auto_dimension`, `plan_building_meta`, `plan_to_ifc_data` -- BIM dimensioning, storey metadata, IFC-shaped wall data.
+- `plan_generate` -- floor-plan DXF from a text brief via local LLM (REST + MCP).
+
+## REST additions (2026-10-09)
+
+- `POST /api/shutdown` -- orderly exit for the fleet launcher (200 first, exit 500 ms later).
+- `GET /api/skills` -- serves skills/*/SKILL.md for skill-first chat.
+- `GET /api/llm/discover` -- Ollama :11434 / LM Studio :1234 / vLLM :8000 presence + models.
+- `GET /api/llm/onboarding` -- starter facts + recommended path for the Dashboard cue.
+
 ## Prompts
 
 Three registered @mcp.prompt() templates:
@@ -163,7 +189,7 @@ Transport: MCP stdio (Claude Desktop) and HTTP (port 11966). REST API at /api/v1
 
 Depot: Persistent file storage at %LOCALAPPDATA%/qcad-mcp/depot. All files persist across restarts. Depot CRUD via REST: GET/PUT/DELETE /api/v1/depot/{name}. Output files saved to parallel output directory.
 
-CORS: Configured for tauri://localhost and http://localhost:11967 for webapp access.
+CORS: explicit origins (11967 on localhost/goliath, Tauri hosts) plus an unconditional regex for Tauri WebView, Tailscale CGNAT (100.x), and LAN (192.168.x, 10.x). Same-origin /api via the Vite proxy in dev; absolute backend URL only inside the Tauri WebView.
 
 ## Fleet Integration
 

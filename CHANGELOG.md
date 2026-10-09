@@ -2,6 +2,33 @@
 
 All notable changes to the QCAD MCP server and webapp.
 
+## [Unreleased] — 2026-10-09 assfix
+
+### Added
+- `qcad_help` + `qcad_shutdown` MCP tools (42 tools total); `POST /api/shutdown`
+  orderly-exit endpoint for the fleet launcher.
+- `GET /api/skills` (serves `skills/*/SKILL.md`), `GET /api/llm/discover`
+  (Ollama/LM Studio/vLLM probe), `GET /api/llm/onboarding` (starter facts).
+- `skills/qcad-cad/SKILL.md` domain skill; session-context files for
+  Cursor/Windsurf/Copilot/OpenCode/Antigravity/Claude Code.
+- `docs/`: CONFIGURATION, DEVELOPMENT, TOOLS, TROUBLESHOOTING, ONBOARDING,
+  live-bridge-proposal (issue #1 evaluation: deferred, macOS-only, no PR).
+- Dashboard under-hero onboarding cue (`data-testid="onboarding-cue"`) shown
+  until QCAD Pro is detected. `renovate.json`, `.gitattributes`.
+- CI: uv-pinned ruff, Biome gate, Pyright gate, Node 22.
+- `just fmt` + `just gates-green`; fleet `mcpb-pack`/`cua-*` via fleet.just.
+
+### Fixed
+- MCPB manifests: `${PWD}` → `${__dirname}` (bundle would not start).
+- Pack scripts replaced with fleet shim (was vendored).
+- CORS `allow_origin_regex` unconditional (Tauri + Tailscale + LAN).
+- Webapp `API_BASE`: same-origin default, absolute only under Tauri.
+- Removed `S110`/`S112` from ruff ignore; all 18 silent swallows now log.
+- `glama.json`: 28 → 42 tools + version field.
+- `ruff format` clean (prefab_cards.py, apps_routes.py); T20 print-ban on.
+- `uv.lock` no longer gitignored (it is committed).
+- Font contrast: `text-xs`/`slate-400|500` UI hints → `text-sm`/`slate-300`.
+
 ## [0.4.0] — 2026-07-24
 
 ### Added
