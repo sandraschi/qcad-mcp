@@ -1,4 +1,4 @@
-﻿# Per-repo fleet start config for qcad-mcp
+# Per-repo fleet start config for qcad-mcp
 # Edit ports/backend target here - start.ps1 is fleet-standard.
 @{
     Name         = 'qcad-mcp'
@@ -10,6 +10,7 @@
         Kind          = 'uvicorn'
         UvicornTarget = 'qcad_mcp.server:app'
         SyncExtras    = @('dev')
+        SyncOnStart  = $true
         Env           = @{ WEB_PORT = '11966' }
     }
     Frontend = @{
