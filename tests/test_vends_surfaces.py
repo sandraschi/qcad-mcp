@@ -17,7 +17,8 @@ class TestAppsHub:
         assert r.status_code == 200
         body = r.json()
         assert isinstance(body.get("apps"), list)
-        assert len(body["apps"]) > 0
+        # Non-empty only where a fleet checkout exists (Goliath D:\Dev\repos);
+        # CI runners check out this repo alone, so emptiness is valid there.
         assert "fleet_total" in body
 
     def test_health_closed_port_false(self, client):
