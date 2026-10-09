@@ -1,3 +1,10 @@
+; Installer hooks for qcad-mcp (Tauri NSIS).
+; "Register in AI tools" page + register/unregister come from the fleet include
+; mcp-clients.nsh (vendored from mcp-central-docs by native/build.ps1 - do not edit it here).
+!define MCP_REG_NAME "qcad-mcp"
+!define MCP_REG_EXE "qcad-mcp-backend.exe"
+!include "${__FILEDIR__}\mcp-clients.nsh"
+
 ; Fleet Tauri: kill UI + backend before install/uninstall (backend locks resources/*.exe).
 !macro KillFleetSidecars
   DetailPrint "Stopping fleet processes..."
@@ -22,5 +29,10 @@
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
+  !insertmacro McpClientsUnregister
   !insertmacro KillFleetSidecars
+!macroend
+
+!macro NSIS_HOOK_POSTINSTALL
+  !insertmacro McpClientsRegister
 !macroend

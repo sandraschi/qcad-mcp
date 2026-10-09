@@ -77,6 +77,17 @@ if (Test-Path $envExample) {
 } else {
     Write-Host "  WARNING: .env.example not found at repo root" -ForegroundColor DarkYellow
 }
+# Vendor fleet AI-client registration into the installer (onenote-mcp pattern):
+# mcp-clients.nsh + install-mcp-clients.ps1 live in mcp-central-docs and are
+# copied here at build time, so fixes reach every repo without vendored drift.
+$Central = Join-Path (Split-Path -Parent $Root) 'mcp-central-docs\scripts'
+if (Test-Path $Central) {
+    Copy-Item "$Central\install-mcp-clients.ps1" "$ResourceDir\install-mcp-clients.ps1" -Force
+    Copy-Item "$Central\nsis\mcp-clients.nsh" "$PSScriptRoot\windows\mcp-clients.nsh" -Force
+    Write-Host "  Vendored mcp-clients.nsh + install-mcp-clients.ps1" -ForegroundColor Green
+} else {
+    Write-Host "  WARNING: mcp-central-docs not found - installer will not register AI clients" -ForegroundColor DarkYellow
+}
 Write-Host "  Smoke-testing frozen binary..." -ForegroundColor Yellow
 $testProc = Start-Process -FilePath $src -NoNewWindow -PassThru -RedirectStandardError "$Root\dist\pyi-crash.log"
 Start-Sleep -Seconds 5
