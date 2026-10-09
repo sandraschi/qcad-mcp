@@ -1,5 +1,8 @@
+/* biome-ignore lint/suspicious/noUnknownAtRules: Tailwind v3 directives, resolved by PostCSS */
 @tailwind base;
+/* biome-ignore lint/suspicious/noUnknownAtRules: Tailwind v3 directives, resolved by PostCSS */
 @tailwind components;
+/* biome-ignore lint/suspicious/noUnknownAtRules: Tailwind v3 directives, resolved by PostCSS */
 @tailwind utilities;
 
 * {
@@ -37,4 +40,9 @@ html:not(.dark) video,
 html:not(.dark) canvas,
 html:not(.dark) iframe {
 	filter: invert(1) hue-rotate(180deg);
+}
+
+/* Vendored Apps hub token (APPS_PAGE_STANDARD.md). */
+:root {
+	--gh-green: 142 71% 45%;
 }

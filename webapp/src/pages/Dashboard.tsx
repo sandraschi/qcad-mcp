@@ -42,12 +42,12 @@ export default function Dashboard() {
 				data-testid="hero-section"
 			>
 				<h1 className="text-2xl font-bold text-white">QCAD MCP</h1>
-				<p className="text-slate-400 mt-1 max-w-2xl">
+				<p className="text-slate-300 mt-1 max-w-2xl">
 					Programmatic 2D CAD server &mdash; parse, analyse, modify, and export DXF/DWG floor plans. Extrude walls to 3D
 					STL, detect rooms, chain with FreeCAD for full BIM pipelines. Powered by ezdxf with optional QCAD Pro for PDF
 					output.
 				</p>
-				<div className="flex gap-4 mt-3 text-sm text-slate-500">
+				<div className="flex gap-4 mt-3 text-sm text-slate-300">
 					<span className="flex items-center gap-1.5">
 						<span
 							className={`w-2 h-2 rounded-full ${status?.qcad_pro?.running ? "bg-green-500" : "bg-red-500"} animate-pulse`}
@@ -61,6 +61,17 @@ export default function Dashboard() {
 					{status?.ezdxf_version && <span>ezdxf {status.ezdxf_version}</span>}
 				</div>
 			</div>
+			{status && !status.qcad_pro?.installed && (
+				<a
+					href="/settings"
+					data-testid="onboarding-cue"
+					className="block bg-red-950/60 border border-red-500/50 rounded-2xl p-4 text-sm text-red-100 hover:bg-red-900/60 transition-colors"
+				>
+					<span className="font-bold">Get started:</span> QCAD Pro not detected — the free ezdxf engine is active.
+					Install QCAD Pro 3.x for DWG, native render, and dimensions (docs/ONBOARDING.md), then set the path in
+					Settings. Dismiss by installing; this cue clears automatically.
+				</a>
+			)}
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 				<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-5 space-y-3" data-testid="kpi-server">
 					<div className="flex items-center gap-2 text-amber-400">

@@ -9,7 +9,6 @@ import {
 	History,
 	Layers,
 	Network,
-	Ruler,
 	Wrench,
 } from "lucide-react";
 import { useState } from "react";
@@ -311,16 +310,16 @@ export default function HelpPage() {
 								<span className="text-slate-500">— list all files</span>
 							</div>
 							<div>
-								<span className="text-emerald-400">GET</span> /api/v1/depot/{"{name}"}{" "}
-								<span className="text-slate-500">— download DXF</span>
+								<span className="text-emerald-400">GET</span> /api/v1/depot/
+								{"{name}"} <span className="text-slate-500">— download DXF</span>
 							</div>
 							<div>
-								<span className="text-amber-400">PUT</span> /api/v1/depot/{"{name}"}{" "}
-								<span className="text-slate-500">— rename/update tags</span>
+								<span className="text-amber-400">PUT</span> /api/v1/depot/
+								{"{name}"} <span className="text-slate-500">— rename/update tags</span>
 							</div>
 							<div>
-								<span className="text-red-400">DELETE</span> /api/v1/depot/{"{name}"}{" "}
-								<span className="text-slate-500">— delete file + metadata</span>
+								<span className="text-red-400">DELETE</span> /api/v1/depot/
+								{"{name}"} <span className="text-slate-500">— delete file + metadata</span>
 							</div>
 							<div>
 								<span className="text-amber-400">POST</span> /api/v1/depot/create{" "}

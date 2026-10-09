@@ -1,4 +1,4 @@
-import { BarChart3, Box, CheckCircle, Download, FileText, Loader2, Play, XCircle } from "lucide-react";
+import { Box, CheckCircle, Download, Loader2, Play, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { API_BASE } from "../lib/api";
 
@@ -84,7 +84,12 @@ export default function BatchPage() {
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						tool: "plan_extrude",
-						arguments: { file_name: f.name, wall_layers: ["Walls"], wall_height: 3.0, wall_thickness: 0.15 },
+						arguments: {
+							file_name: f.name,
+							wall_layers: ["Walls"],
+							wall_height: 3.0,
+							wall_thickness: 0.15,
+						},
 					}),
 				});
 				const j = await r.json();
@@ -136,10 +141,10 @@ export default function BatchPage() {
 						<Box size={14} className="text-amber-400" /> {stlResults.length} STL files generated
 					</p>
 					<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-						{stlResults.map((s, i) => (
-							<div key={i} className="bg-[#1e1e26] border border-white/10 rounded-xl p-3 text-center">
+						{stlResults.map((s) => (
+							<div key={s.stl} className="bg-[#1e1e26] border border-white/10 rounded-xl p-3 text-center">
 								<p className="text-xs text-slate-300 truncate">{s.stl}</p>
-								<p className="text-xs text-slate-500">{s.vertices} vertices</p>
+								<p className="text-xs text-slate-300">{s.vertices} vertices</p>
 								<a
 									href={`/api/v1/download/${s.stl}`}
 									className="inline-flex items-center gap-1 mt-2 text-amber-400 text-xs hover:underline"

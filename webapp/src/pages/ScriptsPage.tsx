@@ -165,9 +165,9 @@ export default function ScriptsPage() {
 			{results.length > 0 && <p className="text-slate-300 text-sm">{results.length} scripts found</p>}
 
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-				{results.map((item, i) => (
+				{results.map((item) => (
 					<div
-						key={`${item.title}-${i}`}
+						key={`${item.title}`}
 						className="bg-[#1e1e26] border border-white/10 rounded-2xl overflow-hidden hover:border-amber-500/30 transition-all"
 					>
 						<div className="p-4 space-y-2">

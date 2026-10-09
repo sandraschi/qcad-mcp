@@ -1,10 +1,17 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig } from "@playwright/test";
 export default defineConfig({
-    testDir: './e2e', timeout: 60000, retries: 1,
-    use: { baseURL: 'http://localhost:11967', headless: true, screenshot: 'only-on-failure' },
-    webServer: {
-        command: 'uv run python -m qcad_mcp.server --port 11966',
-        port: 11966, timeout: 30000, reuseExistingServer: false
-    }
+	testDir: "./e2e",
+	timeout: 60000,
+	retries: 1,
+	use: {
+		baseURL: "http://localhost:11967",
+		headless: true,
+		screenshot: "only-on-failure",
+	},
+	webServer: {
+		command: "uv run python -m qcad_mcp.server --mode http --port 11966",
+		port: 11966,
+		timeout: 30000,
+		reuseExistingServer: false,
+	},
 });
-

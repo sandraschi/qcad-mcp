@@ -6,7 +6,6 @@ import {
 	Box,
 	ChevronRight,
 	Code2,
-	Cpu,
 	Download,
 	ExternalLink,
 	Eye,
@@ -57,12 +56,6 @@ const STEPS = [
 	{ id: 5, label: "Pipeline", icon: GitBranch },
 ];
 
-const MODELS = [
-	{ value: "gemma3:1b", label: "Gemma 3 1B (fast)" },
-	{ value: "llama3.2:3b", label: "Llama 3.2 3B" },
-	{ value: "gemma3:12b", label: "Gemma 3 12B (best)" },
-];
-
 const PRESETS = [
 	{
 		label: "Studio",
@@ -81,7 +74,6 @@ const PRESETS = [
 export default function PipelinePage() {
 	const [step, setStep] = useState(1);
 	const [goal, setGoal] = useState("");
-	const [model, setModel] = useState("gemma3:1b");
 	const [wallHeight, setWallHeight] = useState(3.0);
 	const [wallThickness, setWallThickness] = useState(0.3);
 	const [running, setRunning] = useState(false);
@@ -116,7 +108,7 @@ export default function PipelinePage() {
 		setState((p) => ({ ...p, error: null }));
 		try {
 			const ts = Date.now();
-			const dxfName = `pipeline_${ts}.dxf`;
+			const _dxfName = `pipeline_${ts}.dxf`;
 			const agentic = await callTool("plan_agentic", {
 				goal: goal.trim(),
 			});
@@ -231,7 +223,7 @@ export default function PipelinePage() {
 		}
 	};
 
-	const freecadCallSequence = [
+	const _freecadCallSequence = [
 		{ tool: "bim_create_wall", desc: "Create walls from segments" },
 		{ tool: "bim_create_slab", desc: "Create floor slab" },
 		{ tool: "bim_create_roof", desc: "Create roof" },
@@ -309,20 +301,6 @@ export default function PipelinePage() {
 								/>
 							</div>
 							<div className="flex items-center gap-3">
-								<div className="flex items-center gap-2">
-									<Cpu size={14} className="text-slate-500" />
-									<select
-										value={model}
-										onChange={(e) => setModel(e.target.value)}
-										className="bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:border-amber-500"
-									>
-										{MODELS.map((m) => (
-											<option key={m.value} value={m.value}>
-												{m.label}
-											</option>
-										))}
-									</select>
-								</div>
 								<div className="flex-1" />
 								<button
 									type="button"
@@ -445,8 +423,8 @@ export default function PipelinePage() {
 														</tr>
 													</thead>
 													<tbody>
-														{state.analyse.rooms.map((r, i) => (
-															<tr key={i} className="border-b border-white/5">
+														{state.analyse.rooms.map((r) => (
+															<tr key={r.name} className="border-b border-white/5">
 																<td className="py-2 px-2 text-slate-300">{r.name}</td>
 																<td className="py-2 px-2 text-right text-slate-300">{r.area_m2.toFixed(1)}</td>
 															</tr>
@@ -469,8 +447,8 @@ export default function PipelinePage() {
 														</tr>
 													</thead>
 													<tbody>
-														{state.analyse.doors_windows.map((d, i) => (
-															<tr key={i} className="border-b border-white/5">
+														{state.analyse.doors_windows.map((d) => (
+															<tr key={`${d.type}-${d.width}-${d.height}`} className="border-b border-white/5">
 																<td className="py-2 px-2 capitalize text-slate-300">{d.type}</td>
 																<td className="py-2 px-2 text-right text-slate-300">{d.width}</td>
 																<td className="py-2 px-2 text-right text-slate-300">{d.height}</td>
@@ -525,8 +503,11 @@ export default function PipelinePage() {
 								</div>
 								<div className="grid grid-cols-2 gap-4">
 									<div className="space-y-1.5">
-										<label className="text-xs text-slate-400 font-medium">Wall Height (m)</label>
+										<label htmlFor="wall-height" className="text-sm text-slate-300 font-medium">
+											Wall Height (m)
+										</label>
 										<input
+											id="wall-height"
 											type="number"
 											value={wallHeight}
 											onChange={(e) => setWallHeight(Number(e.target.value))}
@@ -537,8 +518,11 @@ export default function PipelinePage() {
 										/>
 									</div>
 									<div className="space-y-1.5">
-										<label className="text-xs text-slate-400 font-medium">Wall Thickness (m)</label>
+										<label htmlFor="wall-thickness" className="text-sm text-slate-300 font-medium">
+											Wall Thickness (m)
+										</label>
 										<input
+											id="wall-thickness"
 											type="number"
 											value={wallThickness}
 											onChange={(e) => setWallThickness(Number(e.target.value))}
@@ -646,7 +630,10 @@ export default function PipelinePage() {
 												</thead>
 												<tbody>
 													{state.wall_data.map((w, i) => (
-														<tr key={i} className="border-b border-white/5 hover:bg-white/5">
+														<tr
+															key={`${w.x1}-${w.y1}-${w.x2}-${w.y2}`}
+															className="border-b border-white/5 hover:bg-white/5"
+														>
 															<td className="py-1.5 px-1 text-slate-500 font-mono">{i}</td>
 															<td className="py-1.5 px-1 text-slate-300 font-mono">
 																{w.x1},{w.y1}
@@ -693,8 +680,11 @@ export default function PipelinePage() {
 													</tr>
 												</thead>
 												<tbody>
-													{state.wall_data.map((w, i) => (
-														<tr key={i} className="border-b border-white/5 text-slate-300">
+													{state.wall_data.map((w) => (
+														<tr
+															key={`${w.layer}-${w.x1}-${w.y1}-${w.length_mm}`}
+															className="border-b border-white/5 text-slate-300"
+														>
 															<td className="py-1 pr-2">{w.layer}</td>
 															<td className="py-1 pr-2">{(w.length_mm / 1000).toFixed(2)}m</td>
 															<td className="py-1 pr-2">{w.angle_deg.toFixed(0)}°</td>

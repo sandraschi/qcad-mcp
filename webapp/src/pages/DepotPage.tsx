@@ -3,8 +3,6 @@ import {
 	Circle,
 	CornerDownRight,
 	Download,
-	ExternalLink,
-	Eye,
 	EyeOff,
 	FileText,
 	Grid3X3,
@@ -15,7 +13,6 @@ import {
 	Pencil,
 	Plus,
 	RefreshCw,
-	Ruler,
 	Save,
 	Search,
 	Square,
@@ -179,6 +176,19 @@ export default function DepotPage() {
 		loadFiles();
 	}, [loadFiles]);
 
+	// Single document-level Escape closes any dialog (replaces per-dialog key handlers).
+	useEffect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === "Escape") {
+				setShowCreate(false);
+				setRenameTarget(null);
+				setDeleteTarget(null);
+			}
+		};
+		document.addEventListener("keydown", onKey);
+		return () => document.removeEventListener("keydown", onKey);
+	}, []);
+
 	const filtered = files.filter(
 		(f) =>
 			f.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -238,7 +248,10 @@ export default function DepotPage() {
 		try {
 			const fd = new FormData();
 			fd.append("file", file);
-			const r = await fetch(API_BASE + "/api/v1/upload", { method: "POST", body: fd });
+			const r = await fetch(API_BASE + "/api/v1/upload", {
+				method: "POST",
+				body: fd,
+			});
 			const j = await r.json();
 			if (!j.success) throw new Error(j.detail || "Upload failed");
 			await loadFiles();
@@ -469,9 +482,9 @@ export default function DepotPage() {
 			) : viewMode === "grid" ? (
 				<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
 					{filtered.map((f) => (
+						// biome-ignore lint/a11y/useSemanticElements: card hosts inner buttons, cannot be a <button>
 						<div
 							key={f.name}
-							// biome-ignore lint/a11y/useSemanticElements: card layout with button role for grid view
 							role="button"
 							tabIndex={0}
 							onClick={() => selectFile(f.name)}
@@ -538,9 +551,9 @@ export default function DepotPage() {
 						</thead>
 						<tbody>
 							{filtered.map((f) => (
+								// biome-ignore lint/a11y/useSemanticElements: row hosts inner buttons, cannot be a <button>
 								<tr
 									key={f.name}
-									// biome-ignore lint/a11y/useSemanticElements: table row has button role for list view
 									role="button"
 									tabIndex={0}
 									onClick={() => selectFile(f.name)}
@@ -563,16 +576,11 @@ export default function DepotPage() {
 									<td className="py-3 px-4 text-slate-300">{formatDate(f.modified)}</td>
 									<td className="py-3 px-4 text-slate-300">{f.meta.entity_count ?? "—"}</td>
 									<td className="py-3 px-4">
-										<div
-											className="flex gap-1"
-											onClick={(e) => e.stopPropagation()}
-											onKeyDown={(e) => {
-												if (e.key === "Enter" || e.key === " ") e.stopPropagation();
-											}}
-										>
+										<div className="flex gap-1">
 											<button
 												type="button"
-												onClick={() => {
+												onClick={(e) => {
+													e.stopPropagation();
 													setRenameTarget(f.name);
 													setRenameValue(f.name.replace(/\.dxf$/i, ""));
 												}}
@@ -582,7 +590,10 @@ export default function DepotPage() {
 											</button>
 											<button
 												type="button"
-												onClick={() => setDeleteTarget(f.name)}
+												onClick={(e) => {
+													e.stopPropagation();
+													setDeleteTarget(f.name);
+												}}
 												className="p-1 text-slate-400 hover:text-red-400 rounded"
 											>
 												<Trash2 size={13} />
@@ -590,6 +601,7 @@ export default function DepotPage() {
 											<a
 												href={`/api/v1/depot/${encodeURIComponent(f.name)}`}
 												download
+												onClick={(e) => e.stopPropagation()}
 												className="p-1 text-slate-400 hover:text-emerald-400 rounded"
 											>
 												<Download size={13} />
@@ -666,10 +678,7 @@ export default function DepotPage() {
 							style={{ maxHeight: "50vh" }}
 						>
 							{/\.stl$/i.test(selectedFile) ? (
-								<StlViewer
-									url={`/api/v1/depot/${encodeURIComponent(selectedFile)}`}
-									filename={selectedFile}
-								/>
+								<StlViewer url={`/api/v1/depot/${encodeURIComponent(selectedFile)}`} filename={selectedFile} />
 							) : generatingPreview === selectedFile ? (
 								<div className="flex items-center justify-center h-64">
 									<Loader2 className="animate-spin text-slate-300" size={24} />
@@ -787,418 +796,406 @@ export default function DepotPage() {
 
 			{/* Create DXF Dialog */}
 			{showCreate && (
-				<div
-					className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-					onClick={() => setShowCreate(false)}
-					onKeyDown={(e) => {
-						if (e.key === "Escape") setShowCreate(false);
-					}}
-				>
-					<div
-						className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto"
-						onClick={(e) => e.stopPropagation()}
-						onKeyDown={(e) => {
-							if (e.key === "Enter" || e.key === " ") e.stopPropagation();
-						}}
-					>
-						<div className="flex items-center justify-between mb-4">
-							<h2 className="text-lg font-bold text-white flex items-center gap-2">
-								<Plus size={18} className="text-amber-400" /> Create DXF
-							</h2>
-							<button
-								type="button"
-								onClick={() => setShowCreate(false)}
-								className="text-slate-400 hover:text-slate-300"
-							>
-								<X size={18} />
-							</button>
-						</div>
-
-						<div className="space-y-3">
-							<label htmlFor="create-filename" className="block text-sm text-slate-300">
-								Filename
-							</label>
-							<input
-								id="create-filename"
-								value={createName}
-								onChange={(e) => setCreateName(e.target.value)}
-								placeholder="my_floorplan.dxf"
-								className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500/30"
-							/>
-
-							<label htmlFor="create-desc" className="block text-sm text-slate-300">
-								Description (optional)
-							</label>
-							<input
-								id="create-desc"
-								value={createDesc}
-								onChange={(e) => setCreateDesc(e.target.value)}
-								placeholder="A simple floor plan"
-								className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500/30"
-							/>
-
-							<label htmlFor="create-layers" className="block text-sm text-slate-300">
-								Default Layer(s) (comma-separated)
-							</label>
-							<input
-								id="create-layers"
-								value={createLayers}
-								onChange={(e) => setCreateLayers(e.target.value)}
-								placeholder="walls, doors, labels"
-								className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500/30"
-							/>
-
-							<div className="flex items-center justify-between">
-								<span className="text-sm font-bold text-slate-300 uppercase tracking-wider">Entities</span>
-								<div className="flex gap-1">
-									{(Object.keys(DEFAULT_ENTITIES) as EntityType[]).map((et) => (
-										<button
-											type="button"
-											key={et}
-											onClick={() => addEntity(et)}
-											className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/10 text-sm text-slate-400 hover:text-white"
-											title={`Add ${et}`}
-										>
-											{(() => {
-												const Icon = ENTITY_ICONS[et];
-												return <Icon size={12} />;
-											})()}
-											{et}
-										</button>
-									))}
-								</div>
+				<>
+					<button
+						type="button"
+						aria-label="Close dialog"
+						onClick={() => setShowCreate(false)}
+						className="fixed inset-0 z-50 bg-black/60"
+					/>
+					<div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+						<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto pointer-events-auto">
+							<div className="flex items-center justify-between mb-4">
+								<h2 className="text-lg font-bold text-white flex items-center gap-2">
+									<Plus size={18} className="text-amber-400" /> Create DXF
+								</h2>
+								<button
+									type="button"
+									onClick={() => setShowCreate(false)}
+									className="text-slate-400 hover:text-slate-300"
+								>
+									<X size={18} />
+								</button>
 							</div>
 
-							{createEntities.map((ent, idx) => (
-								<div
-									// biome-ignore lint/suspicious/noArrayIndexKey: volatile create-form entities
-									key={idx}
-									className="bg-black/30 border border-white/10 rounded-xl p-3 space-y-2"
-								>
-									<div className="flex items-center justify-between">
-										<span className={`text-sm font-bold uppercase ${ENTITY_COLORS[ent.type]}`}>
-											{(() => {
-												const Icon = ENTITY_ICONS[ent.type];
-												return <Icon size={12} className="inline mr-1" />;
-											})()} {ent.type}
-										</span>
-										<button
-											type="button"
-											onClick={() => removeEntity(idx)}
-											className="text-slate-400 hover:text-red-400"
-										>
-											<X size={12} />
-										</button>
-									</div>
-									<div className="grid grid-cols-2 gap-2 text-sm">
-										{ent.type === "line" && (
-											<>
-												<input
-													type="number"
-													placeholder="x1"
-													value={ent.x1 ?? 0}
-													onChange={(e) =>
-														updateEntity(idx, {
-															x1: Number.parseFloat(e.target.value) || 0,
-														})
-													}
-													className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
-												/>
-												<input
-													type="number"
-													placeholder="y1"
-													value={ent.y1 ?? 0}
-													onChange={(e) =>
-														updateEntity(idx, {
-															y1: Number.parseFloat(e.target.value) || 0,
-														})
-													}
-													className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
-												/>
-												<input
-													type="number"
-													placeholder="x2"
-													value={ent.x2 ?? 100}
-													onChange={(e) =>
-														updateEntity(idx, {
-															x2: Number.parseFloat(e.target.value) || 0,
-														})
-													}
-													className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
-												/>
-												<input
-													type="number"
-													placeholder="y2"
-													value={ent.y2 ?? 0}
-													onChange={(e) =>
-														updateEntity(idx, {
-															y2: Number.parseFloat(e.target.value) || 0,
-														})
-													}
-													className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
-												/>
-											</>
-										)}
-										{ent.type === "rect" && (
-											<>
-												<input
-													type="number"
-													placeholder="x"
-													value={ent.x ?? 0}
-													onChange={(e) =>
-														updateEntity(idx, {
-															x: Number.parseFloat(e.target.value) || 0,
-														})
-													}
-													className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
-												/>
-												<input
-													type="number"
-													placeholder="y"
-													value={ent.y ?? 0}
-													onChange={(e) =>
-														updateEntity(idx, {
-															y: Number.parseFloat(e.target.value) || 0,
-														})
-													}
-													className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
-												/>
-												<input
-													type="number"
-													placeholder="width"
-													value={ent.w ?? 100}
-													onChange={(e) =>
-														updateEntity(idx, {
-															w: Number.parseFloat(e.target.value) || 0,
-														})
-													}
-													className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
-												/>
-												<input
-													type="number"
-													placeholder="height"
-													value={ent.h ?? 80}
-													onChange={(e) =>
-														updateEntity(idx, {
-															h: Number.parseFloat(e.target.value) || 0,
-														})
-													}
-													className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
-												/>
-											</>
-										)}
-										{ent.type === "circle" && (
-											<>
-												<input
-													type="number"
-													placeholder="cx"
-													value={ent.cx ?? 50}
-													onChange={(e) =>
-														updateEntity(idx, {
-															cx: Number.parseFloat(e.target.value) || 0,
-														})
-													}
-													className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
-												/>
-												<input
-													type="number"
-													placeholder="cy"
-													value={ent.cy ?? 50}
-													onChange={(e) =>
-														updateEntity(idx, {
-															cy: Number.parseFloat(e.target.value) || 0,
-														})
-													}
-													className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
-												/>
-												<input
-													type="number"
-													placeholder="radius"
-													value={ent.r ?? 30}
-													onChange={(e) =>
-														updateEntity(idx, {
-															r: Number.parseFloat(e.target.value) || 0,
-														})
-													}
-													className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
-												/>
-												<div />
-											</>
-										)}
-										{ent.type === "text" && (
-											<>
-												<input
-													type="number"
-													placeholder="x"
-													value={ent.x ?? 10}
-													onChange={(e) =>
-														updateEntity(idx, {
-															x: Number.parseFloat(e.target.value) || 0,
-														})
-													}
-													className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
-												/>
-												<input
-													type="number"
-													placeholder="y"
-													value={ent.y ?? 10}
-													onChange={(e) =>
-														updateEntity(idx, {
-															y: Number.parseFloat(e.target.value) || 0,
-														})
-													}
-													className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
-												/>
-												<input
-													type="text"
-													placeholder="Text content"
-													value={ent.content ?? "Label"}
-													onChange={(e) => updateEntity(idx, { content: e.target.value })}
-													className="col-span-2 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
-												/>
-											</>
-										)}
-										{ent.type === "polyline" && (
-											<div className="col-span-2 text-sm text-slate-300">
-												{ent.points?.length} points
-												<button
-													type="button"
-													onClick={() =>
-														updateEntity(idx, {
-															points: [...(ent.points || []), [0, 0]],
-														})
-													}
-													className="ml-2 text-amber-400 hover:underline"
-												>
-													+ Add point
-												</button>
-											</div>
-										)}
-									</div>
-									<input
-										type="text"
-										placeholder="layer"
-										value={ent.layer || ""}
-										onChange={(e) => updateEntity(idx, { layer: e.target.value })}
-										className="w-full bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-sm text-slate-400 outline-none"
-									/>
-								</div>
-							))}
-						</div>
+							<div className="space-y-3">
+								<label htmlFor="create-filename" className="block text-sm text-slate-300">
+									Filename
+								</label>
+								<input
+									id="create-filename"
+									value={createName}
+									onChange={(e) => setCreateName(e.target.value)}
+									placeholder="my_floorplan.dxf"
+									className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500/30"
+								/>
 
-						<div className="flex gap-3 mt-4">
-							<button
-								type="button"
-								onClick={() => setShowCreate(false)}
-								className="flex-1 py-2.5 rounded-xl border border-white/10 text-sm text-slate-400 hover:text-white"
-							>
-								Cancel
-							</button>
-							<button
-								type="button"
-								onClick={handleCreate}
-								disabled={creating || !createName}
-								className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white text-sm font-bold flex items-center justify-center gap-2"
-							>
-								{creating ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
-								{creating ? "Creating..." : "Create DXF"}
-							</button>
+								<label htmlFor="create-desc" className="block text-sm text-slate-300">
+									Description (optional)
+								</label>
+								<input
+									id="create-desc"
+									value={createDesc}
+									onChange={(e) => setCreateDesc(e.target.value)}
+									placeholder="A simple floor plan"
+									className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500/30"
+								/>
+
+								<label htmlFor="create-layers" className="block text-sm text-slate-300">
+									Default Layer(s) (comma-separated)
+								</label>
+								<input
+									id="create-layers"
+									value={createLayers}
+									onChange={(e) => setCreateLayers(e.target.value)}
+									placeholder="walls, doors, labels"
+									className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500/30"
+								/>
+
+								<div className="flex items-center justify-between">
+									<span className="text-sm font-bold text-slate-300 uppercase tracking-wider">Entities</span>
+									<div className="flex gap-1">
+										{(Object.keys(DEFAULT_ENTITIES) as EntityType[]).map((et) => (
+											<button
+												type="button"
+												key={et}
+												onClick={() => addEntity(et)}
+												className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/10 text-sm text-slate-400 hover:text-white"
+												title={`Add ${et}`}
+											>
+												{(() => {
+													const Icon = ENTITY_ICONS[et];
+													return <Icon size={12} />;
+												})()}
+												{et}
+											</button>
+										))}
+									</div>
+								</div>
+
+								{createEntities.map((ent, idx) => (
+									<div
+										// biome-ignore lint/suspicious/noArrayIndexKey: volatile create-form entities
+										key={idx}
+										className="bg-black/30 border border-white/10 rounded-xl p-3 space-y-2"
+									>
+										<div className="flex items-center justify-between">
+											<span className={`text-sm font-bold uppercase ${ENTITY_COLORS[ent.type]}`}>
+												{(() => {
+													const Icon = ENTITY_ICONS[ent.type];
+													return <Icon size={12} className="inline mr-1" />;
+												})()} {ent.type}
+											</span>
+											<button
+												type="button"
+												onClick={() => removeEntity(idx)}
+												className="text-slate-400 hover:text-red-400"
+											>
+												<X size={12} />
+											</button>
+										</div>
+										<div className="grid grid-cols-2 gap-2 text-sm">
+											{ent.type === "line" && (
+												<>
+													<input
+														type="number"
+														placeholder="x1"
+														value={ent.x1 ?? 0}
+														onChange={(e) =>
+															updateEntity(idx, {
+																x1: Number.parseFloat(e.target.value) || 0,
+															})
+														}
+														className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
+													/>
+													<input
+														type="number"
+														placeholder="y1"
+														value={ent.y1 ?? 0}
+														onChange={(e) =>
+															updateEntity(idx, {
+																y1: Number.parseFloat(e.target.value) || 0,
+															})
+														}
+														className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
+													/>
+													<input
+														type="number"
+														placeholder="x2"
+														value={ent.x2 ?? 100}
+														onChange={(e) =>
+															updateEntity(idx, {
+																x2: Number.parseFloat(e.target.value) || 0,
+															})
+														}
+														className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
+													/>
+													<input
+														type="number"
+														placeholder="y2"
+														value={ent.y2 ?? 0}
+														onChange={(e) =>
+															updateEntity(idx, {
+																y2: Number.parseFloat(e.target.value) || 0,
+															})
+														}
+														className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
+													/>
+												</>
+											)}
+											{ent.type === "rect" && (
+												<>
+													<input
+														type="number"
+														placeholder="x"
+														value={ent.x ?? 0}
+														onChange={(e) =>
+															updateEntity(idx, {
+																x: Number.parseFloat(e.target.value) || 0,
+															})
+														}
+														className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
+													/>
+													<input
+														type="number"
+														placeholder="y"
+														value={ent.y ?? 0}
+														onChange={(e) =>
+															updateEntity(idx, {
+																y: Number.parseFloat(e.target.value) || 0,
+															})
+														}
+														className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
+													/>
+													<input
+														type="number"
+														placeholder="width"
+														value={ent.w ?? 100}
+														onChange={(e) =>
+															updateEntity(idx, {
+																w: Number.parseFloat(e.target.value) || 0,
+															})
+														}
+														className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
+													/>
+													<input
+														type="number"
+														placeholder="height"
+														value={ent.h ?? 80}
+														onChange={(e) =>
+															updateEntity(idx, {
+																h: Number.parseFloat(e.target.value) || 0,
+															})
+														}
+														className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
+													/>
+												</>
+											)}
+											{ent.type === "circle" && (
+												<>
+													<input
+														type="number"
+														placeholder="cx"
+														value={ent.cx ?? 50}
+														onChange={(e) =>
+															updateEntity(idx, {
+																cx: Number.parseFloat(e.target.value) || 0,
+															})
+														}
+														className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
+													/>
+													<input
+														type="number"
+														placeholder="cy"
+														value={ent.cy ?? 50}
+														onChange={(e) =>
+															updateEntity(idx, {
+																cy: Number.parseFloat(e.target.value) || 0,
+															})
+														}
+														className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
+													/>
+													<input
+														type="number"
+														placeholder="radius"
+														value={ent.r ?? 30}
+														onChange={(e) =>
+															updateEntity(idx, {
+																r: Number.parseFloat(e.target.value) || 0,
+															})
+														}
+														className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
+													/>
+													<div />
+												</>
+											)}
+											{ent.type === "text" && (
+												<>
+													<input
+														type="number"
+														placeholder="x"
+														value={ent.x ?? 10}
+														onChange={(e) =>
+															updateEntity(idx, {
+																x: Number.parseFloat(e.target.value) || 0,
+															})
+														}
+														className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
+													/>
+													<input
+														type="number"
+														placeholder="y"
+														value={ent.y ?? 10}
+														onChange={(e) =>
+															updateEntity(idx, {
+																y: Number.parseFloat(e.target.value) || 0,
+															})
+														}
+														className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
+													/>
+													<input
+														type="text"
+														placeholder="Text content"
+														value={ent.content ?? "Label"}
+														onChange={(e) => updateEntity(idx, { content: e.target.value })}
+														className="col-span-2 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-slate-200 outline-none"
+													/>
+												</>
+											)}
+											{ent.type === "polyline" && (
+												<div className="col-span-2 text-sm text-slate-300">
+													{ent.points?.length} points
+													<button
+														type="button"
+														onClick={() =>
+															updateEntity(idx, {
+																points: [...(ent.points || []), [0, 0]],
+															})
+														}
+														className="ml-2 text-amber-400 hover:underline"
+													>
+														+ Add point
+													</button>
+												</div>
+											)}
+										</div>
+										<input
+											type="text"
+											placeholder="layer"
+											value={ent.layer || ""}
+											onChange={(e) => updateEntity(idx, { layer: e.target.value })}
+											className="w-full bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-sm text-slate-400 outline-none"
+										/>
+									</div>
+								))}
+							</div>
+
+							<div className="flex gap-3 mt-4">
+								<button
+									type="button"
+									onClick={() => setShowCreate(false)}
+									className="flex-1 py-2.5 rounded-xl border border-white/10 text-sm text-slate-400 hover:text-white"
+								>
+									Cancel
+								</button>
+								<button
+									type="button"
+									onClick={handleCreate}
+									disabled={creating || !createName}
+									className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white text-sm font-bold flex items-center justify-center gap-2"
+								>
+									{creating ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+									{creating ? "Creating..." : "Create DXF"}
+								</button>
+							</div>
 						</div>
 					</div>
-				</div>
+				</>
 			)}
 
 			{/* Rename Dialog */}
 			{renameTarget && (
-				<div
-					className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-					onClick={() => setRenameTarget(null)}
-					onKeyDown={(e) => {
-						if (e.key === "Escape") setRenameTarget(null);
-					}}
-				>
-					<div
-						className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 max-w-sm w-full mx-4"
-						onClick={(e) => e.stopPropagation()}
-						onKeyDown={(e) => {
-							if (e.key === "Enter" || e.key === " ") e.stopPropagation();
-						}}
-					>
-						<h2 className="text-lg font-bold text-white mb-4">Rename File</h2>
-						<input
-							value={renameValue}
-							onChange={(e) => setRenameValue(e.target.value)}
-							placeholder="New filename"
-							className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500/30 mb-4"
-						/>
-						<p className="text-sm text-slate-400 mb-4">.dxf extension will be added automatically if omitted.</p>
-						<div className="flex gap-3">
-							<button
-								type="button"
-								onClick={() => setRenameTarget(null)}
-								className="flex-1 py-2.5 rounded-xl border border-white/10 text-sm text-slate-400 hover:text-white"
-							>
-								Cancel
-							</button>
-							<button
-								type="button"
-								onClick={handleRename}
-								disabled={!renameValue}
-								className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white text-sm font-bold"
-							>
-								Rename
-							</button>
+				<>
+					<button
+						type="button"
+						aria-label="Close dialog"
+						onClick={() => setRenameTarget(null)}
+						className="fixed inset-0 z-50 bg-black/60"
+					/>
+					<div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+						<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 max-w-sm w-full mx-4 pointer-events-auto">
+							<h2 className="text-lg font-bold text-white mb-4">Rename File</h2>
+							<input
+								value={renameValue}
+								onChange={(e) => setRenameValue(e.target.value)}
+								placeholder="New filename"
+								className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500/30 mb-4"
+							/>
+							<p className="text-sm text-slate-400 mb-4">.dxf extension will be added automatically if omitted.</p>
+							<div className="flex gap-3">
+								<button
+									type="button"
+									onClick={() => setRenameTarget(null)}
+									className="flex-1 py-2.5 rounded-xl border border-white/10 text-sm text-slate-400 hover:text-white"
+								>
+									Cancel
+								</button>
+								<button
+									type="button"
+									onClick={handleRename}
+									disabled={!renameValue}
+									className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white text-sm font-bold"
+								>
+									Rename
+								</button>
+							</div>
 						</div>
 					</div>
-				</div>
+				</>
 			)}
 
 			{/* Delete Confirmation */}
 			{deleteTarget && (
-				<div
-					className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-					onClick={() => setDeleteTarget(null)}
-					onKeyDown={(e) => {
-						if (e.key === "Escape") setDeleteTarget(null);
-					}}
-				>
-					<div
-						className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 max-w-sm w-full mx-4"
-						onClick={(e) => e.stopPropagation()}
-						onKeyDown={(e) => {
-							if (e.key === "Enter" || e.key === " ") e.stopPropagation();
-						}}
-					>
-						<div className="flex items-center gap-3 mb-4">
-							<div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
-								<AlertTriangle size={20} className="text-red-400" />
+				<>
+					<button
+						type="button"
+						aria-label="Close dialog"
+						onClick={() => setDeleteTarget(null)}
+						className="fixed inset-0 z-50 bg-black/60"
+					/>
+					<div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+						<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 max-w-sm w-full mx-4 pointer-events-auto">
+							<div className="flex items-center gap-3 mb-4">
+								<div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
+									<AlertTriangle size={20} className="text-red-400" />
+								</div>
+								<div>
+									<h2 className="text-lg font-bold text-white">Delete File</h2>
+									<p className="text-sm text-slate-400">This action cannot be undone.</p>
+								</div>
 							</div>
-							<div>
-								<h2 className="text-lg font-bold text-white">Delete File</h2>
-								<p className="text-sm text-slate-400">This action cannot be undone.</p>
+							<p className="text-sm text-slate-300 mb-4">
+								Are you sure you want to delete <strong className="text-white">{deleteTarget}</strong>?
+							</p>
+							<div className="flex gap-3">
+								<button
+									type="button"
+									onClick={() => setDeleteTarget(null)}
+									className="flex-1 py-2.5 rounded-xl border border-white/10 text-sm text-slate-400 hover:text-white"
+								>
+									Cancel
+								</button>
+								<button
+									type="button"
+									onClick={handleDelete}
+									className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-bold flex items-center justify-center gap-2"
+								>
+									<Trash2 size={14} /> Delete
+								</button>
 							</div>
-						</div>
-						<p className="text-sm text-slate-300 mb-4">
-							Are you sure you want to delete <strong className="text-white">{deleteTarget}</strong>?
-						</p>
-						<div className="flex gap-3">
-							<button
-								type="button"
-								onClick={() => setDeleteTarget(null)}
-								className="flex-1 py-2.5 rounded-xl border border-white/10 text-sm text-slate-400 hover:text-white"
-							>
-								Cancel
-							</button>
-							<button
-								type="button"
-								onClick={handleDelete}
-								className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-bold flex items-center justify-center gap-2"
-							>
-								<Trash2 size={14} /> Delete
-							</button>
 						</div>
 					</div>
-				</div>
+				</>
 			)}
 		</div>
 	);

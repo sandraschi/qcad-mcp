@@ -126,23 +126,35 @@ export default function ModelsPage() {
 							const isViewable = isStl || isObj;
 							const selected = f.name === selectedStl || f.name === selectedObj;
 							return (
+								// biome-ignore lint/a11y/noStaticElementInteractions: role is conditional on viewability; static analysis cannot prove it
 								<div
 									key={f.name}
 									role={isViewable ? "button" : undefined}
 									tabIndex={isViewable ? 0 : undefined}
 									onClick={
 										isStl
-											? () => { setSelectedStl(f.name); setSelectedObj(null); }
+											? () => {
+													setSelectedStl(f.name);
+													setSelectedObj(null);
+												}
 											: isObj
-												? () => { setSelectedObj(f.name); setSelectedStl(null); }
+												? () => {
+														setSelectedObj(f.name);
+														setSelectedStl(null);
+													}
 												: undefined
 									}
 									onKeyDown={
 										isViewable
 											? (e) => {
 													if (e.key === "Enter") {
-														if (isStl) { setSelectedStl(f.name); setSelectedObj(null); }
-														else { setSelectedObj(f.name); setSelectedStl(null); }
+														if (isStl) {
+															setSelectedStl(f.name);
+															setSelectedObj(null);
+														} else {
+															setSelectedObj(f.name);
+															setSelectedStl(null);
+														}
 													}
 												}
 											: undefined
@@ -152,11 +164,12 @@ export default function ModelsPage() {
 									<span className="flex items-center gap-2">
 										{fileIcon(f.name)} {f.name}
 									</span>
-									<div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+									<div className="flex items-center gap-2">
 										<span className="text-slate-300">{f.size_kb} KB</span>
 										<a
 											href={`/api/v1/download/${f.name}`}
 											download
+											onClick={(e) => e.stopPropagation()}
 											className="text-emerald-400 hover:text-emerald-300 text-sm font-bold"
 										>
 											<Download size={14} />

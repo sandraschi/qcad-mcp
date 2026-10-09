@@ -1,4 +1,4 @@
-import { ExternalLink, Maximize2, Minimize2, Moon, RefreshCw, Sun } from "lucide-react";
+import { ExternalLink, Maximize2, Moon, RefreshCw, Sun } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useZoom } from "../hooks/useZoom";
@@ -46,6 +46,7 @@ const PAGE_TITLES: Record<string, string> = {
 	"/batch": "Batch Processing",
 	"/pipeline": "Pipeline",
 	"/models": "Model Outputs",
+	"/apps": "Fleet Apps",
 	"/logs": "Logs",
 	"/settings": "Settings",
 	"/help": "Help & Reference",
@@ -65,13 +66,22 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
 	const tick = useCallback(async () => {
 		try {
-			const r = await fetch(`${API_BASE}/api/v1/status`, { signal: AbortSignal.timeout(5000) });
+			const r = await fetch(`${API_BASE}/api/v1/status`, {
+				signal: AbortSignal.timeout(5000),
+			});
 			if (r.ok) {
 				useConnection.setState({ state: "connected" });
 				attemptRef.current = 0;
-			} else useConnection.setState({ state: "offline", lastError: `HTTP ${r.status}` });
+			} else
+				useConnection.setState({
+					state: "offline",
+					lastError: `HTTP ${r.status}`,
+				});
 		} catch (e) {
-			useConnection.setState({ state: "offline", lastError: (e as Error).message });
+			useConnection.setState({
+				state: "offline",
+				lastError: (e as Error).message,
+			});
 		}
 		attemptRef.current = Math.min(++attemptRef.current, BACKOFF.length - 1);
 		timerRef.current = setTimeout(tick, BACKOFF[attemptRef.current] * 1000);
@@ -85,7 +95,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 				const unlisten = await listen<string>("backend-status", (event) => {
 					if (event.payload === "ready") useConnection.setState({ state: "connected" });
 					else if (event.payload?.startsWith("error:"))
-						useConnection.setState({ state: "error", lastError: event.payload });
+						useConnection.setState({
+							state: "error",
+							lastError: event.payload,
+						});
 				});
 				return () => {
 					unlisten();
@@ -163,10 +176,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 							</span>
 							{state !== "connected" && (
 								<button
+									type="button"
 									data-testid="restart-backend"
 									onClick={handleRestart}
 									title="Restart Backend"
-									className="ml-1 text-slate-400 hover:text-white transition-colors"
+									className="ml-1 text-slate-300 hover:text-white transition-colors"
 								>
 									<RefreshCw className="w-3 h-3" />
 								</button>

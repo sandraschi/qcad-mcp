@@ -48,6 +48,14 @@ interface ResoniteStatus {
 	hint?: string;
 }
 
+interface ResoniteSession {
+	sessionName: string;
+	sessionID: string;
+	linkPort: number;
+	host: string;
+	lastSeen: number;
+}
+
 interface ResoniteResult {
 	success: boolean;
 	output: string;
@@ -78,6 +86,9 @@ export default function ExtrudePage() {
 	const [resoniteStatus, setResoniteStatus] = useState<ResoniteStatus | null>(null);
 	const [resoniteSending, setResoniteSending] = useState(false);
 	const [resoniteResult, setResoniteResult] = useState<ResoniteResult | null>(null);
+	const [resoniteSessions, setResoniteSessions] = useState<ResoniteSession[]>([]);
+	const [resonitePort, setResonitePort] = useState(0);
+	const [resonitePos, setResonitePos] = useState({ x: 0, y: 1, z: 0 });
 
 	useEffect(() => {
 		fetch(API_BASE + "/api/v1/depot")
@@ -102,6 +113,17 @@ export default function ExtrudePage() {
 			.then((r) => r.json())
 			.then((j) => setResoniteStatus(j))
 			.catch(() => {});
+		fetch(API_BASE + "/api/v1/resonite/sessions?timeout_seconds=6")
+			.then((r) => r.json())
+			.then((j) => {
+				const ss: ResoniteSession[] = j.sessions || [];
+				setResoniteSessions(ss);
+				if (ss.length > 0) {
+					const newest = ss.reduce((a, b) => (b.lastSeen > a.lastSeen ? b : a));
+					setResonitePort(newest.linkPort);
+				}
+			})
+			.catch(() => {});
 	}, []);
 
 	const activeFileName = source === "depot" ? depotSelected : (file?.name ?? "");
@@ -117,7 +139,10 @@ export default function ExtrudePage() {
 			if (source === "upload" && file) {
 				const fd = new FormData();
 				fd.append("file", file);
-				const r = await fetch(API_BASE + "/api/v1/upload", { method: "POST", body: fd });
+				const r = await fetch(API_BASE + "/api/v1/upload", {
+					method: "POST",
+					body: fd,
+				});
 				const j = await r.json();
 				if (!j.success) throw new Error(j.detail || "Upload failed");
 			}
@@ -170,7 +195,13 @@ export default function ExtrudePage() {
 			if (j.success) {
 				setFreecadResult(j);
 			} else {
-				setFreecadResult({ success: false, output: "", download: null, data: {}, error: j.detail || "Transfer failed" });
+				setFreecadResult({
+					success: false,
+					output: "",
+					download: null,
+					data: {},
+					error: j.detail || "Transfer failed",
+				});
 			}
 		} catch (e: unknown) {
 			setFreecadResult({
@@ -192,7 +223,13 @@ export default function ExtrudePage() {
 			const r = await fetch(API_BASE + "/api/v1/resonite/import", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ file_name: activeFileName }),
+				body: JSON.stringify({
+					file_name: activeFileName,
+					link_port: resonitePort || 0,
+					pos_x: resonitePos.x,
+					pos_y: resonitePos.y,
+					pos_z: resonitePos.z,
+				}),
 			});
 			const j = await r.json();
 			if (j.success) {
@@ -204,7 +241,14 @@ export default function ExtrudePage() {
 					detail: j.delivery?.detail || j.delivery?.reason || "",
 				});
 			} else {
-				setResoniteResult({ success: false, output: "", download: null, delivered: false, detail: "", error: j.detail || "Transfer failed" });
+				setResoniteResult({
+					success: false,
+					output: "",
+					download: null,
+					delivered: false,
+					detail: "",
+					error: j.detail || "Transfer failed",
+				});
 			}
 		} catch (e: unknown) {
 			setResoniteResult({
@@ -254,7 +298,12 @@ export default function ExtrudePage() {
 				const imported: string[] = inner.imported_objects || [];
 				setBlenderResult({ success: true, output: oj.output, imported });
 			} else {
-				setBlenderResult({ success: false, output: "", imported: [], error: j.detail || "Transfer failed" });
+				setBlenderResult({
+					success: false,
+					output: "",
+					imported: [],
+					error: j.detail || "Transfer failed",
+				});
 			}
 		} catch (e: unknown) {
 			setBlenderResult({
@@ -276,8 +325,8 @@ export default function ExtrudePage() {
 				<Box className="text-amber-400" /> Wall Extrusion
 			</h1>
 			<p className="text-sm text-slate-300">
-				Pick a DXF floor plan from the depot or upload one, configure wall parameters, and generate a 3D
-				STL mesh — then send it on to FreeCAD for a solid, or to Blender for rendering.
+				Pick a DXF floor plan from the depot or upload one, configure wall parameters, and generate a 3D STL mesh — then
+				send it on to FreeCAD for a solid, or to Blender for rendering.
 			</p>
 
 			<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 space-y-4">
@@ -451,38 +500,38 @@ export default function ExtrudePage() {
 						<button
 							type="button"
 							onClick={async () => {
-									try {
-										const r = await fetch(`${API_BASE}/api/v1/control/tool`, {
-											method: "POST",
-											headers: { "Content-Type": "application/json" },
-											body: JSON.stringify({
-												tool: "plan_to_ifc_data",
-												arguments: {
-													file_name: activeFileName,
-													wall_height: wallHeight * 1000.0,
-													wall_thickness: wallThickness * 1000.0,
-												},
-											}),
+								try {
+									const r = await fetch(`${API_BASE}/api/v1/control/tool`, {
+										method: "POST",
+										headers: { "Content-Type": "application/json" },
+										body: JSON.stringify({
+											tool: "plan_to_ifc_data",
+											arguments: {
+												file_name: activeFileName,
+												wall_height: wallHeight * 1000.0,
+												wall_thickness: wallThickness * 1000.0,
+											},
+										}),
+									});
+									const j = await r.json();
+									if (j.success) {
+										const blob = new Blob([JSON.stringify(j.data?.bim_schema, null, 2)], {
+											type: "application/json",
 										});
-										const j = await r.json();
-										if (j.success) {
-											const blob = new Blob([JSON.stringify(j.data?.bim_schema, null, 2)], {
-												type: "application/json",
-											});
-											const url = URL.createObjectURL(blob);
-											const a = document.createElement("a");
-											a.href = url;
-											a.download = j.data?.ifc_json_name || "building_bim.json";
-											a.click();
-										}
-									} catch (e) {
-										console.error(e);
+										const url = URL.createObjectURL(blob);
+										const a = document.createElement("a");
+										a.href = url;
+										a.download = j.data?.ifc_json_name || "building_bim.json";
+										a.click();
 									}
-								}}
-								className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 text-sm font-bold transition-all"
-							>
-								<Box size={16} /> Export BIM JSON (IFC)
-							</button>
+								} catch (e) {
+									console.error(e);
+								}
+							}}
+							className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 text-sm font-bold transition-all"
+						>
+							<Box size={16} /> Export BIM JSON (IFC)
+						</button>
 					</div>
 				</div>
 			)}
@@ -494,17 +543,19 @@ export default function ExtrudePage() {
 						{freecadStatus && (
 							<span
 								className={`ml-2 inline-block w-2.5 h-2.5 rounded-full ${freecadStatus.reachable ? "bg-emerald-400" : "bg-red-400"}`}
-								title={freecadStatus.reachable ? `FreeCAD reachable at ${freecadStatus.base}` : (freecadStatus.hint || "FreeCAD offline")}
+								title={
+									freecadStatus.reachable
+										? `FreeCAD reachable at ${freecadStatus.base}`
+										: freecadStatus.hint || "FreeCAD offline"
+								}
 							/>
 						)}
 					</p>
 					<p className="text-sm text-slate-400">
-						Sends this STL to the freecad-mcp backend, which converts the mesh into a solid 3D
-						object (FCStd). Requires FreeCAD installed and the freecad-mcp backend running.
+						Sends this STL to the freecad-mcp backend, which converts the mesh into a solid 3D object (FCStd). Requires
+						FreeCAD installed and the freecad-mcp backend running.
 					</p>
-					{freecadStatus && !freecadStatus.reachable && (
-						<p className="text-sm text-amber-400">{freecadStatus.hint}</p>
-					)}
+					{freecadStatus && !freecadStatus.reachable && <p className="text-sm text-amber-400">{freecadStatus.hint}</p>}
 					<button
 						type="button"
 						onClick={handleFreecad}
@@ -514,30 +565,33 @@ export default function ExtrudePage() {
 						{freecadSending ? <Loader2 className="animate-spin" size={16} /> : <Package size={16} />}
 						{freecadSending ? "Converting in FreeCAD..." : "Make 3D object in FreeCAD"}
 					</button>
-					{freecadResult && freecadResult.success && (
+					{freecadResult?.success && (
 						<div className="text-sm text-slate-300 space-y-1">
 							<div>
 								Solid: <span className="font-mono text-slate-100">{freecadResult.output}</span>
 							</div>
 							{freecadResult.data?.volume_mm3 !== undefined && (
 								<div>
-									Volume:{" "}
-									<span className="font-mono text-slate-100">{freecadResult.data.volume_mm3} mm³</span>
+									Volume: <span className="font-mono text-slate-100">{freecadResult.data.volume_mm3} mm³</span>
 								</div>
 							)}
 							{freecadResult.download && (
-								<a href={freecadResult.download} download className="inline-flex items-center gap-2 mt-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold">
+								<a
+									href={freecadResult.download}
+									download
+									className="inline-flex items-center gap-2 mt-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold"
+								>
 									<Download size={16} /> Download FCStd solid
 								</a>
 							)}
 						</div>
 					)}
-				{freecadResult && !freecadResult.success && (
-					<div className="p-3 rounded-xl bg-red-950/40 border border-red-500/20 text-red-400 text-sm">
-						{freecadResult.error}
-					</div>
-				)}
-			</div>
+					{freecadResult && !freecadResult.success && (
+						<div className="p-3 rounded-xl bg-red-950/40 border border-red-500/20 text-red-400 text-sm">
+							{freecadResult.error}
+						</div>
+					)}
+				</div>
 			)}
 
 			{result && (
@@ -547,17 +601,19 @@ export default function ExtrudePage() {
 						{blenderStatus && (
 							<span
 								className={`ml-2 inline-block w-2.5 h-2.5 rounded-full ${blenderStatus.reachable ? "bg-emerald-400" : "bg-red-400"}`}
-								title={blenderStatus.reachable ? `Blender reachable at ${blenderStatus.base}` : (blenderStatus.hint || "Blender offline")}
+								title={
+									blenderStatus.reachable
+										? `Blender reachable at ${blenderStatus.base}`
+										: blenderStatus.hint || "Blender offline"
+								}
 							/>
 						)}
 					</p>
 					<p className="text-sm text-slate-400">
-						Exports a textured OBJ and imports it into Blender with materials
-						(mm scaled to metres). Requires the blender-mcp backend running.
+						Exports a textured OBJ and imports it into Blender with materials (mm scaled to metres). Requires the
+						blender-mcp backend running.
 					</p>
-					{blenderStatus && !blenderStatus.reachable && (
-						<p className="text-sm text-amber-400">{blenderStatus.hint}</p>
-					)}
+					{blenderStatus && !blenderStatus.reachable && <p className="text-sm text-amber-400">{blenderStatus.hint}</p>}
 					<button
 						type="button"
 						onClick={handleBlender}
@@ -567,7 +623,7 @@ export default function ExtrudePage() {
 						{blenderSending ? <Loader2 className="animate-spin" size={16} /> : <Box size={16} />}
 						{blenderSending ? "Importing into Blender..." : "Send to Blender"}
 					</button>
-					{blenderResult && blenderResult.success && (
+					{blenderResult?.success && (
 						<div className="text-sm text-slate-300 space-y-1">
 							<div>
 								Imported:{" "}
@@ -592,16 +648,55 @@ export default function ExtrudePage() {
 						{resoniteStatus && (
 							<span
 								className={`ml-2 inline-block w-2.5 h-2.5 rounded-full ${resoniteStatus.reachable ? "bg-emerald-400" : "bg-red-400"}`}
-								title={resoniteStatus.reachable ? `Resonite reachable at ${resoniteStatus.base}` : (resoniteStatus.hint || "Resonite offline")}
+								title={
+									resoniteStatus.reachable
+										? `Resonite reachable at ${resoniteStatus.base}`
+										: resoniteStatus.hint || "Resonite offline"
+								}
 							/>
 						)}
 					</p>
 					<p className="text-sm text-slate-400">
-						Converts the plan to GLB (the only format Resonite imports) and stages it
-						for inventory delivery. Final hop needs the Resonite game or cloud token.
+						Converts the plan to GLB (the only format Resonite imports) and stages it for inventory delivery. Final hop
+						needs the Resonite game or cloud token.
 					</p>
 					{resoniteStatus && !resoniteStatus.reachable && (
 						<p className="text-sm text-amber-400">{resoniteStatus.hint}</p>
+					)}
+					<div className="grid grid-cols-3 gap-2">
+						{(["x", "y", "z"] as const).map((axis) => (
+							<label key={axis} className="block space-y-1">
+								<span className="text-sm text-slate-300">Spawn {axis.toUpperCase()}</span>
+								<input
+									type="number"
+									step="0.5"
+									value={resonitePos[axis]}
+									onChange={(e) =>
+										setResonitePos((p) => ({
+											...p,
+											[axis]: Number.parseFloat(e.target.value) || 0,
+										}))
+									}
+									className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-purple-500/30"
+								/>
+							</label>
+						))}
+					</div>
+					{resoniteSessions.length > 1 && (
+						<label className="block space-y-1">
+							<span className="text-sm text-slate-300">Target world ({resoniteSessions.length} announcing)</span>
+							<select
+								value={resonitePort}
+								onChange={(e) => setResonitePort(Number(e.target.value))}
+								className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-purple-500/30"
+							>
+								{resoniteSessions.map((s) => (
+									<option key={s.linkPort} value={s.linkPort}>
+										{s.sessionName} (:{s.linkPort})
+									</option>
+								))}
+							</select>
+						</label>
 					)}
 					<button
 						type="button"
@@ -612,13 +707,17 @@ export default function ExtrudePage() {
 						{resoniteSending ? <Loader2 className="animate-spin" size={16} /> : <Package size={16} />}
 						{resoniteSending ? "Preparing GLB..." : "Send to Resonite"}
 					</button>
-					{resoniteResult && resoniteResult.success && (
+					{resoniteResult?.success && (
 						<div className="text-sm text-slate-300 space-y-1">
 							<div>
 								GLB: <span className="font-mono text-slate-100">{resoniteResult.output}</span>
 							</div>
 							{resoniteResult.download && (
-								<a href={resoniteResult.download} download className="inline-flex items-center gap-2 mt-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold">
+								<a
+									href={resoniteResult.download}
+									download
+									className="inline-flex items-center gap-2 mt-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold"
+								>
 									<Download size={16} /> Download GLB
 								</a>
 							)}

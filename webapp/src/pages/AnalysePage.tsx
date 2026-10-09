@@ -36,7 +36,10 @@ export default function AnalysePage() {
 		try {
 			const fd = new FormData();
 			fd.append("file", file);
-			const r = await fetch(API_BASE + "/api/v1/upload", { method: "POST", body: fd });
+			const r = await fetch(API_BASE + "/api/v1/upload", {
+				method: "POST",
+				body: fd,
+			});
 			const j = await r.json();
 			if (!j.success) throw new Error(j.detail || "Upload failed");
 
@@ -135,10 +138,7 @@ export default function AnalysePage() {
 									</thead>
 									<tbody>
 										{result.rooms.map((room: RoomResult, i: number) => (
-											<tr
-												key={`${room.layer}-${room.area_m2}-${i}`}
-												className="border-b border-white/[0.02] text-slate-300"
-											>
+											<tr key={`${room.layer}-${room.area_m2}`} className="border-b border-white/[0.02] text-slate-300">
 												<td className="py-2 pr-4 text-slate-300">{i + 1}</td>
 												<td className="py-2 pr-4">{room.layer}</td>
 												<td className="py-2 pr-4">
@@ -163,9 +163,9 @@ export default function AnalysePage() {
 						<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-2">
 							<h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Doors & Windows</h3>
 							<div className="flex flex-wrap gap-2">
-								{result.doors_windows.map((item: DoorWindowResult, i: number) => (
+								{result.doors_windows.map((item: DoorWindowResult) => (
 									<div
-										key={`${item.block}-${item.layer}-${i}`}
+										key={`${item.block}-${item.layer}-${item.position.x}-${item.position.y}`}
 										className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 text-sm"
 									>
 										<DoorOpen size={12} className="text-amber-400" />

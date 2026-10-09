@@ -122,11 +122,11 @@ export default function StlViewer({ url, filename }: Props) {
 	return (
 		<div>
 			<div ref={mountRef} className="w-full rounded-xl overflow-hidden" style={{ height: 420 }} />
-			<div className="flex items-center justify-between px-1 pt-2 text-xs text-slate-400">
+			<div className="flex items-center justify-between px-1 pt-2 text-sm text-slate-300">
 				<span className="font-mono truncate">{label}</span>
 				{error ? <span className="text-red-400">{error}</span> : <span>{stats}</span>}
 			</div>
-			<p className="px-1 pt-1 text-xs text-slate-500">Drag to orbit · scroll to zoom · auto-rotates when idle</p>
+			<p className="px-1 pt-1 text-sm text-slate-300">Drag to orbit · scroll to zoom · auto-rotates when idle</p>
 		</div>
 	);
 }

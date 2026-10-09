@@ -1,17 +1,5 @@
-import {
-	Download,
-	Eye,
-	EyeOff,
-	Loader2,
-	Maximize2,
-	Move,
-	RotateCw,
-	Ruler,
-	Upload,
-	ZoomIn,
-	ZoomOut,
-} from "lucide-react";
-import { useEffect, useState } from "react";
+import { Download, Eye, EyeOff, Loader2, Maximize2, RotateCw, Ruler, Upload, ZoomIn, ZoomOut } from "lucide-react";
+import { useState } from "react";
 import { API_BASE } from "../lib/api";
 
 interface PlanViewerInfo {
@@ -44,7 +32,10 @@ export default function ViewerPage() {
 		try {
 			const fd = new FormData();
 			fd.append("file", file);
-			const r = await fetch(API_BASE + "/api/v1/upload", { method: "POST", body: fd });
+			const r = await fetch(API_BASE + "/api/v1/upload", {
+				method: "POST",
+				body: fd,
+			});
 			const j = await r.json();
 			if (!j.success) throw new Error(j.detail || "Upload failed");
 
@@ -114,7 +105,11 @@ export default function ViewerPage() {
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						tool: "plan_to_svg",
-						arguments: { file_name: outName, output_name: `${outName}.svg`, background: "#0a0a0c" },
+						arguments: {
+							file_name: outName,
+							output_name: `${outName}.svg`,
+							background: "#0a0a0c",
+						},
 					}),
 				});
 				const svgJ = await svgR.json();

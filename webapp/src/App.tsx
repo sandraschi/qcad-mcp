@@ -3,6 +3,7 @@ import AppLayout from "./components/AppLayout";
 import FloatingChat from "./components/FloatingChat";
 import AgenticPage from "./pages/AgenticPage";
 import AnalysePage from "./pages/AnalysePage";
+import { AppsPage } from "./pages/apps";
 import BatchPage from "./pages/BatchPage";
 import BlocksPage from "./pages/BlocksPage";
 import Dashboard from "./pages/Dashboard";
@@ -24,6 +25,7 @@ export default function App() {
 		<AppLayout>
 			<Routes>
 				<Route path="/" element={<Dashboard />} />
+				<Route path="/apps" element={<AppsPage />} />
 				<Route path="/demo" element={<DemoPage />} />
 				<Route path="/agentic" element={<AgenticPage />} />
 				<Route path="/depot" element={<DepotPage />} />

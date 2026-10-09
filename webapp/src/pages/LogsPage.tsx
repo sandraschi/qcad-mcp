@@ -1,5 +1,5 @@
 import { Activity, Circle, Download, Filter, Pause, Play, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 export default function LogsPage() {
 	const [lines, setLines] = useState<string[]>([]);
@@ -98,7 +98,11 @@ export default function LogsPage() {
 						<span className="text-slate-400 italic">No log lines.</span>
 					) : (
 						display.map((l, i) => (
-							<div key={`${l.substring(0, 20)}-${i}`} className="hover:bg-white/[0.02] py-px">
+							<div
+								// biome-ignore lint/suspicious/noArrayIndexKey: append-only log stream, no reordering, no stable ids
+								key={`${l.substring(0, 20)}-${i}`}
+								className="hover:bg-white/[0.02] py-px"
+							>
 								{l}
 							</div>
 						))

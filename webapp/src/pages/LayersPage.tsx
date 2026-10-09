@@ -121,7 +121,7 @@ export default function LayersPage() {
 									max={255}
 									defaultValue={l.color}
 									onBlur={(e) => {
-										const v = Number.parseInt(e.target.value);
+										const v = Number.parseInt(e.target.value, 10);
 										if (v !== l.color) setColor(l.name, v);
 									}}
 									className="w-14 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-xs text-white text-center outline-none focus:border-amber-500"

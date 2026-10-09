@@ -15,6 +15,7 @@ import {
 	LayoutDashboard,
 	Logs,
 	Play,
+	Rocket,
 	Ruler,
 	Settings,
 	SlidersHorizontal,
@@ -37,6 +38,7 @@ const navItems = [
 	{ path: "/batch", label: "Batch", icon: Play },
 	{ path: "/pipeline", label: "Pipeline", icon: GitBranch },
 	{ path: "/models", label: "Models", icon: FileText },
+	{ path: "/apps", label: "Apps", icon: Rocket },
 	{ path: "/logs", label: "Logs", icon: Logs },
 	{ path: "/settings", label: "Settings", icon: Settings },
 	{ path: "/playground", label: "Playground", icon: Terminal },
@@ -52,7 +54,10 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
 			<div className="h-14 flex items-center gap-3 px-4 border-b border-white/10 overflow-hidden">
 				<Ruler className="text-amber-400 shrink-0" size={22} />
 				<motion.span
-					animate={{ opacity: collapsed ? 0 : 1, width: collapsed ? 0 : "auto" }}
+					animate={{
+						opacity: collapsed ? 0 : 1,
+						width: collapsed ? 0 : "auto",
+					}}
 					className="text-sm font-bold text-white whitespace-nowrap overflow-hidden"
 				>
 					QCAD MCP
@@ -60,7 +65,7 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
 				<button
 					type="button"
 					onClick={onToggle}
-					className="ml-auto p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-all shrink-0"
+					className="ml-auto p-1.5 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white transition-all shrink-0"
 					title={collapsed ? "Expand" : "Collapse"}
 				>
 					{collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
@@ -76,13 +81,16 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
 							`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
 								isActive
 									? "bg-amber-600 text-white shadow-lg shadow-amber-600/20"
-									: "text-slate-400 hover:text-slate-200 hover:bg-white/[0.12]"
+									: "text-slate-300 hover:text-slate-200 hover:bg-white/[0.12]"
 							}`
 						}
 					>
 						<item.icon size={18} className="shrink-0" />
 						<motion.span
-							animate={{ opacity: collapsed ? 0 : 1, width: collapsed ? 0 : "auto" }}
+							animate={{
+								opacity: collapsed ? 0 : 1,
+								width: collapsed ? 0 : "auto",
+							}}
 							className="whitespace-nowrap overflow-hidden"
 						>
 							{item.label}

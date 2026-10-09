@@ -132,8 +132,11 @@ export default function PlaygroundPage() {
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 				<div className="space-y-4">
 					<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-4">
-						<label className="text-sm text-slate-400">Tool</label>
+						<label htmlFor="pg-tool" className="text-sm text-slate-300">
+							Tool
+						</label>
 						<select
+							id="pg-tool"
 							value={tool}
 							onChange={(e) => setTool(e.target.value)}
 							className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-amber-500"
@@ -147,7 +150,9 @@ export default function PlaygroundPage() {
 					</div>
 					<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-3">
 						<div className="flex items-center justify-between">
-							<label className="text-sm text-slate-400">Arguments (JSON)</label>
+							<label htmlFor="pg-args" className="text-sm text-slate-300">
+								Arguments (JSON)
+							</label>
 							{depotFiles.length > 0 && (
 								<div className="flex items-center gap-1">
 									<span className="text-xs text-slate-500">Files:</span>
@@ -169,6 +174,7 @@ export default function PlaygroundPage() {
 							)}
 						</div>
 						<textarea
+							id="pg-args"
 							value={argsText}
 							onChange={(e) => setArgsText(e.target.value)}
 							rows={12}

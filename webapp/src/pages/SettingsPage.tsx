@@ -1,5 +1,5 @@
 import { Box, CheckCircle, Cpu, Loader2, Settings, XCircle } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { API_BASE } from "../lib/api";
 
 interface ProviderInfo {
@@ -18,8 +18,12 @@ async function probeProvider(p: ProviderInfo): Promise<"detected" | "not_found">
 	try {
 		const probe =
 			p.name === "Ollama"
-				? await fetch(`${p.base}:${p.port}/api/tags`, { signal: AbortSignal.timeout(3000) })
-				: await fetch(`${p.base}:${p.port}/v1/models`, { signal: AbortSignal.timeout(3000) });
+				? await fetch(`${p.base}:${p.port}/api/tags`, {
+						signal: AbortSignal.timeout(3000),
+					})
+				: await fetch(`${p.base}:${p.port}/v1/models`, {
+						signal: AbortSignal.timeout(3000),
+					});
 		return probe.ok ? "detected" : "not_found";
 	} catch {
 		return "not_found";
@@ -29,11 +33,15 @@ async function probeProvider(p: ProviderInfo): Promise<"detected" | "not_found">
 async function fetchModels(p: ProviderInfo): Promise<string[]> {
 	try {
 		if (p.name === "Ollama") {
-			const r = await fetch(`${p.base}:${p.port}/api/tags`, { signal: AbortSignal.timeout(5000) });
+			const r = await fetch(`${p.base}:${p.port}/api/tags`, {
+				signal: AbortSignal.timeout(5000),
+			});
 			const j = await r.json();
 			return (j.models || []).map((m: { name: string }) => m.name);
 		}
-		const r = await fetch(`${p.base}:${p.port}/v1/models`, { signal: AbortSignal.timeout(5000) });
+		const r = await fetch(`${p.base}:${p.port}/v1/models`, {
+			signal: AbortSignal.timeout(5000),
+		});
 		const j = await r.json();
 		return (j.data || []).map((m: { id: string }) => m.id);
 	} catch {
@@ -42,8 +50,8 @@ async function fetchModels(p: ProviderInfo): Promise<string[]> {
 }
 
 export default function SettingsPage() {
-	const [ollamaUrl, setOllamaUrl] = useState("http://192.168.1.11:11434");
-	const [model, setModel] = useState("gemma3:1b");
+	const [ollamaUrl, setOllamaUrl] = useState("http://127.0.0.1:11434");
+	const [model, setModel] = useState("");
 	const [qcadProPath, setQcadProPath] = useState("");
 	const [wallHeight, setWallHeight] = useState(3.0);
 	const [wallThickness, setWallThickness] = useState(0.3);
@@ -55,6 +63,50 @@ export default function SettingsPage() {
 	const [availableModels, setAvailableModels] = useState<string[]>([]);
 	const [selectedModel, setSelectedModel] = useState(() => localStorage.getItem("llm_model") || "");
 	const [probing, setProbing] = useState(true);
+	// Refs mirror mount-time selections so mount-once effects stay
+	// dependency-clean without re-probing on every selection change.
+	const selectedProviderRef = useRef(selectedProvider);
+	selectedProviderRef.current = selectedProvider;
+	const selectedModelRef = useRef(selectedModel);
+	selectedModelRef.current = selectedModel;
+
+	// VRAM residents + telemetry (fleet SETTINGS_LLM rules 4-5)
+	interface LoadedEntry {
+		name: string;
+		size_vram_mb: number;
+		expires_at: string;
+	}
+	interface GpuEntry {
+		index: number;
+		name: string;
+		total_mb: number;
+		used_mb: number;
+		free_mb: number;
+	}
+	const [loaded, setLoaded] = useState<LoadedEntry[]>([]);
+	const [gpus, setGpus] = useState<GpuEntry[]>([]);
+	const [unloading, setUnloading] = useState(false);
+
+	const selectedEndpoint = (() => {
+		const p = PROVIDERS.find((pr) => pr.name === selectedProvider);
+		return p ? `${p.base}:${p.port}` : "";
+	})();
+
+	const refreshLlmState = useCallback(async () => {
+		if (!selectedEndpoint) return;
+		try {
+			const r = await fetch(
+				API_BASE + `/api/llm/loaded?provider=ollama&endpoint=${encodeURIComponent(selectedEndpoint)}`,
+			);
+			const j = await r.json();
+			setLoaded(j.models || []);
+		} catch {}
+		try {
+			const r = await fetch(API_BASE + "/api/llm/gpus");
+			const j = await r.json();
+			setGpus(j.gpus || []);
+		} catch {}
+	}, [selectedEndpoint]);
 
 	// Probe all providers on mount
 	useEffect(() => {
@@ -72,7 +124,7 @@ export default function SettingsPage() {
 			}),
 		).then(() => {
 			setProbing(false);
-			if (!selectedProvider) {
+			if (!selectedProviderRef.current) {
 				const first = PROVIDERS.find((p) => results[p.name] === "detected");
 				if (first) setSelectedProvider(first.name);
 			}
@@ -86,9 +138,10 @@ export default function SettingsPage() {
 		if (!p || providerStatus[p.name] !== "detected") return;
 		fetchModels(p).then((models) => {
 			setAvailableModels(models);
-			if (models.length > 0 && !selectedModel) {
-				setSelectedModel(models[0]);
-				localStorage.setItem("llm_model", models[0]);
+			// Never auto-pick: empty selection loads nothing (fleet BUG-030).
+			if (selectedModelRef.current && !models.includes(selectedModelRef.current)) {
+				setSelectedModel("");
+				localStorage.removeItem("llm_model");
 			}
 		});
 	}, [selectedProvider, providerStatus]);
@@ -109,22 +162,57 @@ export default function SettingsPage() {
 	const save = async () => {
 		setStatus("Saving...");
 		try {
-			await fetch(API_BASE + "/api/v1/settings", {
+			const r = await fetch(API_BASE + "/api/v1/settings", {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					ollama_url: ollamaUrl,
-					model,
+					ollama_url: selectedEndpoint || ollamaUrl,
+					model: selectedModel || model,
 					qcad_pro_path: qcadProPath,
 					default_wall_height: wallHeight,
 					default_wall_thickness: wallThickness,
 				}),
 			});
-			setStatus("Saved.");
+			const j = await r.json();
+			const sw = j.llm_switch;
+			if (sw?.engine) {
+				const ev = (sw.evicted || []).join(", ") || "none";
+				setStatus(`Saved. Evicted: ${ev} / warmed: ${sw.warmed ? selectedModel : "nothing"}.`);
+			} else if (selectedModel) {
+				setStatus("Saved (LLM engine unreachable - config stored, VRAM untouched).");
+			} else {
+				setStatus("Saved.");
+			}
+			refreshLlmState();
 		} catch {
 			setStatus("Error saving.");
 		}
 	};
+
+	const unloadAll = async () => {
+		if (!selectedEndpoint) return;
+		setUnloading(true);
+		try {
+			await fetch(API_BASE + "/api/llm/unload", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					provider: "ollama",
+					endpoint: selectedEndpoint,
+				}),
+			});
+			setStatus("Unloaded all resident models.");
+			refreshLlmState();
+		} catch {
+			setStatus("Unload failed.");
+		} finally {
+			setUnloading(false);
+		}
+	};
+
+	useEffect(() => {
+		refreshLlmState();
+	}, [refreshLlmState]);
 
 	const detectedProviders = PROVIDERS.filter((p) => providerStatus[p.name] === "detected");
 
@@ -166,9 +254,12 @@ export default function SettingsPage() {
 
 				{/* Provider selector */}
 				<div>
-					<label className="block text-sm text-slate-400 mb-1">Active Provider</label>
+					<label htmlFor="llm-provider" className="block text-sm text-slate-300 mb-1">
+						Active Provider
+					</label>
 					{detectedProviders.length > 0 ? (
 						<select
+							id="llm-provider"
 							value={selectedProvider}
 							onChange={(e) => handleProviderChange(e.target.value)}
 							data-testid="llm-provider-select"
@@ -176,7 +267,8 @@ export default function SettingsPage() {
 						>
 							{detectedProviders.map((p) => (
 								<option key={p.name} value={p.name}>
-									{p.name} (:{(PROVIDERS.find((pr) => pr.name === p.name) || p).port})
+									{p.name} (:
+									{(PROVIDERS.find((pr) => pr.name === p.name) || p).port})
 								</option>
 							))}
 						</select>
@@ -192,14 +284,18 @@ export default function SettingsPage() {
 				{/* Model selector */}
 				{selectedProvider && providerStatus[selectedProvider] === "detected" && (
 					<div>
-						<label className="block text-sm text-slate-400 mb-1">Model</label>
+						<label htmlFor="llm-model" className="block text-sm text-slate-300 mb-1">
+							Model
+						</label>
 						{availableModels.length > 0 ? (
 							<select
-								value={selectedModel || availableModels[0]}
+								id="llm-model"
+								value={selectedModel}
 								onChange={(e) => handleModelChange(e.target.value)}
 								data-testid="llm-model-select"
 								className="w-full bg-[#18181c] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500"
 							>
+								<option value="">Select a model...</option>
 								{availableModels.map((m) => (
 									<option key={m} value={m}>
 										{m}
@@ -234,6 +330,42 @@ export default function SettingsPage() {
 							/>
 						</label>
 					</>
+				)}
+			</div>
+
+			{/* VRAM residents + telemetry */}
+			<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 space-y-3">
+				<div className="flex items-center justify-between">
+					<h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Resident Models / VRAM</h3>
+					<button
+						type="button"
+						onClick={unloadAll}
+						disabled={unloading || loaded.length === 0}
+						className="px-3 py-1.5 rounded-xl bg-red-600/20 hover:bg-red-600/40 disabled:opacity-40 text-red-400 text-xs font-bold"
+					>
+						{unloading ? "Unloading..." : "Unload all"}
+					</button>
+				</div>
+				{loaded.length > 0 ? (
+					<ul className="space-y-1 text-sm text-slate-300">
+						{loaded.map((m) => (
+							<li key={m.name} className="flex justify-between">
+								<span>{m.name}</span>
+								<span className="text-slate-500">{m.size_vram_mb} MB VRAM</span>
+							</li>
+						))}
+					</ul>
+				) : (
+					<p className="text-sm text-slate-500 italic">Nothing resident — VRAM is free.</p>
+				)}
+				{gpus.length > 0 && (
+					<ul className="space-y-1 text-xs text-slate-500">
+						{gpus.map((g) => (
+							<li key={g.index}>
+								GPU{g.index} {g.name}: {g.used_mb}/{g.total_mb} MB used
+							</li>
+						))}
+					</ul>
 				)}
 			</div>
 
