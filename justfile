@@ -60,6 +60,14 @@ fix:
 # Fast quality check (lint + tests)
 check: lint test
 
+# Format alias (fmt) — same as fix
+fmt:
+    uv run ruff check src/ --fix; uv run ruff format src/
+
+# All gates green (lint + tests + pyright typecheck) — Phase 6 verify gate
+gates-green: check
+    uvx pyright src/
+
 # --- Testing ---
 
 # Run the complete test suite
@@ -70,9 +78,8 @@ test:
 install-mcp:
     uv run python -m qcad_mcp.server --mode stdio
 
-# Regenerate LLM documentation files (llms.txt)
-llms-txt:
-    uv run python -m qcad_mcp.utils.llms_txt
+# llms.txt / llms-full.txt are hand-synced (see Phase 4 docs sync);
+# there is no generator module, so no recipe here by design.
 
 # --- Diagnostics ---
 
