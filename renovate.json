@@ -1,0 +1,13 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "schedule": ["before 6am on monday"],
+  "stabilityDays": 3,
+  "prConcurrentLimit": 3,
+  "packageRules": [
+    {
+      "matchManagers": ["pep621", "npm"],
+      "groupName": "fleet dependencies"
+    }
+  ]
+}
