@@ -127,7 +127,7 @@ class TestPlanInfo:
         result = await plan_info(file_name=office_layout)
         assert result.get("success")
         data = result["data"]
-        layer_names = [l.get("name", "") for l in data.get("layers", [])]
+        layer_names = [layer.get("name", "") for layer in data.get("layers", [])]
         assert "Partitions" in layer_names or "Walls" in layer_names
 
     @pytest.mark.asyncio
@@ -136,7 +136,7 @@ class TestPlanInfo:
 
         result = await plan_info(file_name=mechanical_bracket)
         assert result.get("success")
-        layer_names = [l.get("name", "") for l in result.get("data", {}).get("layers", [])]
+        layer_names = [layer.get("name", "") for layer in result.get("data", {}).get("layers", [])]
         assert "Holes" in layer_names
 
 
@@ -212,7 +212,7 @@ class TestPlanExtrude:
 
 
 class TestPlanCreate:
-    """DXF creation from primitives — cleans depot before each test."""
+    """DXF creation from primitives — cleans its own test files before each test."""
 
     @pytest.fixture(autouse=True)
     def clean_depot(self):
@@ -220,7 +220,7 @@ class TestPlanCreate:
 
         for f in os.listdir(DEPOT_DIR):
             p = os.path.join(DEPOT_DIR, f)
-            if os.path.isfile(p) and f.endswith(".dxf"):
+            if os.path.isfile(p) and f.startswith("test_") and f.endswith(".dxf"):
                 os.remove(p)
         yield
 
