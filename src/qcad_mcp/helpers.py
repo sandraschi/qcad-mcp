@@ -99,7 +99,14 @@ def _load_dxf(file_name: str):
     if os.path.isfile(file_name):
         path = file_name
     else:
-        path = os.path.join(DEPOT_DIR, file_name)
+        # Bare filename: look in the depot first, then the outputs dir
+        # (agentic/demo pipelines keep intermediate DXFs in outputs).
+        base = Path(file_name).name
+        path = os.path.join(DEPOT_DIR, base)
+        if not os.path.isfile(path):
+            alt = os.path.join(OUTPUT_DIR, base)
+            if os.path.isfile(alt):
+                path = alt
     if not os.path.isfile(path):
         return None, f"File '{file_name}' not found in depot."
 

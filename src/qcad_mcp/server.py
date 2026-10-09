@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import subprocess
+import threading
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -156,8 +157,8 @@ class _QuietProbesFilter(logging.Filter):
 def _quiet_probe_logs():
     try:
         logging.getLogger("uvicorn.access").addFilter(_QuietProbesFilter())
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Could not install probe log filter: %s", e)
 
 
 @asynccontextmanager
@@ -186,6 +187,15 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 _QCAD_TAURI = os.environ.get("QCAD_TAURI", "").lower() in ("1", "true", "yes")
+# Unconditional origin regex: Tauri WebView + Tailscale/LAN dev tabs must pass
+# the browser CORS path (curl 200s prove nothing about tabs on other hosts).
+_TAURI_LAN_ORIGIN_REGEX = (
+    r"https?://(localhost|127\.0\.0\.1|tauri\.localhost|goliath)(:\d+)?"
+    r"|https?://100\.\d+\.\d+\.\d+(:\d+)?"  # Tailscale CGNAT
+    r"|https?://192\.168\.\d+\.\d+(:\d+)?"  # LAN
+    r"|https?://10\.\d+\.\d+\.\d+(:\d+)?"  # LAN
+    r"|tauri://localhost"
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -196,7 +206,7 @@ app.add_middleware(
         "https://tauri.localhost",
         "tauri://localhost",
     ],
-    allow_origin_regex=r"https?://tauri\.localhost(:\d+)?" if _QCAD_TAURI else None,
+    allow_origin_regex=_TAURI_LAN_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -310,6 +320,86 @@ async def api_diagnostics():
         "system": {"cpu_percent": cpu, "memory_percent": mem, "disk_percent": disk},
         "tools": {"total": tool_count},
         "cua_status": {"tesseract_available": False, "window_found": False},
+    }
+
+
+@app.post("/api/shutdown")
+async def api_shutdown():
+    """Orderly exit: respond 200 immediately, exit ~500 ms later so the
+    fleet launcher (Invoke-FleetWebappStart) can bounce the service without
+    killing mid-write depot/settings flows."""
+    logger.warning("POST /api/shutdown — exiting in 0.5 s")
+    threading.Timer(0.5, lambda: os._exit(0)).start()
+    return {"success": True, "message": "Shutting down in 0.5 s."}
+
+
+@app.get("/api/skills")
+async def api_skills():
+    """Skill listing for skill-first chat: serves skills/*/SKILL.md."""
+    repo_root = Path(__file__).resolve().parents[2]
+    out = []
+    for skill_file in sorted((repo_root / "skills").rglob("SKILL.md")):
+        try:
+            text = skill_file.read_text(encoding="utf-8")
+        except Exception as e:
+            logger.debug("Skill read failed for %s: %s", skill_file, e)
+            continue
+        out.append(
+            {
+                "name": skill_file.parent.name,
+                "path": skill_file.relative_to(repo_root).as_posix(),
+                "content": text,
+            }
+        )
+    return {"skills": out}
+
+
+@app.get("/api/llm/discover")
+async def llm_discover():
+    """Local LLM auto-discovery: Ollama :11434, LM Studio :1234, vLLM :8000."""
+    candidates = {
+        "ollama": _llm_settings.get("ollama_url", _LLM_DEFAULT_URL),
+        "lmstudio": "http://127.0.0.1:1234",
+        "vllm": "http://127.0.0.1:8000",
+    }
+    providers = []
+    for name, base in candidates.items():
+        detected = False
+        models: list = []
+        try:
+            async with httpx.AsyncClient(timeout=3) as client:
+                r = await client.get(base.rstrip("/") + "/api/tags")
+                if r.status_code == 200:
+                    detected = True
+                    models = [m.get("name", "") for m in r.json().get("models", []) if m.get("name")]
+        except Exception as e:
+            logger.debug("LLM discover %s failed: %s", name, e)
+        providers.append({"name": name, "url": base, "detected": detected, "models": models})
+    return {"providers": providers}
+
+
+@app.get("/api/llm/onboarding")
+async def llm_onboarding():
+    """Fresh-install starter facts + recommended path for the under-hero cue."""
+    from qcad_mcp.services import qcad_pro as _qp
+
+    pro_ok = _qp.is_installed()
+    steps = [
+        "Create your first DXF: Depot page → Create wizard (rectangle on Walls).",
+        "Preview it: Viewer page → SVG with layer toggle.",
+        "Analyse it: Analyse page → rooms + areas.",
+        "Extrude it: Extrude page → STL download.",
+    ]
+    if not pro_ok:
+        steps.append("Optional: install QCAD Pro 3.x for DWG, render, dimensions — then restart the backend.")
+    return {
+        "facts": {
+            "backend_port": 11966,
+            "frontend_port": 11967,
+            "qcad_pro_installed": pro_ok,
+            "depot": _state.get("depot_dir", ""),
+        },
+        "recommended_path": steps,
     }
 
 
@@ -837,8 +927,8 @@ async def llm_providers():
                 name = m.get("name", "")
                 if name:
                     models.append(name)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("LLM provider probe failed: %s", e)
     return {"providers": [{"name": "ollama", "models": models}]}
 
 
@@ -974,8 +1064,8 @@ def _load_persisted_settings():
                 _app_settings[k] = data[k]
         if data.get("qcad_pro_path"):
             _state["qcad_pro_path"] = data["qcad_pro_path"]
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("No persisted settings loaded: %s", e)
 
 
 def _save_persisted_settings():
@@ -1064,7 +1154,7 @@ async def chat_completion(req: ChatRequest):
             data = r.json()
             return {"content": (data.get("message") or {}).get("content", "") or data.get("response", "")}
     except Exception as e:
-        logger.error("Chat error: %s", e)
+        logger.exception("Chat error: %s", e)
         return {"content": f"Error: {e}"}
 
 
@@ -1131,12 +1221,13 @@ def _parse_mcp_sse(text):
         if line.startswith("data: "):
             try:
                 payload = json.loads(line[6:])
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("SSE line parse failed: %s", e)
     if payload is None:
         try:
             payload = json.loads(text)
-        except Exception:
+        except Exception as e:
+            logger.debug("SSE fallback parse failed: %s", e)
             payload = None
     return payload
 
@@ -1164,8 +1255,8 @@ async def blender_status():
                 r = await client.get(_BLENDER_BASE + path)
                 if r.status_code == 200:
                     return {"reachable": True, "base": _BLENDER_BASE, "status": r.json()}
-        except Exception:
-            continue
+        except Exception as e:
+            logger.debug("Blender probe %s failed: %s", path, e)
     return {
         "reachable": False,
         "base": _BLENDER_BASE,
@@ -1231,8 +1322,8 @@ async def blender_import(req: BlenderImportRequest):
         content = (payload.get("result", {}) or {}).get("content", [])
         detail = (content[0] or {}).get("text", "") if content else ""
         inner = json.loads(detail) if detail else {}
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Blender payload parse failed: %s", e)
     if inner.get("status") != "SUCCESS":
         raise HTTPException(502, f"Blender import failed: {(inner.get('error') or detail)[:300]}")
     return {"success": True, "output": req.file_name, "data": inner, "detail": detail[:500]}
@@ -1258,8 +1349,8 @@ async def resonite_status():
             r = await client.get(_RESONITE_BASE + "/api/v1/health")
             if r.status_code == 200:
                 return {"reachable": True, "base": _RESONITE_BASE, "status": r.json()}
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Resonite probe failed: %s", e)
     return {
         "reachable": False,
         "base": _RESONITE_BASE,
@@ -1423,8 +1514,8 @@ async def _resonite_link(link_port: int) -> tuple[dict | None, str | None, dict 
                     "discovery": "silent-fallback",
                 }
                 return _link, "connected world", None
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Resonite link discovery failed: %s", e)
         return (
             None,
             None,
@@ -1660,8 +1751,8 @@ async def freecad_status():
                 r = await client.get(_FREECAD_BASE + path)
                 if r.status_code == 200:
                     return {"reachable": True, "base": _FREECAD_BASE, "status": r.json()}
-        except Exception:
-            continue
+        except Exception as e:
+            logger.debug("FreeCAD probe %s failed: %s", path, e)
     return {
         "reachable": False,
         "base": _FREECAD_BASE,
@@ -1735,8 +1826,8 @@ def main():
                 _sys.stdout.isatty = lambda: False  # type: ignore[method-assign]
             if hasattr(_sys.stderr, "isatty"):
                 _sys.stderr.isatty = lambda: False  # type: ignore[method-assign]
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("isatty shim failed: %s", e)
 
     parser = argparse.ArgumentParser(description="QCAD MCP Server")
     parser.add_argument("--mode", choices=["stdio", "http", "dual"], default="stdio")
