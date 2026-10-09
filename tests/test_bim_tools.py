@@ -1,6 +1,7 @@
 """Unit tests for BIM and architectural tools (plan_auto_dimension, plan_building_meta, plan_to_ifc_data)."""
 
 import os
+
 import pytest
 
 from qcad_mcp.tools.bim_tools import plan_auto_dimension, plan_building_meta, plan_to_ifc_data

@@ -4,7 +4,9 @@ import { defineConfig } from "vite";
 export default defineConfig({
 	plugins: [react()],
 	define: {
-		"import.meta.env.VITE_API_BASE": JSON.stringify(process.env.VITE_API_BASE || ""),
+		"import.meta.env.VITE_API_BASE": JSON.stringify(
+			process.env.VITE_API_BASE || "",
+		),
 	},
 	build: {
 		chunkSizeWarningLimit: 600,
