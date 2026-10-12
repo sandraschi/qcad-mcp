@@ -1,5 +1,6 @@
 """Prefab UI cards for QCAD MCP - rich in-chat surfaces for status/list tools."""
 
+import asyncio
 import logging
 
 from fastmcp.server.server import ToolResult
@@ -23,7 +24,7 @@ async def show_qcad_status_card() -> ToolResult:
     await show_qcad_status_card()
     """
     installed = qcad_pro.is_installed()
-    running = qcad_pro.is_running()
+    running = await asyncio.to_thread(qcad_pro.is_running)
     version = qcad_pro.get_version() or "not detected"
     install_dir = str(qcad_pro._qcad_base_dir())
     text = f"QCAD Pro: {'installed' if installed else 'not installed'} ({version}), running={running}"

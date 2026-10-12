@@ -1,5 +1,6 @@
 """QCAD MCP core tools: info, SVG, extrude, export, analyse, create, depot."""
 
+import asyncio
 import logging
 import os
 from datetime import datetime
@@ -855,7 +856,8 @@ async def plan_glb(
             f.write(script)
             script_path = f.name
         try:
-            proc = subprocess.run(
+            proc = await asyncio.to_thread(
+                subprocess.run,
                 [blexe, "--background", "--factory-startup", "--python", script_path],
                 capture_output=True,
                 text=True,
@@ -1144,7 +1146,7 @@ async def plan_export(
     # Try QCAD Pro for SVG/PDF (superior rendering)
     if qcad_pro.is_installed() and format in ("svg", "pdf"):
         fmt_pro = format if format != "png" else "bmp"
-        render_result = qcad_pro.render(in_path, out_path, fmt_pro)
+        render_result = await asyncio.to_thread(qcad_pro.render, in_path, out_path, fmt_pro)
         if render_result.get("success"):
             return {
                 "success": True,
@@ -1155,7 +1157,7 @@ async def plan_export(
     # For PNG, try QCAD Pro BMP then convert via Pillow
     if qcad_pro.is_installed() and format == "png":
         bmp_path = out_path.replace(".png", "_temp.bmp")
-        bmp_result = qcad_pro.render(in_path, bmp_path, "bmp")
+        bmp_result = await asyncio.to_thread(qcad_pro.render, in_path, bmp_path, "bmp")
         if bmp_result.get("success"):
             try:
                 from PIL import Image

@@ -5,6 +5,7 @@ ECMAScript engine: aligned/radial/diametric dimensions, geometry measurements,
 text labels with full styling, and hatch/fill patterns.
 """
 
+import asyncio
 import logging
 import os
 from pathlib import Path
@@ -143,7 +144,8 @@ async def plan_dimension(
     out_path = os.path.join(OUTPUT_DIR, out_name)
 
     code = _build_dim_script(dimensions)
-    result = qcad_pro.run_script(
+    result = await asyncio.to_thread(
+        qcad_pro.run_script,
         user_code=code,
         input_file=in_path,
         output_file=out_path,
@@ -267,7 +269,7 @@ print(JSON.stringify({
     "entities": measurements
 }));
 """
-    result = qcad_pro.exec_in_live(code, file_name=in_path, timeout=60)
+    result = await asyncio.to_thread(qcad_pro.exec_in_live, code, file_name=in_path, timeout=60)
     if result.get("success"):
         stdout = result.get("stdout", "")
         measure_data = parse_marker(stdout, "__QCAD_MCP_MEASURE__")
@@ -349,7 +351,8 @@ async def plan_text(
     lines.append("op.apply(document);")
     code = "\n".join(lines)
 
-    result = qcad_pro.run_script(
+    result = await asyncio.to_thread(
+        qcad_pro.run_script,
         user_code=code,
         input_file=in_path,
         output_file=out_path,
@@ -428,7 +431,8 @@ Available patterns: ANSI31-38, AR-CONC, AR-HBONE, AR-BRSTD, SOLID, EARTH, GRASS,
     lines.append("op.apply(document);")
     code = "\n".join(lines)
 
-    result = qcad_pro.run_script(
+    result = await asyncio.to_thread(
+        qcad_pro.run_script,
         user_code=code,
         input_file=in_path,
         output_file=out_path,
@@ -683,7 +687,8 @@ async def _block_insert_pro(file_name: str, inserts: list[dict], output_name: st
     lines.append("di.applyOperation(op);")
     code = "\n".join(lines)
 
-    result = qcad_pro.run_script(
+    result = await asyncio.to_thread(
+        qcad_pro.run_script,
         user_code=code,
         input_file=in_path,
         output_file=out_path,
@@ -783,7 +788,8 @@ op.apply(document);
     else:
         return {"success": False, "error": f"Unknown pattern: {pattern}. Use 'rectangular' or 'polar'."}
 
-    result = qcad_pro.run_script(
+    result = await asyncio.to_thread(
+        qcad_pro.run_script,
         user_code=code,
         input_file=in_path,
         output_file=out_path,
@@ -909,7 +915,7 @@ print(JSON.stringify({{
 }}));
 """
 
-    result = qcad_pro.exec_in_live(code, file_name=in_path, timeout=60)
+    result = await asyncio.to_thread(qcad_pro.exec_in_live, code, file_name=in_path, timeout=60)
     if result.get("success"):
         stdout = result.get("stdout", "")
         wall_data = qcad_pro._parse_marker(stdout, "__QCAD_MCP_MEASURE__")

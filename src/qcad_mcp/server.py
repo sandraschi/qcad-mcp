@@ -247,7 +247,7 @@ async def api_status():
         "ezdxf_version": _state.get("ezdxf_version", "unknown"),
         "qcad_pro": {
             "installed": qcad_pro.is_installed(),
-            "running": qcad_pro.is_running(),
+            "running": await asyncio.to_thread(qcad_pro.is_running),
             "version": qcad_pro.get_version(),
             "install_dir": str(qcad_pro._qcad_base_dir()),
         },
@@ -1006,7 +1006,7 @@ async def llm_gpus():
     """Live per-GPU VRAM telemetry ([] without NVIDIA driver)."""
     from qcad_mcp.services.llm_engine import gpu_vram
 
-    return {"gpus": gpu_vram()}
+    return {"gpus": await asyncio.to_thread(gpu_vram)}
 
 
 @app.post("/api/llm/unload")

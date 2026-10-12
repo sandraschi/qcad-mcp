@@ -1,5 +1,6 @@
 """QCAD Pro tools - status check, script execution, rendering, and lightweight exec."""
 
+import asyncio
 import logging
 import os
 from pathlib import Path
@@ -33,7 +34,7 @@ async def qcad_status() -> dict:
         "success": True,
         "data": {
             "installed": qcad_pro.is_installed(),
-            "running": qcad_pro.is_running(),
+            "running": await asyncio.to_thread(qcad_pro.is_running),
             "version": qcad_pro.get_version(),
             "install_dir": str(qcad_pro._qcad_base_dir()),
         },
@@ -89,7 +90,8 @@ async def plan_script(
     if output_name:
         output_path = os.path.join(OUTPUT_DIR, output_name)
 
-    result = qcad_pro.run_script(
+    result = await asyncio.to_thread(
+        qcad_pro.run_script,
         user_code=code,
         input_file=input_path,
         output_file=output_path,
@@ -135,7 +137,8 @@ async def plan_render(
     if not os.path.isfile(in_path):
         return {"success": False, "error": f"File not found in depot: {file_name}"}
 
-    result = qcad_pro.render(
+    result = await asyncio.to_thread(
+        qcad_pro.render,
         input_path=in_path,
         output_path=out_path,
         fmt=format,
@@ -177,7 +180,7 @@ async def plan_exec(
         if not os.path.isfile(input_path):
             return {"success": False, "error": f"File not found: {file_name}"}
 
-    return qcad_pro.exec_in_live(code, file_name=input_path or "")
+    return await asyncio.to_thread(qcad_pro.exec_in_live, code, file_name=input_path or "")
 
 
 def register(mcp):

@@ -1,5 +1,6 @@
 """Agentic multi-step CAD workflows and AutoLISP transpilation for QCAD MCP."""
 
+import asyncio
 import json
 import logging
 import os
@@ -231,7 +232,8 @@ Key rules:
         script = _agentic_fallback(goal)
         plan_steps.append({"source": "template", "code": script[:200] + "..."})
 
-    result = qcad_pro.run_script(
+    result = await asyncio.to_thread(
+        qcad_pro.run_script,
         user_code=script,
         input_file=os.path.join(DEPOT_DIR, file_name) if file_name else None,
         output_file=out_path,
@@ -350,7 +352,8 @@ Rules:
             "error": "Transpilation produced no output. The AutoLISP may be too complex for heuristic fallback. Try with AI sampling enabled.",
         }
 
-    result = qcad_pro.run_script(
+    result = await asyncio.to_thread(
+        qcad_pro.run_script,
         user_code=transpiled_js,
         output_file=out_path,
         timeout=120,
