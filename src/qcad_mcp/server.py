@@ -167,7 +167,7 @@ async def lifespan(app: FastAPI):
     _state["qcad_pro_ok"] = qcad_pro.is_installed()
     _state["qcad_pro_path"] = str(qcad_pro._qcad_base_dir())
     _ensure_qcad_running()
-    _state["qcad_pro_running"] = qcad_pro.is_running()
+    _state["qcad_pro_running"] = await asyncio.to_thread(qcad_pro.is_running)
     _state["qcad_pro_version"] = qcad_pro.get_version()
     _state["depot_dir"] = DEPOT_DIR
     _state["output_dir"] = OUTPUT_DIR
