@@ -3,7 +3,7 @@ import 'scripts/just/fleet.just'
 
 export NAME := "QCAD MCP"
 export DESC := "DXF/DWG floor plans to SVG + STL via MCP tools"
-export VER  := "0.3.0"
+export VER  := "0.5.0"
 export PORT := "11966"
 export HOST := "0.0.0.0"
 
@@ -15,7 +15,7 @@ default:
 
 # Synchronise all dependencies and dev extras
 bootstrap:
-    uv sync --all-extras; uv run pre-commit install; Set-Location '{{justfile_directory()}}\webapp'; cmd /c npm install
+    uv sync --all-extras; uv run pre-commit install; Set-Location '{{justfile_directory()}}\webapp'; & "$env:USERPROFILE\.bun\bin\bun.exe" install
 
 # Workspace sanitisation
 clean:
@@ -39,7 +39,7 @@ stdio:
 
 # Start the Vite dashboard
 web:
-    Set-Location '{{justfile_directory()}}\webapp'; cmd /c npm run dev
+    Set-Location '{{justfile_directory()}}\webapp'; & "$env:USERPROFILE\.bun\bin\bun.exe" run dev
 
 # --- Development ---
 
@@ -51,11 +51,11 @@ dev port=PORT:
 
 # Execute linting (ruff + biome + tsc)
 lint:
-    uv run ruff check src/; Set-Location '{{justfile_directory()}}\webapp'; npx @biomejs/biome ci .; npx tsc --noEmit
+    uv run ruff check src/; Set-Location '{{justfile_directory()}}\webapp'; & "$env:USERPROFILE\.bun\bin\bun.exe" run biome:ci; & "$env:USERPROFILE\.bun\bin\bun.exe" run check
 
 # Execute auto-fixes and formatting
 fix:
-    uv run ruff check src/ --fix; uv run ruff format src/; Set-Location '{{justfile_directory()}}\webapp'; npx @biomejs/biome check --write .
+    uv run ruff check src/ --fix; uv run ruff format src/; Set-Location '{{justfile_directory()}}\webapp'; & "$env:USERPROFILE\.bun\bin\bun.exe" run biome:check
 
 # Fast quality check (lint + tests)
 check: lint test
@@ -105,16 +105,17 @@ tauri-build:
 
 tauri-dev:
     Set-Location '{{justfile_directory()}}\native'; $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"; npm install; npx @tauri-apps/cli dev
+    # NOTE: native/ stays on npm (Tauri sidecar) — only webapp/ migrated to bun.
 
 # --- Playwright E2E ---
 
 # Install Playwright Chromium browser
 e2e-install:
-    Set-Location '{{justfile_directory()}}\webapp'; npx playwright install chromium
+    Set-Location '{{justfile_directory()}}\webapp'; & "$env:USERPROFILE\.bun\bin\bun.exe" x playwright install chromium
 
 # Run Playwright E2E smoke tests (start backend first: just serve)
 e2e:
-    Set-Location '{{justfile_directory()}}\webapp'; npx playwright test
+    Set-Location '{{justfile_directory()}}\webapp'; & "$env:USERPROFILE\.bun\bin\bun.exe" x playwright test
 
 # Bootstrap: install dev deps + pre-commit hook
 

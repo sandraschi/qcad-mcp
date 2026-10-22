@@ -9,6 +9,8 @@ webapp/node_modules/
 .venv/
 _dashboard/
 reports/
+webapp/test-results/
+webapp/playwright-report/
 .env
 *.mcpb
 *.bak

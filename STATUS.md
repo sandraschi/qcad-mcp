@@ -1,6 +1,6 @@
 # Status — qcad-mcp
 
-**Status**: v0.3.0 — 42 tools, ruff+biome+tsc green, 78 pytest pass, SOTA annotations.
+**Status**: v0.5.0 — 12 tools (8 portmanteaus + 4 cards), ruff+pyright+biome+tsc green, 78 pytest pass, SOTA annotations.
 
 **Repo**: `D:\Dev\repos\qcad-mcp`
 **Ports**: Backend 11966, Frontend 11967
@@ -78,7 +78,7 @@
 | Webapp pages | 17 routes |
 | REST endpoints | 26+ |
 | Tauri native wrapper | Built and CUA-NSIS certified |
-| MCPB bundle | Builds (v0.3.0 distributed) |
+| MCPB bundle | Builds (v0.5.0 distributed) |
 
 ## Fleet Standards
 

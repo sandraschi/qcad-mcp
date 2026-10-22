@@ -1,7 +1,7 @@
 {
   "manifest_version": "0.2",
   "name": "qcad-mcp",
-  "version": "0.3.0",
+  "version": "0.5.0",
   "description": "QCAD MCP server - DXF/DWG floor plans to SVG preview + STL extrusion via MCP tools and REST API",
   "author": { "name": "sandraschi" },
   "server": {
