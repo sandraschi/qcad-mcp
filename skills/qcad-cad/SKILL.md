@@ -12,7 +12,7 @@ description: AI-driven 2D CAD with qcad-mcp — DXF/DWG floor plans, SVG preview
 - **Humans**: use the webapp (port 11967) — Depot, Viewer, Extrude, Analyse,
   Pipeline pages — or QCAD Pro directly for fine drafting.
 
-## Tool catalog (40 ops, all verified against src/qcad_mcp/tools/)
+## Tool catalog (42 ops, all verified against src/qcad_mcp/tools/)
 
 Core engine ezdxf (no QCAD Pro needed):
 `plan_info`, `plan_to_svg`, `plan_extrude`, `plan_stack`, `plan_obj`,

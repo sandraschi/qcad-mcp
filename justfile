@@ -15,7 +15,7 @@ default:
 
 # Synchronise all dependencies and dev extras
 bootstrap:
-    uv sync --all-extras; Set-Location '{{justfile_directory()}}\webapp'; cmd /c npm install
+    uv sync --all-extras; uv run pre-commit install; Set-Location '{{justfile_directory()}}\webapp'; cmd /c npm install
 
 # Workspace sanitisation
 clean:
