@@ -8,7 +8,7 @@
   <a href="https://github.com/PrefectHQ/fastmcp"><img src="https://img.shields.io/badge/FastMCP-3.2-7c5cfc?style=flat-square" alt="FastMCP"></a>
 </p>
 
-**AI-driven 2D CAD automation — DXF/DWG parsing, 3D extrusion, persistent file depot, room analysis, and full CRUD management.** 42 MCP tools for DXF processing. Your AI assistant becomes a QCAD Pro operator.
+**AI-driven 2D CAD automation — DXF/DWG parsing, 3D extrusion, persistent file depot, room analysis, and full CRUD management.** 12 MCP tools (8 portmanteaus + 4 Prefab cards) for DXF processing. Your AI assistant becomes a QCAD Pro operator.
 
 | | |
 |--:|--|
@@ -19,44 +19,23 @@
 
 ## MCP Tools
 
+v0.5.0 portmanteau surface: each tool takes an `op` discriminator plus the op's
+parameters (old per-op names survive only as webapp-internal aliases).
+
 | Tool | Access | Purpose |
 |------|--------|---------|
-| `plan_depot` | READ | List files in the persistent CAD depot with metadata |
-| `plan_info` | READ | DXF metadata: layers, entity counts, bounding box, blocks |
-| `plan_create` | MUTATE | Create DXF from primitives (line, rect, circle, text, polyline) |
-| `plan_to_svg` | MUTATE | DXF → SVG preview with layer filtering |
-| `plan_extrude` | MUTATE | DXF walls → 3D STL mesh (configurable height/thickness) |
-| `plan_export` | MUTATE | DXF → SVG/PNG/PDF (ezdxf or QCAD Pro) |
-| `plan_analyse` | READ | Room detection, area calculation, door/window identification |
-| `plan_measure` | READ | Measure distances and lengths in a DXF |
-| `plan_wall_data` | READ | Extract wall segments as BIM-ready JSON (QCAD Pro) |
-| `plan_beam_analysis` | READ | 2D beam FEM analysis (numpy, no QCAD needed) |
-| `plan_dimension` | MUTATE | Add aligned/linear/angular/radial dimensions (QCAD Pro) |
-| `plan_text` | MUTATE | Add text annotations (QCAD Pro) |
-| `plan_hatch` | MUTATE | Add hatch patterns (QCAD Pro) |
-| `plan_block_insert` | MUTATE | Insert CAD blocks from library (QCAD Pro) |
-| `plan_array` | MUTATE | Rectangular/polar array patterns (QCAD Pro) |
-| `plan_convert` | MUTATE | Convert between DXF and DWG (QCAD Pro) |
-| `plan_modify` | MUTATE | Delete/offset/rename/freeze layers |
-| `plan_script` | MUTATE | Execute arbitrary ECMAScript in QCAD Pro |
-| `plan_render` | MUTATE | High-fidelity SVG/PDF/BMP render via QCAD Pro |
-| `plan_exec` | MUTATE | Quick ECMAScript snippet execution |
-| `plan_blocks` | READ | Search 4800+ CAD blocks from part library |
-| `plan_blocks_download` | MUTATE | Download a block DXF from library |
-| `plan_scripts_search` | READ | Search QCAD ECMAScript scripts gallery |
-| `plan_scripts_download` | MUTATE | Download a script from gallery/Gist |
-| `qcad_status` | READ | QCAD Pro install/running/version report |
-| `plan_agentic` | MUTATE | NL → ECMAScript via AI sampling (MCP only, needs QCAD Pro) |
-| `plan_transpile` | MUTATE | AutoLISP → QCAD ECMAScript translation (MCP only, needs QCAD Pro) |
-| `plan_generate` | MUTATE | Floor-plan DXF from a text brief via local LLM |
-| `plan_stack` | MUTATE | Multi-storey wall extrusion to STL |
-| `plan_obj` / `plan_glb` | MUTATE | Extrusion output → OBJ / GLB (Resonite path) |
-| `plan_drawings` | READ | Drawing-set helpers for multi-sheet DXF |
-| `plan_auto_dimension` | MUTATE | Auto-dimension wall geometry (BIM) |
-| `plan_building_meta` | READ | Building/storey metadata for BIM handoff |
-| `plan_to_ifc_data` | READ | Wall data as IFC-shaped JSON |
-| `qcad_help` | READ | Live help catalog: tools, REST routes, config |
-| `qcad_shutdown` | READ | Orderly server shutdown (confirm=true) |
+| `plan` | READ/MUTATE | Core ezdxf ops: `info`, `to_svg`, `extrude`, `stack`, `obj`, `glb`, `drawings`, `export`, `analyse`, `create`, `depot` |
+| `plan_edit` | MUTATE | `convert` (DWG↔DXF via QCAD Pro), `modify` (layers/entities) |
+| `plan_annotate` | READ/MUTATE | `dimension`, `measure`, `text`, `hatch`, `block_insert`, `array`, `wall_data`, `beam_analysis` |
+| `plan_pro` | MUTATE | QCAD Pro: `script`, `render`, `exec` (ECMAScript) |
+| `plan_library` | READ/MUTATE | `blocks`, `blocks_download`, `scripts_search`, `scripts_download` |
+| `plan_ai` | MUTATE | `generate` (NL floor plan), `agentic` (NL workflow), `transpile` (AutoLISP), `sampling` (host LLM reason) |
+| `plan_bim` | READ/MUTATE | `auto_dimension`, `building_meta`, `to_ifc_data` (BIM handoff) |
+| `qcad` | READ | `status` (QCAD Pro install), `help` (live catalog), `shutdown` (orderly exit) |
+| `show_qcad_status_card` | READ | Prefab card: QCAD Pro status |
+| `show_depot_card` | READ | Prefab card: depot files |
+| `show_beam_analysis_card` | READ | Prefab card: beam FEA results |
+| `show_building_meta_card` | READ | Prefab card: building metadata |
 
 ## Fleet Crossconnects (Companions)
 
@@ -103,7 +82,11 @@ All CAD files are stored in a persistent depot at `%LOCALAPPDATA%\qcad-mcp\depot
 | Route | Page | Description |
 |-------|------|-------------|
 | `/` | Dashboard | Hero banner, QCAD Pro status panel, depot stats, ezdxf version |
-| `/demo` | AI CAD Demo | NL → floor plan → SVG → 3D STL. Baroque church, mob compound, art museum presets |
+| `/demo` | AI CAD Demo | NL → floor plan → SVG → 3D STL. Preset cards, pipeline stepper, tabbed results |
+| `/chat` | Chat | Streaming LLM chat, skill-first, 6 personalities, history, export |
+| `/inbox` | Inbox | New-file review queue with inline preview and Viewer links |
+| `/tools` | Tools | Portmanteau catalog with op chips + Playground deep-links |
+| `/skills` | Skills | Skill browser (same files the Chat uses as system prompt) |
 | `/depot` | Depot | Full CRUD file browser with SVG preview, create DXF wizard, upload, rename, delete |
 | `/viewer` | Viewer | DXF upload + SVG preview with per-layer toggle |
 | `/extrude` | Extrude | DXF → STL with wall height/thickness/wall-layer controls |
@@ -124,7 +107,7 @@ All CAD files are stored in a persistent depot at `%LOCALAPPDATA%\qcad-mcp\depot
 ## Quick Start
 
 ```powershell
-just bootstrap   # uv sync + npm install
+just bootstrap   # uv sync + bun install
 start.ps1        # kills zombies, starts backend + frontend, opens browser
 ```
 
@@ -170,9 +153,9 @@ Book/magazine page → scanner (300-600 DPI)          inkscape-mcp
                          ↓                          (Trace Bitmap)
                     Potrace / Inkscape                    ↓
                          ↓                          QCAD MCP
-                    Raw vector DXF                    (plan_modify)
+                    Raw vector DXF                    (plan_edit(op="modify"))
                          ↓
-                    Clean up in QCAD / plan_modify
+                    Clean up in QCAD / plan_edit(op="modify")
 ```
 
 | Step | Tool | What it does |
@@ -180,13 +163,13 @@ Book/magazine page → scanner (300-600 DPI)          inkscape-mcp
 | Scan | Any scanner | 300-600 DPI, grayscale or B&W, save as PNG/TIFF |
 | Vectorize | **inkscape-mcp** `trace_bitmap()` or potrace CLI | Converts raster lines to SVG paths |
 | Convert | SVG → DXF (via potrace or ezdxf) | Opens in any CAD program |
-| Clean | **qcad-mcp** `plan_modify` | Merge short segments, delete stray marks, re-layer, re-dimension |
+| Clean | **qcad-mcp** `plan_edit(op="modify")` | Merge short segments, delete stray marks, re-layer, re-dimension |
 
 Two approaches:
 1. **inkscape-mcp** route — send the scanned PNG to inkscape-mcp's `trace_bitmap()` tool, get back SVG with proper path geometry. The SVG imports cleanly into QCAD as workable entities.
 2. **potrace in qcad-mcp** — add a `plan_raster_to_dxf(file_name)` tool that wraps potrace + ezdxf. Self-contained, no external server needed.
 
-Either way, the result goes through `plan_modify` for cleanup (delete noise, merge wall segments, re-assign layers, re-add dimensions). The baroque church preset in the Demo page proves the parametric geometry works — scanning would let you capture *actual* existing buildings.
+Either way, the result goes through `plan_edit(op="modify")` for cleanup (delete noise, merge wall segments, re-assign layers, re-add dimensions). The baroque church preset in the Demo page proves the parametric geometry works — scanning would let you capture *actual* existing buildings.
 
 ## QCAD Pro Pricing — €50? Really?
 
@@ -219,10 +202,10 @@ RibbonSoft is a Swiss **GmbH** (limited company) based in Sarnen, not retirees. 
 
 ## Quality Stack
 
-- **Python**: [Ruff](https://astral.sh/ruff) linter + format, [Pyright](https://microsoft.github.io/pyright/) typecheck — `src/` + `run_server.py`
-- **Frontend**: [Biome](https://biomejs.dev/) + `tsc --noEmit` — 18 TypeScript pages
+- **Python**: [Ruff](https://astral.sh/ruff) linter + format, [Pyright](https://microsoft.github.io/pyright/) typecheck (0 errors) — `src/` + `run_server.py`
+- **Frontend**: [Biome](https://biomejs.dev/) + `tsc --noEmit` + [bun](https://bun.sh/) lockfile — 22 TypeScript pages
 - **Protocol**: FastMCP 3.4 (stdio + HTTP `/mcp`) + 40 REST routes
-- **Tools**: 42 MCP tools with READ_ONLY/MUTATING annotations
+- **Tools**: 12 MCP tools (8 portmanteaus + 4 Prefab cards) with READ_ONLY/MUTATING annotations
 - **Automation**: [Justfile](./justfile) recipes for all fleet operations
 - **Tests**: pytest (78+) + Playwright e2e specs
 

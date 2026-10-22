@@ -131,7 +131,7 @@ qcad-mcp plan_extrude → STL
 |------|-------|
 | **Repo** | `D:\Dev\repos\qcad-mcp` |
 | **Ports** | Backend 11966, Frontend 11967 |
-| **Version** | 0.3.0 |
+| **Version** | 0.5.0 |
 | **Python engine** | `ezdxf` (MIT, free) |
 | **Pro engine** | QCAD Pro 3.x (~€42, for ECMAScript bridge + DWG) |
 | **Linting** | Ruff (Python), Biome (TSX), tsc (TypeScript) |

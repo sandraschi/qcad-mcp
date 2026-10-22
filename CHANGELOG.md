@@ -2,6 +2,35 @@
 
 All notable changes to the QCAD MCP server and webapp.
 
+## [0.5.0] — 2026-10-22 deferred sweep + demo overhaul
+
+BREAKING: 42 discrete MCP tools consolidated into 8 portmanteau tools
+(`plan`, `plan_edit`, `plan_annotate`, `plan_pro`, `plan_library`, `plan_ai`,
+`plan_bim`, `qcad`) + 4 Prefab cards = 12 total. Old names survive only as
+webapp-internal aliases. Update saved tool calls: `plan_info(f)` →
+`plan(op="info", f)`, etc. Full map in `docs/TOOLS.md`.
+
+### Added
+- 4 catch-them-all pages: Chat (streaming SSE, skill-first, 6 personalities,
+  localStorage history), Skills (skill browser), Tools (portmanteau catalog
+  with op chips + Playground deep-links), Inbox (new-file review queue).
+- `POST /api/llm/chat/stream` (SSE, OpenAI-style chunks) + `GET /api/tools`
+  (tool catalog) + `modified` timestamps on `GET /api/v1/files`.
+- Zustand global LLM store (`webapp/src/store/llm.ts`): providers, models,
+  VRAM residents, GPU detection shared by Settings/Chat/FloatingChat.
+- `psutil` declared dependency (diagnostics CPU/mem/disk are real numbers now).
+- `src/qcad_mcp/ezdxf_compat.py`: typed bindings for ezdxf lazy exports.
+
+### Fixed
+- Pyright gate green: 100 → 0 errors (prefab_ui constructor composition,
+  ezdxf compat shim, lisp value narrowing, httpx QueryParams→urllib,
+  `qcad_pro.parse_marker`, genuinely unbound vars). CI pyright now blocking.
+- Webapp migrated npm → bun (`bun.lock`, CI `bun install --frozen-lockfile`).
+- Font/contrast sweep: no `text-xs` outside `<pre>`, no slate-400/500 body text.
+- Demo overhaul: hero with LLM chip, preset cards with blurbs/dims, pipeline
+  stepper, tabbed results (2D/3D/Drawings/Storeys). Pipeline presets match.
+- `just bootstrap` installs the pre-commit hook; `start.bat` forwards `%*`.
+
 ## [Unreleased] — 2026-10-09 assfix
 
 ### Added

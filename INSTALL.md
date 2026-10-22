@@ -53,8 +53,8 @@ If you prefer not to use `just`:
 4. (optional) Start the frontend:
    ```powershell
    cd webapp
-   npm install
-   npm run dev
+   bun install
+   bun run dev
    ```
 
 5. Open `http://localhost:11966` or the frontend URL.
