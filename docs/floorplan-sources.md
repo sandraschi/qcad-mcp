@@ -37,7 +37,7 @@ Wikimedia Commons has thousands of historic floorplans — palaces, cathedrals, 
 | **Taj Mahal** | 17th c. | Symmetrical Mughal garden tomb with domed central hall. |
 | **Gothic cathedrals** (Notre Dame, Reims, Amiens) | 12th-14th c. | Cruciform plan, nave/aisles/transept/apse, radiating chapels. |
 
-These are ideal candidates for the raster → DXF pipeline: scan the Wikimedia line drawing, trace with potrace/inkscape-mcp, clean with plan_modify.
+These are ideal candidates for the raster → DXF pipeline: scan the Wikimedia line drawing, trace with potrace/inkscape-mcp, clean with plan_edit(op="modify").
 
 ## Raster → DXF Pipeline
 
@@ -50,7 +50,7 @@ Vectorize: inkscape-mcp trace_bitmap() or potrace
        ↓
 Convert SVG → DXF (ezdxf or Inkscape export)
        ↓
-Clean: qcad-mcp plan_modify (merge, re-layer, re-dimension)
+Clean: qcad-mcp plan_edit(op="modify") (merge, re-layer, re-dimension)
 ```
 
 The vectorized result is noisy — text is garbled, lines have gaps, dimensions are rough. But the wall geometry is usable after cleanup. For a scanned Versailles plan, you'd get the basic room layout within minutes, then spend an hour cleaning up layers and re-annotating rooms.

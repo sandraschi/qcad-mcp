@@ -19,13 +19,13 @@ The core engine is `ezdxf`, a pure-Python library (no binary dependencies). It r
 QCAD Pro adds the ECMAScript bridge and all annotation/measurement/dimension tools. **10 of the 20 MCP tools require it.** Without QCAD Pro, the ezdxf tier still works for parsing, SVG preview, STL extrusion, and room analysis.
 
 With QCAD Pro, the AI agent can:
-- **Write and execute CAD scripts** via `plan_script` / `plan_exec` (ECMAScript, LLM-friendly)
-- **Generate CAD from natural language** via `plan_agentic`
-- **Render native SVG/PDF/BMP** with correct hatches, fonts, lineweights via `plan_render`
-- **Add dimensions, text, hatches** via `plan_dimension`, `plan_text`, `plan_hatch`
-- **Measure distances/angles/areas** via `plan_measure`
-- **Convert DWG↔DXF** via `plan_convert`
-- **Modify entities and layers** via `plan_modify` (enhanced)
+- **Write and execute CAD scripts** via `plan_pro(op="script")` / `plan_pro(op="exec")` (ECMAScript, LLM-friendly)
+- **Generate CAD from natural language** via `plan_ai(op="agentic")`
+- **Render native SVG/PDF/BMP** with correct hatches, fonts, lineweights via `plan_pro(op="render")`
+- **Add dimensions, text, hatches** via `plan_annotate(op="dimension")`, `plan_annotate(op="text")`, `plan_annotate(op="hatch")`
+- **Measure distances/angles/areas** via `plan_annotate(op="measure")`
+- **Convert DWG↔DXF** via `plan_edit(op="convert")`
+- **Modify entities and layers** via `plan_edit(op="modify")` (enhanced)
 
 **No script library needed — the LLM writes ECMAScript on-demand.** Unlike AutoCAD's 40-year AutoLISP ecosystem, QCAD Pro doesn't depend on pre-existing scripts. The AI generates code fresh for each task.
 

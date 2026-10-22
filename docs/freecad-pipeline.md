@@ -8,12 +8,12 @@ Cross-repo automated CAD pipeline: natural language to 2D floor plans to 3D BIM 
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        qcad-mcp (port 11966)                       │
 │                                                                     │
-│  plan_agentic("3-story apartment...")  ──→ DXF floor plan          │
-│  plan_to_svg                           ──→ SVG 2D preview           │
-│  plan_wall_data                        ──→ wall JSON [{x1,y1,...}] │
-│  plan_extrude                          ──→ STL wall extrusion      │
-│  plan_measure                          ──→ room areas, dimensions  │
-│  plan_dimension / plan_text / plan_hatch → annotated drawing       │
+│  plan_ai(op="agentic", ...)         ──→ DXF floor plan          │
+│  plan(op="to_svg")                   ──→ SVG 2D preview           │
+│  plan_annotate(op="wall_data")        ──→ wall JSON [{x1,y1,...}] │
+│  plan(op="extrude")                  ──→ STL wall extrusion      │
+│  plan_annotate(op="measure")         ──→ room areas, dimensions  │
+│  plan_annotate(op="dimension"|"text"|"hatch") → annotated drawing │
 └────────────────────────────────────────────────────────────────────┘
                 │                               │
                 ▼                               ▼
@@ -37,7 +37,7 @@ Run this from the Webapp `/demo` page or via any MCP client:
 ### Step 1: Floor Plan (qcad-mcp)
 ```python
 # Generate a floor plan from natural language
-await plan_agentic(goal="3-story building, 2 apartments per floor, "
+await plan_ai(op="agentic", goal="3-story building, 2 apartments per floor, "
     "each with living room, bedroom, kitchen, bathroom, balcony. "
     "Rooftop garden. Lift shaft from ground to roof.")
 # → outputs: building_agentic.dxf (or demo_123456.dxf from DemoPage)
@@ -46,20 +46,20 @@ await plan_agentic(goal="3-story building, 2 apartments per floor, "
 ### Step 2: 2D Preview (qcad-mcp)
 ```python
 # Preview as SVG in browser
-await plan_to_svg(file_name="demo_123456.dxf", output_name="preview.svg")
+await plan(op="to_svg", file_name="demo_123456.dxf", output_name="preview.svg")
 ```
 
 ### Step 3: Extract Wall Data (qcad-mcp)
 ```python
 # Get wall coordinates for freecad-mcp BIM tools
-await plan_wall_data(file_name="demo_123456.dxf")
+await plan_annotate(op="wall_data", file_name="demo_123456.dxf")
 # Returns per-wall JSON: {x1,y1,x2,y2,length_mm,angle_deg,layer}
 ```
 
 ### Step 4: Extrude to 3D (qcad-mcp)
 ```python
 # Generate 3D STL mesh for visualization
-await plan_extrude(file_name="demo_123456.dxf", wall_height=3.0,
+await plan(op="extrude", file_name="demo_123456.dxf", wall_height=3.0,
     output_name="walls.stl")
 # The DemoPage shows this in an interactive Three.js viewer
 ```
@@ -72,7 +72,7 @@ await mesh_to_solid(file_name="walls.stl", output_name="walls_solid.fcstd")
 
 ### Step 6: Create BIM Elements (freecad-mcp)
 ```python
-# Create parametric architectural walls from plan_wall_data
+# Create parametric architectural walls from plan_annotate(op="wall_data")
 # Each wall segment from step 3 becomes a call:
 await bim_create_wall(length_mm=5000, width_mm=240, height_mm=2800,
     placement_x=0, placement_y=0, rotation_z=0,
@@ -111,8 +111,8 @@ Or import the IFC from step 7 into any BIM software.
 
 | Path | When to Use | Tools |
 |------|-------------|-------|
-| **STL → mesh_to_solid** | Already have an STL (from plan_extrude or elsewhere) | `mesh_to_solid` → then any BIM creation |
-| **Wall data → bim_create_wall** | Starting from a DXF floor plan, want parametric BIM walls | `plan_wall_data` + `bim_create_wall` per segment |
+| **STL → mesh_to_solid** | Already have an STL (from plan(op="extrude") or elsewhere) | `mesh_to_solid` → then any BIM creation |
+| **Wall data → bim_create_wall** | Starting from a DXF floor plan, want parametric BIM walls | `plan_annotate(op="wall_data")` + `bim_create_wall` per segment |
 
 ## Fleet Integration
 
@@ -126,15 +126,15 @@ Or import the IFC from step 7 into any BIM software.
 
 ## Tool Summary
 
-### qcad-mcp (26 tools)
+### qcad-mcp (8 portmanteaus + cards)
 | Tool | Output | Feeds Into |
 |------|--------|------------|
-| `plan_agentic` | DXF | plan_to_svg, plan_extrude, plan_wall_data |
-| `plan_to_svg` | SVG | Browser preview |
-| `plan_extrude` | STL | mesh_to_solid, Resonite, Unity3D |
-| `plan_wall_data` | JSON wall segments | bim_create_wall |
-| `plan_measure` | room areas | — |
-| `plan_dimension` / `plan_text` / `plan_hatch` | annotated DXF | — |
+| `plan_ai(op="agentic")` | DXF | plan(op="to_svg"), plan(op="extrude"), wall data |
+| `plan(op="to_svg")` | SVG | Browser preview |
+| `plan(op="extrude")` | STL | mesh_to_solid, Resonite, Unity3D |
+| `plan_annotate(op="wall_data")` | JSON wall segments | bim_create_wall |
+| `plan_annotate(op="measure")` | room areas | — |
+| `plan_annotate(op="dimension"|"text"|"hatch")` | annotated DXF | — |
 
 ### freecad-mcp (21 tools)
 | Tool | Input | Output |

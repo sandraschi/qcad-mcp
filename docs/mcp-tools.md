@@ -1,315 +1,119 @@
-# MCP Tools
+# MCP Tools (v0.5.0 — portmanteau surface)
 
-All 22 tools registered via `@mcp.tool()` across 7 tool modules. Versioned at `0.3.0`.
+12 tools registered: 8 portmanteaus (each with an `op` discriminator) + 4
+read-only Prefab cards. Versioned at `0.5.0`. Per-op implementations live in
+`src/qcad_mcp/tools/{core,modify,annotation,qcad,script,block,agentic,bim,meta}_tools.py`;
+`src/qcad_mcp/tools/portmanteau.py` is the registered surface.
 
-| Tool | Annotation | Description |
-|:---|:---|:---|
-| `plan_info` | READ_ONLY | DXF metadata: layers, entity counts, bounding box |
-| `plan_to_svg` | MUTATING | DXF → SVG preview with layer filtering (ezdxf) |
-| `plan_extrude` | MUTATING | DXF walls → 3D STL mesh |
-| `plan_export` | MUTATING | DXF → SVG/PNG/PDF (QCAD Pro preferred, ezdxf fallback) |
-| `plan_analyse` | READ_ONLY | Room detection, area, door/window identification |
-| `plan_create` | MUTATING | Create DXF from primitives |
-| `plan_depot` | READ_ONLY | List files in the depot |
-| `plan_convert` | MUTATING | DWG↔DXF conversion via QCAD Pro |
-| `plan_modify` | MUTATING | Modify entities/layers (delete, offset, rename, freeze, etc.) |
-| `plan_blocks` | READ_ONLY | Search CAD block libraries |
-| `plan_blocks_download` | MUTATING | Download CAD blocks to depot |
-| `qcad_status` | READ_ONLY | QCAD Pro install/version/running status |
-| `plan_script` | MUTATING | Execute arbitrary ECMAScript against DXF |
-| `plan_render` | MUTATING | High-fidelity SVG/PDF/BMP via QCAD Pro engine |
-| `plan_exec` | MUTATING | Quick ECMAScript execution, no file I/O |
-| `plan_dimension` | MUTATING | Add aligned/radial/angular dimensions |
-| `plan_agentic` | MUTATING | NL goal → ECMAScript → executed |
-| `plan_measure` | READ_ONLY | Per-entity distance/angle/area measurement |
-| `plan_text` | MUTATING | Text annotations with height/alignment/rotation |
-| `plan_hatch` | MUTATING | Hatch/fill patterns to closed regions |
-
----
-
-## plan_info
-
-Read a DXF file and return metadata. Call this first to understand what's in the drawing.
+Call shape (MCP or REST `/api/v1/control/tool`):
 
 ```python
-await plan_info(file_name="floorplan.dxf")
-# {"success": true, "data": {
-#   "layers": ["Walls", "Windows", "Furniture"],
-#   "entity_counts": {"LINE": 152, "LWPOLYLINE": 34, "INSERT": 12},
-#   "bbox": {"xmin": 0, "ymin": 0, "xmax": 15000, "ymax": 12000},
-#   "blocks": ["DOOR", "WINDOW", "SINK"],
-#   "dxf_version": "AC1027"
-# }}
+await plan(op="info", file_name="floorplan.dxf")
+# {"success": True, "data": {"layers": [...], "entity_counts": {...}, ...}}
 ```
 
-Returns: layers, entity counts by type, bounding box in drawing units, block names, DXF version.
-
----
-
-## plan_to_svg
-
-Render a DXF as an SVG for browser preview. Supports optional layer filtering.
+## plan — core ezdxf (no QCAD Pro needed)
 
 ```python
-# All layers
-await plan_to_svg(file_name="floorplan.dxf")
-# {"success": true, "output": "floorplan.svg", "data": {"layers": 5, "entities": 246}}
+await plan(op="depot")  # list depot files + metadata
+await plan(op="info", file_name="floorplan.dxf")
+# {"success": true, "data": {"layers": [...], "entity_counts": {"LINE": 152},
+#  "bbox": {...}, "blocks": [...], "dxf_version": "AC1027"}}
 
-# Specific layers only
-await plan_to_svg(file_name="floorplan.dxf", layers=["Walls", "Windows"], background="#ffffff")
+await plan(op="to_svg", file_name="floorplan.dxf", svg_layers=["Walls"], background="#ffffff")
+# {"success": true, "output": "floorplan.svg", ...}
+
+await plan(op="extrude", file_name="floorplan.dxf", wall_height=3.0, wall_thickness=0.3)
+# {"success": true, "output": "floorplan.stl", "data": {"vertices": N, ...}}
+
+await plan(op="export", file_name="floorplan.dxf", format="pdf", output_name="plan.pdf")
+await plan(op="analyse", file_name="floorplan.dxf")
+# {"success": true, "data": {"rooms": [...], "doors_windows": [...]}}
+
+await plan(op="create", filename="room.dxf", entities=[
+    {"type": "rect", "layer": "Walls", "x": 0, "y": 0, "w": 5000, "h": 4000},
+    {"type": "text", "layer": "Labels", "x": 100, "y": 100, "content": "Kitchen", "height": 250},
+])
+
+await plan(op="stack", files=[
+    {"file_name": "tower_L0.dxf", "base_elevation": 0},
+    {"file_name": "tower_L1.dxf", "base_elevation": 3.5},
+])
+
+await plan(op="obj", file_name="floorplan.dxf")   # textured OBJ + MTL
+await plan(op="glb", file_name="floorplan.dxf")   # GLB for Resonite/game import
+await plan(op="drawings", file_name="floorplan.dxf")  # elevations/section/iso/roof set
 ```
 
-Returns SVG file path and entity/layer counts. The SVG is served via `GET /api/v1/download/{filename}`.
-
----
-
-## plan_extrude
-
-The killer feature — extrude wall entities to 3D and export as STL.
+## plan_edit — convert + modify
 
 ```python
-await plan_extrude(
-    file_name="floorplan.dxf",
-    wall_height=3.0,       # metres
-    wall_thickness=0.3,    # metres
-    wall_layers=["Walls"],  # layer names to treat as walls
-)
-# {"success": true, "output": "floorplan.stl",
-#  "data": {"walls": 42, "vertices": 1008, "faces": 2016, "size_kb": 156.2}}
+await plan_edit(op="convert", file_name="plan.dwg", output_name="plan.dxf")
+await plan_edit(op="modify", file_name="plan.dxf", operations=[
+    {"op": "layer-freeze", "layer_filter": "Furniture"},
+    {"op": "delete", "type_filter": "TEXT", "layer_filter": "Draft"},
+])
+# ops: delete, offset, layer-set-color, layer-rename, layer-freeze/thaw,
+#      layer-lock/unlock, merge-layers
 ```
 
-Finds LINE and LWPOLYLINE entities on specified layers, offsets them by wall thickness, extrudes to wall height, and triangulates into an STL mesh.
-
----
-
-## plan_export
-
-Export DXF to different output formats.
+## plan_annotate — dimensions, text, hatches, blocks, arrays, BIM data
 
 ```python
-# SVG (uses ezdxf + matplotlib)
-await plan_export(file_name="floorplan.dxf", format="svg")
-
-# PNG
-await plan_export(file_name="floorplan.dxf", format="png", dpi=300)
-
-# PDF (uses QCAD Pro CLI if available, else matplotlib fallback)
-await plan_export(file_name="floorplan.dxf", format="pdf")
+await plan_annotate(op="measure", file_name="floorplan.dxf")
+await plan_annotate(op="wall_data", file_name="floorplan.dxf")  # BIM JSON for freecad-mcp
+await plan_annotate(op="beam_analysis", beams=[
+    {"x1": 0, "y1": 0, "x2": 4000, "y2": 0, "height": 300, "width": 200},
+])
+await plan_annotate(op="text", file_name="plan.dxf",
+    texts=[{"text": "Kitchen", "x": 1000, "y": 2000, "height": 250}])
+await plan_annotate(op="dimension", file_name="plan.dxf",
+    dimensions=[{"type": "aligned", "x1": 0, "y1": 0, "x2": 5000, "y2": 0, "xd": 0, "yd": -500}])
+await plan_annotate(op="block_insert", file_name="plan.dxf",
+    inserts=[{"block_name": "DOOR", "x": 1000, "y": 0}])
 ```
 
-When QCAD Pro is installed (via `QCAD_PRO_PATH`), PDF export uses the native QCAD renderer for higher fidelity.
-
----
-
-## plan_analyse
-
-Detect rooms, calculate areas, and identify doors/windows.
+## plan_bim — BIM handoff
 
 ```python
-await plan_analyse(file_name="floorplan.dxf")
-# {"success": true, "data": {
-#   "wall_length_m": 45.2,
-#   "rooms": [
-#     {"layer": "Walls", "type": "polyline", "area_m2": 24.5, "perimeter_m": 18.2, "vertices": 4}
-#   ],
-#   "doors_windows": [
-#     {"block": "DOOR", "layer": "Doors", "position": {"x": 5000, "y": 3000}}
-#   ]
-# }}
+await plan_bim(op="auto_dimension", file_name="floorplan.dxf", offset=400.0)
+await plan_bim(op="building_meta", file_name="tower_L0.dxf")
+await plan_bim(op="to_ifc_data", file_name="floorplan.dxf")
 ```
 
-Room detection finds closed LWPOLYLINE entities (wall loops) and calculates their area and perimeter. Doors and windows are identified by block INSERT entities with matching name patterns.
-
----
-
-## plan_create
-
-Create a new DXF from scratch using geometric primitives.
+## plan_pro — QCAD Pro (needs install; check qcad first)
 
 ```python
-await plan_create(
-    output_name="new_plan.dxf",
-    entities=[
-        {"type": "rect", "layer": "Walls", "x1": 0, "y1": 0, "x2": 10000, "y2": 8000},
-        {"type": "line", "layer": "Walls", "x1": 5000, "y1": 0, "x2": 5000, "y2": 8000},
-        {"type": "circle", "layer": "Columns", "cx": 2500, "cy": 4000, "r": 200},
-        {"type": "text", "layer": "Labels", "x": 100, "y": 100, "text": "Living Room", "height": 500},
-    ],
-)
-# {"success": true, "filename": "new_plan.dxf", "entities": 4}
+await qcad(op="status")
+await plan_pro(op="exec", code="print(transientEntityCount());")
+await plan_pro(op="render", file_name="floorplan.dxf", format="pdf", output_name="proof.pdf")
+await plan_pro(op="script", code="/* full ECMAScript, document + di pre-bound */")
 ```
 
-Supports: `line`, `rect`, `circle`, `text`, `polyline`.
-
----
-
-## plan_depot
-
-List all DXF files in the depot with metadata.
+## plan_library — blocks + scripts
 
 ```python
-await plan_depot()
-# {"success": true, "files": [
-#   {"name": "floorplan.dxf", "size_kb": 124.5, "meta": {"title": "Office Layout", "author": "Architect"}}
-# ]}
+await plan_library(op="blocks", query="door", category="doors-windows", limit=5)
+await plan_library(op="blocks_download", title="Door", source="cadblocksfree", url="https://…")
+await plan_library(op="scripts_search", query="hatch")
+await plan_library(op="scripts_download", title="hatch", source="gallery", url="gallery://hatch")
 ```
 
-Each file may have a JSON metadata sidecar (`.meta.json`) created or updated via the depot REST API.
-
----
-
-## QCAD Pro Tools (requires QCAD Pro)
-
-These tools require QCAD Pro 3.x installed and reachable. Check availability with `qcad_status` first.
-
-### qcad_status
-
-Check QCAD Pro installation and running state.
+## plan_ai — natural language + transpilation
 
 ```python
-await qcad_status()
-# {"success": true, "data": {
-#   "installed": true,
-#   "running": true,
-#   "version": "3.32.9",
-#   "install_dir": "C:\\Program Files\\QCAD"
-# }}
+await plan_ai(op="generate", goal="L-shaped pottery workshop 12m x 9m with a darkroom")
+await plan_ai(op="agentic", goal="Add a 1m door to the south wall", file_name="floorplan.dxf")
+await plan_ai(op="transpile", lisp_code='(command "_.LINE" (quote (0 0)) (quote (100 0)) "")')
+await plan_ai(op="sampling", goal="What wall height suits a residential plan?")
 ```
 
-### plan_script
-
-Execute arbitrary ECMAScript against a DXF document. Full access to QCAD API.
+## qcad — server + Prefab cards
 
 ```python
-# Create a circle in a new document
-await plan_script(
-    code='''
-var op = new RAddObjectsOperation();
-op.addObject(new RCircleEntity(document, new RCircleData(new RVector(50, 50), 25)));
-op.apply(document);
-''',
-    output_name="circle.dxf"
-)
-# {"success": true, "data": {"entity_count": 1, "layers": ["0"], "errors": []}}
-
-# Modify an existing file
-await plan_script(
-    code='''
-var op = new RModifyObjectsOperation();
-var layer = new RLayer(document, "Annotations", false, false, new RColor("blue"));
-op.addObject(layer);
-op.apply(document);
-''',
-    file_name="floorplan.dxf",
-    output_name="floorplan_annotated.dxf"
-)
+await qcad(op="status")            # install/running/version
+await qcad(op="help", topic="extrude")
+await qcad(op="shutdown", confirm=True)
+await show_depot_card()            # + show_qcad_status_card, show_beam_analysis_card,
+                                   #   show_building_meta_card (rich in-chat cards)
 ```
-
-User code has access to `document` (RDocument), `di` (RDocumentInterface), and the full QCAD + Qt ECMAScript API.
-
-### plan_render
-
-High-fidelity DXF/DWG rendering via QCAD Pro's native engine.
-
-```python
-await plan_render(file_name="floorplan.dxf", format="svg")
-# {"success": true, "output": "floorplan.svg", "data": {"size_kb": 45.2}}
-
-await plan_render(file_name="floorplan.dxf", format="pdf", output_name="A1_export.pdf")
-# {"success": true, "output": "A1_export.pdf", "data": {"size_kb": 128.7}}
-```
-
-Supports SVG, PDF, and BMP. Renders hatches, TrueType fonts, lineweights, and dimensions correctly — superior to the ezdxf+matplotlib fallback.
-
-### plan_exec
-
-Quick ECMAScript execution in a temporary QCAD Pro session — no file I/O overhead.
-
-```python
-await plan_exec(code='''
-var op = new RAddObjectsOperation();
-op.addObject(new RCircleEntity(document, new RCircleData(new RVector(10,10), 5)));
-op.apply(document);
-''')
-# {"success": true, "data": {"entity_count": 1, "layers": ["0"], "errors": []}}
-
-# Load a depot file and query
-await plan_exec(code='''
-var ents = document.queryAllEntities();
-print("Found " + ents.length + " entities");
-''', file_name="floorplan.dxf")
-```
-
-Use for quick queries, prototyping, or lightweight modifications. For operations that need output saved, use `plan_script` instead.
-
-### plan_dimension
-
-Add dimension entities to a drawing — aligned, radial, diametric, angular, rotated.
-
-```python
-await plan_dimension(file_name="floorplan.dxf", dimensions=[
-    {"type": "aligned", "x1": 0, "y1": 0, "x2": 5000, "y2": 0, "xd": 2500, "yd": -500},
-    {"type": "radial", "cx": 2500, "cy": 2000, "px": 2800, "py": 2000},
-    {"type": "angular", "cx": 0, "cy": 0, "x1": 5000, "y1": 0, "x2": 0, "y2": 3000, "xd": 2000, "yd": -800},
-], output_name="dimensioned.dxf")
-```
-
-### plan_agentic
-
-Multi-step CAD workflow from a natural language goal. Generates ECMAScript, executes it, returns results.
-
-```python
-await plan_agentic(goal="Create a rectangular floor plan 10m x 8m with 4 equal rooms, add dimensions on all sides")
-# {"success": true, "output": "agentic_output.dxf", "data": {"steps": 1, "entity_count": 12}}
-
-await plan_agentic(goal="Add a 1m door to the south wall of each room", file_name="floorplan.dxf")
-```
-
-Uses AI sampling when available (via `ctx: Context`). Falls back to template-based generation for common patterns (rectangles, circles).
-
-### plan_measure
-
-Precise per-entity measurements via QCAD Pro's geometry engine.
-
-```python
-await plan_measure(file_name="floorplan.dxf")
-# {"success": true, "data": {
-#   "entity_count": 42,
-#   "total_line_length": 15200,
-#   "total_area": 48000000,
-#   "entities": [
-#     {"type": "line", "length": 5000, "angle_deg": 0, "x1": 0, "y1": 0, "x2": 5000, "y2": 0},
-#     {"type": "circle", "radius": 200, "center_x": 2500, "center_y": 2000, "area": 125663}
-#   ]
-# }}
-```
-
-Detects lines, arcs, circles, polylines, splines, text, dimensions, hatches, block refs via `instanceof`.
-
-### plan_text
-
-Add text annotations with full styling control.
-
-```python
-await plan_text(file_name="floorplan.dxf", texts=[
-    {"text": "Living Room", "x": 2500, "y": 3000, "height": 250, "halign": "center"},
-    {"text": "Kitchen", "x": 6000, "y": 2000, "height": 250, "layer": "Labels", "bold": True},
-    {"text": "North", "x": 4000, "y": 7800, "height": 200, "rotation": 90, "halign": "center"},
-], output_name="annotated.dxf")
-```
-
-Supports height, alignment (left/center/right, top/middle/bottom/baseline), rotation (degrees), bold, italic.
-
-### plan_hatch
-
-Add hatch/fill patterns to closed polygon regions.
-
-```python
-await plan_hatch(file_name="floorplan.dxf", hatches=[
-    {"points": [[0,0], [5000,0], [5000,4000], [0,4000]], "pattern": "AR-CONC", "scale": 0.5},
-    {"points": [[1000,1000], [2000,1000], [2000,2000], [1000,2000]], "pattern": "SOLID"},
-    {"points": [[3000,1000], [4000,1000], [3500,2000]], "pattern": "ANSI31", "angle": 45},
-], output_name="hatched.dxf")
-```
-
-Available patterns: ANSI31-38, AR-CONC, AR-HBONE, AR-BRSTD, SOLID, EARTH, GRASS, GRAVEL, LINE.
