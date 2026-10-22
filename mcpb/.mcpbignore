@@ -27,6 +27,7 @@ build/
 *.rej
 
 # Non-MCP components (webapp, native, scripts)
+webapp/
 native/
 web_sota/
 scripts/
