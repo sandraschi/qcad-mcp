@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import StlViewer from "../components/StlViewer";
-import { API_BASE } from "../lib/api";
+import { API_BASE, toolCallBody } from "../lib/api";
 
 type DxfFile = {
 	name: string;
@@ -211,14 +211,13 @@ export default function DepotPage() {
 			const svgR = await fetch(API_BASE + "/api/v1/control/tool", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					tool: "plan_to_svg",
-					arguments: {
+				body: JSON.stringify(
+					toolCallBody("plan_to_svg", {
 						file_name: name,
 						output_name: `_preview_${name}.svg`,
 						background: "#0a0a0c",
-					},
-				}),
+					}),
+				),
 			});
 			const svgJ = await svgR.json();
 			if (svgJ.success) setPreviewUrl(`/api/v1/download/${svgJ.output}?t=${Date.now()}`);
@@ -230,10 +229,7 @@ export default function DepotPage() {
 			const infoR = await fetch(API_BASE + "/api/v1/control/tool", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					tool: "plan_info",
-					arguments: { file_name: name },
-				}),
+				body: JSON.stringify(toolCallBody("plan_info", { file_name: name })),
 			});
 			const infoJ = await infoR.json();
 			if (infoJ.success) setFileInfo(infoJ.data);
@@ -347,10 +343,7 @@ export default function DepotPage() {
 			const r = await fetch(API_BASE + "/api/v1/control/tool", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					tool: "plan_export",
-					arguments: { file_name: selectedFile, format, output_name: outName },
-				}),
+				body: JSON.stringify(toolCallBody("plan_export", { file_name: selectedFile, format, output_name: outName })),
 			});
 			const j = await r.json();
 			if (j.success) window.open(`/api/v1/download/${j.output}`, "_blank");
@@ -375,7 +368,7 @@ export default function DepotPage() {
 	const fileTypeIcon = (name: string) => {
 		const ext = name.split(".").pop()?.toLowerCase();
 		if (ext === "dxf") return <FileText size={16} className="text-amber-400" />;
-		return <FileText size={16} className="text-slate-400" />;
+		return <FileText size={16} className="text-slate-300" />;
 	};
 
 	return (
@@ -389,7 +382,7 @@ export default function DepotPage() {
 					<button
 						type="button"
 						onClick={loadFiles}
-						className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/10 text-sm text-slate-400 hover:text-white hover:bg-white/10"
+						className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/10 text-sm text-slate-300 hover:text-white hover:bg-white/10"
 					>
 						<RefreshCw size={14} /> Refresh
 					</button>
@@ -444,7 +437,7 @@ export default function DepotPage() {
 						<List size={14} />
 					</button>
 				</div>
-				<span className="text-sm text-slate-400">
+				<span className="text-sm text-slate-300">
 					{files.length} file{files.length !== 1 ? "s" : ""}
 				</span>
 			</div>
@@ -455,7 +448,7 @@ export default function DepotPage() {
 					<Loader2 className="animate-spin text-amber-400" size={32} />
 				</div>
 			) : filtered.length === 0 ? (
-				<div className="text-center py-20 text-slate-400 space-y-3">
+				<div className="text-center py-20 text-slate-300 space-y-3">
 					<FileText size={48} className="mx-auto opacity-30" />
 					<p className="text-lg">{files.length === 0 ? "Depot is empty" : "No files match your search"}</p>
 					<p className="text-sm">
@@ -508,7 +501,7 @@ export default function DepotPage() {
 											setRenameTarget(f.name);
 											setRenameValue(f.name.replace(/\.dxf$/i, ""));
 										}}
-										className="text-slate-400 hover:text-slate-300 p-0.5"
+										className="text-slate-300 hover:text-slate-300 p-0.5"
 									>
 										<Pencil size={12} />
 									</button>
@@ -518,14 +511,14 @@ export default function DepotPage() {
 											e.stopPropagation();
 											setDeleteTarget(f.name);
 										}}
-										className="text-slate-400 hover:text-red-400 p-0.5"
+										className="text-slate-300 hover:text-red-400 p-0.5"
 									>
 										<Trash2 size={12} />
 									</button>
 								</div>
 							</div>
 							<p className="text-sm font-medium text-slate-200 truncate">{f.name}</p>
-							<div className="flex items-center justify-between text-sm text-slate-400">
+							<div className="flex items-center justify-between text-sm text-slate-300">
 								<span>{f.size_kb} KB</span>
 								<span>{timeAgo(f.modified)}</span>
 							</div>
@@ -584,7 +577,7 @@ export default function DepotPage() {
 													setRenameTarget(f.name);
 													setRenameValue(f.name.replace(/\.dxf$/i, ""));
 												}}
-												className="p-1 text-slate-400 hover:text-slate-300 rounded"
+												className="p-1 text-slate-300 hover:text-slate-300 rounded"
 											>
 												<Pencil size={13} />
 											</button>
@@ -594,7 +587,7 @@ export default function DepotPage() {
 													e.stopPropagation();
 													setDeleteTarget(f.name);
 												}}
-												className="p-1 text-slate-400 hover:text-red-400 rounded"
+												className="p-1 text-slate-300 hover:text-red-400 rounded"
 											>
 												<Trash2 size={13} />
 											</button>
@@ -602,7 +595,7 @@ export default function DepotPage() {
 												href={`/api/v1/depot/${encodeURIComponent(f.name)}`}
 												download
 												onClick={(e) => e.stopPropagation()}
-												className="p-1 text-slate-400 hover:text-emerald-400 rounded"
+												className="p-1 text-slate-300 hover:text-emerald-400 rounded"
 											>
 												<Download size={13} />
 											</a>
@@ -641,14 +634,14 @@ export default function DepotPage() {
 									<button
 										type="button"
 										onClick={() => handleExport("svg")}
-										className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-white/10 text-sm text-slate-400 hover:text-white"
+										className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-white/10 text-sm text-slate-300 hover:text-white"
 									>
 										Export SVG
 									</button>
 									<button
 										type="button"
 										onClick={() => handleExport("pdf")}
-										className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-white/10 text-sm text-slate-400 hover:text-white"
+										className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-white/10 text-sm text-slate-300 hover:text-white"
 									>
 										Export PDF
 									</button>
@@ -664,7 +657,7 @@ export default function DepotPage() {
 							<button
 								type="button"
 								onClick={() => setSelectedFile(null)}
-								className="text-slate-400 hover:text-slate-300 p-1"
+								className="text-slate-300 hover:text-slate-300 p-1"
 							>
 								<X size={14} />
 							</button>
@@ -686,7 +679,7 @@ export default function DepotPage() {
 							) : previewUrl ? (
 								<img src={previewUrl} alt="Preview" className="w-full" />
 							) : (
-								<div className="flex items-center justify-center h-64 text-slate-400 text-sm">
+								<div className="flex items-center justify-center h-64 text-slate-300 text-sm">
 									Preview not available
 								</div>
 							)}
@@ -714,7 +707,7 @@ export default function DepotPage() {
 												<span className="text-slate-300">{formatDate(f.modified)}</span>
 											</div>
 											{f.meta.description && (
-												<div className="text-sm text-slate-400 pt-1 border-t border-white/10">{f.meta.description}</div>
+												<div className="text-sm text-slate-300 pt-1 border-t border-white/10">{f.meta.description}</div>
 											)}
 										</>
 									);
@@ -763,8 +756,8 @@ export default function DepotPage() {
 																					: "#888",
 												}}
 											/>
-											<span className="text-slate-400">{l.name}</span>
-											{l.frozen && <EyeOff size={10} className="text-slate-400" />}
+											<span className="text-slate-300">{l.name}</span>
+											{l.frozen && <EyeOff size={10} className="text-slate-300" />}
 										</div>
 									))}
 								</div>
@@ -777,7 +770,7 @@ export default function DepotPage() {
 										setRenameTarget(selectedFile);
 										setRenameValue(selectedFile.replace(/\.dxf$/i, ""));
 									}}
-									className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-xl border border-white/10 text-sm text-slate-400 hover:text-white"
+									className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-xl border border-white/10 text-sm text-slate-300 hover:text-white"
 								>
 									<Pencil size={12} /> Rename
 								</button>
@@ -812,7 +805,7 @@ export default function DepotPage() {
 								<button
 									type="button"
 									onClick={() => setShowCreate(false)}
-									className="text-slate-400 hover:text-slate-300"
+									className="text-slate-300 hover:text-slate-300"
 								>
 									<X size={18} />
 								</button>
@@ -860,7 +853,7 @@ export default function DepotPage() {
 												type="button"
 												key={et}
 												onClick={() => addEntity(et)}
-												className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/10 text-sm text-slate-400 hover:text-white"
+												className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/10 text-sm text-slate-300 hover:text-white"
 												title={`Add ${et}`}
 											>
 												{(() => {
@@ -889,7 +882,7 @@ export default function DepotPage() {
 											<button
 												type="button"
 												onClick={() => removeEntity(idx)}
-												className="text-slate-400 hover:text-red-400"
+												className="text-slate-300 hover:text-red-400"
 											>
 												<X size={12} />
 											</button>
@@ -1084,7 +1077,7 @@ export default function DepotPage() {
 											placeholder="layer"
 											value={ent.layer || ""}
 											onChange={(e) => updateEntity(idx, { layer: e.target.value })}
-											className="w-full bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-sm text-slate-400 outline-none"
+											className="w-full bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-sm text-slate-300 outline-none"
 										/>
 									</div>
 								))}
@@ -1094,7 +1087,7 @@ export default function DepotPage() {
 								<button
 									type="button"
 									onClick={() => setShowCreate(false)}
-									className="flex-1 py-2.5 rounded-xl border border-white/10 text-sm text-slate-400 hover:text-white"
+									className="flex-1 py-2.5 rounded-xl border border-white/10 text-sm text-slate-300 hover:text-white"
 								>
 									Cancel
 								</button>
@@ -1131,12 +1124,12 @@ export default function DepotPage() {
 								placeholder="New filename"
 								className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500/30 mb-4"
 							/>
-							<p className="text-sm text-slate-400 mb-4">.dxf extension will be added automatically if omitted.</p>
+							<p className="text-sm text-slate-300 mb-4">.dxf extension will be added automatically if omitted.</p>
 							<div className="flex gap-3">
 								<button
 									type="button"
 									onClick={() => setRenameTarget(null)}
-									className="flex-1 py-2.5 rounded-xl border border-white/10 text-sm text-slate-400 hover:text-white"
+									className="flex-1 py-2.5 rounded-xl border border-white/10 text-sm text-slate-300 hover:text-white"
 								>
 									Cancel
 								</button>
@@ -1171,7 +1164,7 @@ export default function DepotPage() {
 								</div>
 								<div>
 									<h2 className="text-lg font-bold text-white">Delete File</h2>
-									<p className="text-sm text-slate-400">This action cannot be undone.</p>
+									<p className="text-sm text-slate-300">This action cannot be undone.</p>
 								</div>
 							</div>
 							<p className="text-sm text-slate-300 mb-4">
@@ -1181,7 +1174,7 @@ export default function DepotPage() {
 								<button
 									type="button"
 									onClick={() => setDeleteTarget(null)}
-									className="flex-1 py-2.5 rounded-xl border border-white/10 text-sm text-slate-400 hover:text-white"
+									className="flex-1 py-2.5 rounded-xl border border-white/10 text-sm text-slate-300 hover:text-white"
 								>
 									Cancel
 								</button>

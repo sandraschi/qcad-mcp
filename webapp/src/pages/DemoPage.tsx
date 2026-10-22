@@ -1,7 +1,8 @@
 import { Box, CheckCircle, Download, ExternalLink, Eye, Loader2, Send, Sparkles, Wand2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import StlViewer from "../components/StlViewer";
-import { API_BASE, apiPath } from "../lib/api";
+import { API_BASE, apiPath, toolCallBody } from "../lib/api";
+import { llmAvailable, useLlm } from "../store/llm";
 
 interface Step {
 	label: string;
@@ -1393,36 +1394,50 @@ const PRESETS = [
 	{
 		label: "Baroque Church",
 		emoji: "⛪",
+		blurb: "Nave, apse, transept, chapels and a dome crossing.",
+		dims: "45m nave · 12 columns",
 		goal: "Baroque church with 45m nave, semi-circular apse, 28m transept crossing, 6 side chapels, 12 columns along the nave, altar at the east end, and a dome crossing.",
 	},
 	{
 		label: "Mob Compound",
 		emoji: "🏰",
+		blurb: "Perimeter wall, towers, villa with pool and gatehouse.",
+		dims: "60 × 50m site",
 		goal: "Mob compound 60m x 50m with perimeter wall, 4 corner guard towers, a 20m x 18m main villa with pool, guest house, gatehouse, and driveway.",
 	},
 	{
 		label: "Art Museum",
 		emoji: "🏛️",
+		blurb: "Atrium, four gallery wings, garden and cafe.",
+		dims: "40 × 35m",
 		goal: "Modern art museum 40m x 35m with a central atrium, 4 radiating gallery wings, sculpture garden, and cafe.",
 	},
 	{
 		label: "Studio Apartment",
 		emoji: "🏠",
+		blurb: "Kitchenette, bath, hallway and balcony in 30m².",
+		dims: "6 × 5m",
 		goal: "Open-plan studio apartment 6m x 5m with a kitchenette corner, bathroom 2m x 1.5m, entrance hallway, and a balcony 3m x 1.5m.",
 	},
 	{
 		label: "Versailles Palace",
 		emoji: "👑",
+		blurb: "Hall of Mirrors, wings, chapel, gardens and Trianon.",
+		dims: "200 × 150m",
 		goal: "Versailles-style palace 200m x 150m with central axis, Hall of Mirrors 75m long, king's wing 80m, queen's wing 80m, royal chapel, grand staircase, 20 state apartments, formal gardens with fountains, Orangerie, and Grand Trianon.",
 	},
 	{
 		label: "Office Floor",
 		emoji: "🏢",
+		blurb: "Private offices, open workspace and meeting rooms.",
+		dims: "20 × 15m",
 		goal: "Office floor plan 20m x 15m with 6 private offices 3m x 3m, an open-plan workspace 12m x 8m, two meeting rooms, kitchen, two bathrooms.",
 	},
 	{
 		label: "Mob Tower",
 		emoji: "🏙️",
+		blurb: "Five stacked storeys: shops, apartments, roof garden.",
+		dims: "30 × 12m · 5 levels",
 		goal: "Modern 5-level mob tower 30m x 12m: shops and pizzeria at ground level, 3 apartment levels with balconies, roof garden with pergola.",
 	},
 ];
@@ -1439,6 +1454,15 @@ export default function DemoPage() {
 	const [resoniteSpawn, setResoniteSpawn] = useState<ResoniteSpawn | null>(null);
 	const [llmKick, setLlmKick] = useState<string | null>(null);
 	const [llmKicking, setLlmKicking] = useState(false);
+	const [resultTab, setResultTab] = useState("2d");
+	const providers = useLlm((s) => s.providers);
+	const selectedModel = useLlm((s) => s.selectedModel);
+	const probed = useLlm((s) => s.probed);
+	const probeAll = useLlm((s) => s.probeAll);
+
+	useEffect(() => {
+		if (!probed) void probeAll();
+	}, [probed, probeAll]);
 
 	useEffect(() => {
 		fetch(API_BASE + "/api/v1/resonite/sessions?timeout_seconds=6")
@@ -1588,7 +1612,7 @@ export default function DemoPage() {
 			const r = await fetch(API_BASE + "/api/v1/control/tool", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ tool, arguments: args }),
+				body: JSON.stringify(toolCallBody(tool, args)),
 			});
 			if (!r.ok) {
 				const text = await r.text();
@@ -1909,14 +1933,27 @@ export default function DemoPage() {
 
 	return (
 		<div className="max-w-7xl space-y-6">
-			{/* Header */}
-			<div className="flex items-center gap-3">
-				<div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
-					<Sparkles size={20} className="text-white" />
-				</div>
-				<div>
-					<h1 className="text-2xl font-bold text-white">AI CAD Demo</h1>
-					<p className="text-sm text-slate-400">Natural language → 2D floor plan → 3D model → Resonite-ready</p>
+			{/* Hero */}
+			<div className="relative overflow-hidden rounded-3xl border border-amber-500/20 bg-gradient-to-br from-[#2a1e08] via-[#1e1e26] to-[#1e1e26] p-8">
+				<div className="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-amber-500/10 blur-3xl" />
+				<div className="relative flex flex-wrap items-center gap-4">
+					<div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-600/30">
+						<Sparkles size={24} className="text-white" />
+					</div>
+					<div className="flex-1 min-w-[220px]">
+						<h1 className="text-3xl font-black text-white tracking-tight">
+							Describe it. <span className="text-amber-400">Get the building.</span>
+						</h1>
+						<p className="text-sm text-slate-200 mt-1">
+							Natural language → parametric floor plan → 2D preview → 3D extrusion → drawing set → Resonite-ready
+						</p>
+					</div>
+					<span
+						className={`text-sm font-bold px-3 py-1.5 rounded-xl border ${llmAvailable({ providers }) ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" : "border-white/10 bg-white/5 text-slate-300"}`}
+						title="Local LLM used for AI floor-plan generation"
+					>
+						{llmAvailable({ providers }) ? `● ${selectedModel || "LLM ready"}` : "○ No LLM — parametric fallback"}
+					</span>
 				</div>
 			</div>
 
@@ -1935,7 +1972,7 @@ export default function DemoPage() {
 						disabled={running}
 					/>
 					<div className="absolute bottom-3 right-3 flex items-center gap-2">
-						<span className="text-xs text-slate-500">Ctrl+Enter</span>
+						<span className="text-sm text-slate-300">Ctrl+Enter</span>
 						<button
 							type="button"
 							onClick={execute}
@@ -1948,60 +1985,74 @@ export default function DemoPage() {
 					</div>
 				</div>
 
-				{/* Quick Presets */}
-				<div className="flex flex-wrap gap-2 items-center">
-					<span className="text-xs text-slate-500 self-center mr-1">Try:</span>
-					{PRESETS.map((p) => (
+				{/* Preset gallery */}
+				<div>
+					<div className="flex items-center justify-between mb-2">
+						<span className="text-sm font-bold text-slate-200 uppercase tracking-wider">Start from a preset</span>
 						<button
 							type="button"
-							key={p.label}
-							onClick={() => setGoal(p.goal)}
-							disabled={running}
-							className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-slate-300 transition-all border border-white/5"
+							onClick={kickLlm}
+							disabled={llmKicking || running}
+							title="Evict the resident LLM from VRAM (frees gigabytes for Resonite/Blender)"
+							className="px-3 py-1.5 rounded-xl bg-red-600/20 hover:bg-red-600/40 disabled:opacity-50 text-sm text-red-400 font-bold transition-all border border-red-500/20"
 						>
-							{p.emoji} {p.label}
+							{llmKicking ? "Evicting..." : "Free VRAM"}
 						</button>
-					))}
-					<button
-						type="button"
-						onClick={kickLlm}
-						disabled={llmKicking || running}
-						title="Evict the resident LLM from VRAM (frees gigabytes for Resonite/Blender)"
-						className="ml-auto px-3 py-1.5 rounded-xl bg-red-600/20 hover:bg-red-600/40 disabled:opacity-50 text-xs text-red-400 font-bold transition-all border border-red-500/20"
-					>
-						{llmKicking ? "Evicting..." : "Free VRAM"}
-					</button>
+					</div>
+					<div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2.5">
+						{PRESETS.map((p) => (
+							<button
+								type="button"
+								key={p.label}
+								onClick={() => setGoal(p.goal)}
+								disabled={running}
+								className="group text-left p-3.5 rounded-2xl bg-white/[0.03] hover:bg-amber-500/10 border border-white/10 hover:border-amber-500/40 transition-all disabled:opacity-50"
+							>
+								<div className="flex items-center gap-2">
+									<span className="text-xl">{p.emoji}</span>
+									<span className="text-sm font-bold text-white group-hover:text-amber-300">{p.label}</span>
+								</div>
+								<p className="text-sm text-slate-300 mt-1 leading-snug">{p.blurb}</p>
+								<p className="text-sm text-amber-400/90 font-mono mt-1">{p.dims}</p>
+							</button>
+						))}
+					</div>
 				</div>
-				{llmKick && <p className="text-xs text-slate-500">{llmKick}</p>}
+				{llmKick && <p className="text-sm text-slate-300">{llmKick}</p>}
 			</div>
 
-			{/* Progress Tracker */}
+			{/* Progress stepper */}
 			{steps.length > 0 && (
-				<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4">
-					<div className="flex items-center gap-2 mb-3">
+				<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-5">
+					<div className="flex items-center gap-2 mb-4">
 						<Box size={14} className="text-amber-400" />
-						<h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Pipeline</h3>
+						<h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">Build pipeline</h3>
 					</div>
-					<div className="grid grid-cols-4 gap-3">
+					<div className="flex items-stretch">
 						{steps.map((s, i) => (
-							<div
-								key={s.label}
-								className={`p-3 rounded-xl border text-center ${
-									s.status === "done"
-										? "border-emerald-500/20 bg-emerald-500/5"
-										: s.status === "running"
-											? "border-amber-500/30 bg-amber-500/5"
-											: s.status === "error"
-												? "border-red-500/20 bg-red-500/5"
-												: "border-white/10 bg-transparent"
-								}`}
-							>
-								<div className="flex items-center justify-center gap-1.5 mb-1">
-									<span className="text-xs text-slate-500 font-mono">0{i + 1}</span>
-									{stepIcon(s)}
+							<div key={s.label} className="flex-1 flex items-start">
+								<div className="flex-1 text-center px-1">
+									<div
+										className={`w-9 h-9 mx-auto rounded-full flex items-center justify-center border-2 transition-all ${
+											s.status === "done"
+												? "border-emerald-500 bg-emerald-500/15"
+												: s.status === "running"
+													? "border-amber-500 bg-amber-500/15"
+													: s.status === "error"
+														? "border-red-500 bg-red-500/15"
+														: "border-white/15 bg-transparent"
+										}`}
+									>
+										{stepIcon(s)}
+									</div>
+									<p className="text-sm font-bold text-slate-200 mt-1.5">{s.label}</p>
+									<p className="text-sm text-slate-300 mt-0.5 truncate">{s.detail ?? " "}</p>
 								</div>
-								<p className="text-xs font-medium text-slate-300">{s.label}</p>
-								{s.detail && <p className="text-xs text-slate-500 mt-1 truncate">{s.detail}</p>}
+								{i < steps.length - 1 && (
+									<div
+										className={`h-0.5 flex-1 mt-4 rounded ${steps[i + 1].status === "waiting" && s.status !== "done" ? "bg-white/10" : s.status === "done" ? "bg-emerald-500/60" : "bg-amber-500/60"}`}
+									/>
+								)}
 							</div>
 						))}
 					</div>
@@ -2011,14 +2062,45 @@ export default function DemoPage() {
 			{/* Results */}
 			{result && (
 				<div className="space-y-6">
+					<div className="flex flex-wrap gap-2" data-testid="demo-result-tabs">
+						{[
+							{ id: "2d", label: "2D Plan", count: result.svg ? `${result.dxf_entities} entities` : null },
+							{ id: "3d", label: "3D Model", count: result.stl ? `${result.stl_vertices} verts` : null },
+							{
+								id: "drawings",
+								label: "Drawings",
+								count: result.drawings ? `${Object.keys(result.drawings).length}` : null,
+							},
+							{
+								id: "storeys",
+								label: "Storeys",
+								count: result.levels?.length ? `${result.levels.length}` : null,
+							},
+						]
+							.filter((t) => t.count !== null)
+							.map((t) => (
+								<button
+									type="button"
+									key={t.id}
+									onClick={() => setResultTab(t.id)}
+									className={`px-4 py-2 rounded-xl text-sm font-bold transition-all border ${
+										resultTab === t.id
+											? "bg-amber-600 border-amber-500 text-white shadow-lg shadow-amber-600/25"
+											: "bg-white/5 border-white/10 text-slate-200 hover:bg-white/10"
+									}`}
+								>
+									{t.label} <span className="opacity-70 font-mono">· {t.count}</span>
+								</button>
+							))}
+					</div>
 					{/* 2D Preview */}
-					{result.svg && (
+					{resultTab === "2d" && result.svg && (
 						<div className="bg-[#1e1e26] border border-white/10 rounded-2xl overflow-hidden">
 							<div className="px-4 py-3 bg-white/5 border-b border-white/10 flex items-center justify-between">
 								<div className="flex items-center gap-2">
 									<Eye size={14} className="text-amber-400" />
 									<span className="text-sm font-bold text-slate-300">2D Floor Plan</span>
-									<span className="text-xs text-slate-500">({result.dxf_entities} entities)</span>
+									<span className="text-sm text-slate-300">({result.dxf_entities} entities)</span>
 								</div>
 								<a
 									href={apiPath(`/api/v1/download/${result.svg}`)}
@@ -2041,13 +2123,13 @@ export default function DemoPage() {
 					)}
 
 					{/* Storeys (multilevel builds) */}
-					{result.levels && result.levels.length > 0 && (
+					{resultTab === "storeys" && result.levels && result.levels.length > 0 && (
 						<div className="bg-[#1e1e26] border border-white/10 rounded-2xl overflow-hidden">
 							<div className="px-4 py-3 bg-white/5 border-b border-white/10 flex items-center justify-between">
 								<div className="flex items-center gap-2">
 									<Eye size={14} className="text-amber-400" />
 									<span className="text-sm font-bold text-slate-300">Storeys</span>
-									<span className="text-xs text-slate-500">({result.levels.length} levels)</span>
+									<span className="text-sm text-slate-300">({result.levels.length} levels)</span>
 								</div>
 							</div>
 							<div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">
@@ -2058,7 +2140,7 @@ export default function DemoPage() {
 											<a
 												href={apiPath(`/api/v1/download/${lv.dxf}`)}
 												download
-												className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 font-bold"
+												className="flex items-center gap-1 text-sm text-emerald-400 hover:text-emerald-300 font-bold"
 											>
 												<Download size={12} /> DXF
 											</a>
@@ -2066,7 +2148,7 @@ export default function DemoPage() {
 										{lv.svg ? (
 											<img src={apiPath(`/api/v1/download/${lv.svg}`)} alt={lv.title} className="w-full bg-white" />
 										) : (
-											<p className="p-4 text-sm text-slate-500">Preview not available</p>
+											<p className="p-4 text-sm text-slate-300">Preview not available</p>
 										)}
 									</div>
 								))}
@@ -2075,13 +2157,13 @@ export default function DemoPage() {
 					)}
 
 					{/* 3D Viewer */}
-					{result.stl && (
+					{resultTab === "3d" && result.stl && (
 						<div className="bg-[#1e1e26] border border-white/10 rounded-2xl overflow-hidden">
 							<div className="px-4 py-3 bg-white/5 border-b border-white/10 flex items-center justify-between">
 								<div className="flex items-center gap-2">
 									<Box size={14} className="text-amber-400" />
 									<span className="text-sm font-bold text-slate-300">3D Extrusion</span>
-									<span className="text-xs text-slate-500">({result.stl_vertices} vertices)</span>
+									<span className="text-sm text-slate-300">({result.stl_vertices} vertices)</span>
 								</div>
 								<a
 									href={apiPath(`/api/v1/download/${result.stl}`)}
@@ -2097,13 +2179,13 @@ export default function DemoPage() {
 					)}
 
 					{/* Drawing set: elevations, section, iso, roof */}
-					{result.drawings && Object.keys(result.drawings).length > 0 && (
+					{resultTab === "drawings" && result.drawings && Object.keys(result.drawings).length > 0 && (
 						<div className="bg-[#1e1e26] border border-white/10 rounded-2xl overflow-hidden">
 							<div className="px-4 py-3 bg-white/5 border-b border-white/10 flex items-center justify-between">
 								<div className="flex items-center gap-2">
 									<Eye size={14} className="text-amber-400" />
 									<span className="text-sm font-bold text-slate-300">Drawing set</span>
-									<span className="text-xs text-slate-500">({Object.keys(result.drawings).length} drawings)</span>
+									<span className="text-sm text-slate-300">({Object.keys(result.drawings).length} drawings)</span>
 								</div>
 							</div>
 							<div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">
@@ -2114,7 +2196,7 @@ export default function DemoPage() {
 											<a
 												href={apiPath(`/api/v1/download/${result.drawings?.[k]}`)}
 												download
-												className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 font-bold"
+												className="flex items-center gap-1 text-sm text-emerald-400 hover:text-emerald-300 font-bold"
 											>
 												<Download size={12} /> SVG
 											</a>
@@ -2146,7 +2228,7 @@ export default function DemoPage() {
 										slot name, and double-click to focus. Or grab the files below for a manual import.
 									</p>
 									{resoniteSessions.length === 0 && (
-										<p className="text-xs text-amber-400">
+										<p className="text-sm text-amber-400">
 											No worlds announcing via discovery right now — spawn still works if the link is connected (the
 											backend falls back to the live link).
 										</p>
@@ -2154,7 +2236,7 @@ export default function DemoPage() {
 									<div className="grid grid-cols-3 gap-2">
 										{(["x", "y", "z"] as const).map((axis) => (
 											<label key={axis} className="block space-y-1">
-												<span className="text-xs text-slate-400">Spawn {axis.toUpperCase()}</span>
+												<span className="text-sm text-slate-300">Spawn {axis.toUpperCase()}</span>
 												<input
 													type="number"
 													step="0.5"
@@ -2172,7 +2254,7 @@ export default function DemoPage() {
 									</div>
 									{resoniteSessions.length > 1 && (
 										<label className="block space-y-1">
-											<span className="text-xs text-slate-400">
+											<span className="text-sm text-slate-300">
 												Target world ({resoniteSessions.length} announcing)
 											</span>
 											<select
@@ -2261,7 +2343,7 @@ export default function DemoPage() {
 
 			{/* Empty state */}
 			{!result && !running && (
-				<div className="text-center py-16 text-slate-400 space-y-3">
+				<div className="text-center py-16 text-slate-300 space-y-3">
 					<div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-600/10 flex items-center justify-center">
 						<Sparkles size={28} className="text-amber-400 opacity-50" />
 					</div>

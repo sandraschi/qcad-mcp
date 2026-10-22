@@ -1,6 +1,6 @@
 import { Bot, CheckCircle, Code2, Download, Layers, Loader2, Send, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { API_BASE } from "../lib/api";
+import { API_BASE, toolCallBody } from "../lib/api";
 
 interface AgenticResult {
 	success: boolean;
@@ -61,10 +61,7 @@ export default function AgenticPage() {
 			const r = await fetch(API_BASE + "/api/v1/control/tool", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					tool: "plan_agentic",
-					arguments: { goal: goal.trim(), file_name: file },
-				}),
+				body: JSON.stringify(toolCallBody("plan_agentic", { goal: goal.trim(), file_name: file })),
 			});
 			const j: AgenticResult = await r.json();
 			if (j.success) {
@@ -129,7 +126,7 @@ export default function AgenticPage() {
 							{running ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
 							{running ? "Executing..." : "Execute"}
 						</button>
-						<span className="text-xs text-slate-500 ml-auto">Ctrl+Enter to run</span>
+						<span className="text-sm text-slate-300 ml-auto">Ctrl+Enter to run</span>
 					</div>
 
 					{error && (
@@ -142,14 +139,14 @@ export default function AgenticPage() {
 				{/* Examples + History */}
 				<div className="space-y-4">
 					<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-2">
-						<h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Quick Examples</h3>
+						<h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Quick Examples</h3>
 						{EXAMPLES.map((ex, i) => (
 							<button
 								type="button"
 								// biome-ignore lint/suspicious/noArrayIndexKey: static list
 								key={i}
 								onClick={() => setGoal(ex)}
-								className="w-full text-left p-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-slate-300 transition-all line-clamp-2"
+								className="w-full text-left p-2 rounded-xl bg-white/5 hover:bg-white/10 text-sm text-slate-300 transition-all line-clamp-2"
 							>
 								{ex}
 							</button>
@@ -158,14 +155,14 @@ export default function AgenticPage() {
 
 					{history.length > 0 && (
 						<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-2">
-							<h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Recent</h3>
+							<h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Recent</h3>
 							{history.map((h, i) => (
 								<button
 									type="button"
 									// biome-ignore lint/suspicious/noArrayIndexKey: replay history
 									key={i}
 									onClick={() => setGoal(h.goal)}
-									className="w-full text-left p-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-slate-400 transition-all truncate"
+									className="w-full text-left p-2 rounded-xl bg-white/5 hover:bg-white/10 text-sm text-slate-300 transition-all truncate"
 								>
 									{h.goal}
 								</button>
@@ -182,16 +179,16 @@ export default function AgenticPage() {
 						<div className="bg-[#1e1e26] border border-emerald-500/20 rounded-2xl p-4 text-center">
 							<CheckCircle size={20} className="mx-auto mb-1 text-emerald-400" />
 							<p className="text-2xl font-bold text-white">{result.data?.steps ?? 1}</p>
-							<p className="text-xs text-slate-400">Steps Executed</p>
+							<p className="text-sm text-slate-300">Steps Executed</p>
 						</div>
 						<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 text-center">
 							<Layers size={20} className="mx-auto mb-1 text-amber-400" />
 							<p className="text-2xl font-bold text-white">{result.data?.entity_count ?? "—"}</p>
-							<p className="text-xs text-slate-400">Entities Created</p>
+							<p className="text-sm text-slate-300">Entities Created</p>
 						</div>
 						<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 text-center">
 							<Code2 size={20} className="mx-auto mb-1 text-amber-400" />
-							<p className="text-xs text-slate-400 mt-1">Generated Script</p>
+							<p className="text-sm text-slate-300 mt-1">Generated Script</p>
 							<p className="text-sm text-slate-300 mt-1">{result.data?.plan?.[0]?.source ?? "ai"} &rarr; QCAD Pro</p>
 						</div>
 						<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 text-center flex flex-col items-center justify-center">
@@ -203,7 +200,7 @@ export default function AgenticPage() {
 									<Download size={14} /> {result.output}
 								</a>
 							) : (
-								<span className="text-slate-400 text-sm">No output file</span>
+								<span className="text-slate-300 text-sm">No output file</span>
 							)}
 						</div>
 					</div>
@@ -229,7 +226,7 @@ export default function AgenticPage() {
 			)}
 
 			{!result && !running && !error && (
-				<div className="text-center py-12 text-slate-400">
+				<div className="text-center py-12 text-slate-300">
 					<Bot size={48} className="mx-auto mb-4 opacity-30" />
 					<p>Describe a CAD goal above. The agent will generate and execute QCAD ECMAScript.</p>
 				</div>

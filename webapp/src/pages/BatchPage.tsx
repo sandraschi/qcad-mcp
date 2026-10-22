@@ -1,6 +1,6 @@
 import { Box, CheckCircle, Download, Loader2, Play, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { API_BASE } from "../lib/api";
+import { API_BASE, toolCallBody } from "../lib/api";
 
 interface PlanInfoData {
 	entity_total: number;
@@ -27,7 +27,7 @@ interface BatchResult {
 
 export default function BatchPage() {
 	const [files, setFiles] = useState<{ name: string }[]>([]);
-	const [tool, setTool] = useState("plan_info");
+	const [tool, setTool] = useState("info");
 	const [results, setResults] = useState<BatchResult[] | null>(null);
 	const [running, setRunning] = useState(false);
 	const [error, setError] = useState("");
@@ -82,15 +82,14 @@ export default function BatchPage() {
 				const r = await fetch(API_BASE + "/api/v1/control/tool", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						tool: "plan_extrude",
-						arguments: {
+					body: JSON.stringify(
+						toolCallBody("plan_extrude", {
 							file_name: f.name,
 							wall_layers: ["Walls"],
 							wall_height: 3.0,
 							wall_thickness: 0.15,
-						},
-					}),
+						}),
+					),
 				});
 				const j = await r.json();
 				if (j.success) out.push({ stl: j.output, vertices: j.data?.vertices ?? 0 });
@@ -108,17 +107,17 @@ export default function BatchPage() {
 
 			<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-4">
 				<div className="flex items-center gap-3">
-					<span className="text-sm text-slate-400">Tool:</span>
+					<span className="text-sm text-slate-300">Tool:</span>
 					<select
 						value={tool}
 						onChange={(e) => setTool(e.target.value)}
 						className="bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-amber-500"
 					>
-						<option value="plan_info">plan_info (metadata)</option>
-						<option value="plan_analyse">plan_analyse (room detection)</option>
-						<option value="batch_extrude">plan_extrude (STL batch)</option>
+						<option value="info">plan(op=info) metadata</option>
+						<option value="analyse">plan(op=analyse) room detection</option>
+						<option value="batch_extrude">plan(op=extrude) STL batch</option>
 					</select>
-					<span className="text-sm text-slate-500">
+					<span className="text-sm text-slate-300">
 						{files.length} file{files.length !== 1 ? "s" : ""} in depot
 					</span>
 					<button
@@ -137,17 +136,17 @@ export default function BatchPage() {
 			{/* Batch STL results */}
 			{stlResults.length > 0 && (
 				<div className="space-y-2">
-					<p className="text-sm text-slate-400 flex items-center gap-2">
+					<p className="text-sm text-slate-300 flex items-center gap-2">
 						<Box size={14} className="text-amber-400" /> {stlResults.length} STL files generated
 					</p>
 					<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
 						{stlResults.map((s) => (
 							<div key={s.stl} className="bg-[#1e1e26] border border-white/10 rounded-xl p-3 text-center">
-								<p className="text-xs text-slate-300 truncate">{s.stl}</p>
-								<p className="text-xs text-slate-300">{s.vertices} vertices</p>
+								<p className="text-sm text-slate-300 truncate">{s.stl}</p>
+								<p className="text-sm text-slate-300">{s.vertices} vertices</p>
 								<a
 									href={`/api/v1/download/${s.stl}`}
-									className="inline-flex items-center gap-1 mt-2 text-amber-400 text-xs hover:underline"
+									className="inline-flex items-center gap-1 mt-2 text-amber-400 text-sm hover:underline"
 								>
 									<Download size={12} /> STL
 								</a>
@@ -160,7 +159,7 @@ export default function BatchPage() {
 			{/* Batch analysis results */}
 			{results && (
 				<div className="space-y-2">
-					<p className="text-sm text-slate-400">
+					<p className="text-sm text-slate-300">
 						{results.filter((r) => r.success).length}/{results.length} succeeded
 					</p>
 					{results.map((r) => (
@@ -177,10 +176,10 @@ export default function BatchPage() {
 									)}
 									<span className="text-sm font-bold text-white">{r.file}</span>
 								</div>
-								<span className="text-xs text-slate-500">{r.success ? "OK" : "Failed"}</span>
+								<span className="text-sm text-slate-300">{r.success ? "OK" : "Failed"}</span>
 							</div>
-							{r.success && tool === "plan_info" && (
-								<div className="mt-2 text-xs text-slate-400 space-y-0.5">
+							{r.success && tool === "info" && (
+								<div className="mt-2 text-sm text-slate-300 space-y-0.5">
 									<span>
 										Entities: {(r.data as PlanInfoData)?.entity_total ?? "?"} · Layers:{" "}
 										{(r.data as PlanInfoData)?.layer_count ?? "?"} · Blocks:{" "}
@@ -188,8 +187,8 @@ export default function BatchPage() {
 									</span>
 								</div>
 							)}
-							{r.success && tool === "plan_analyse" && (
-								<div className="mt-2 text-xs text-slate-400 space-y-0.5">
+							{r.success && tool === "analyse" && (
+								<div className="mt-2 text-sm text-slate-300 space-y-0.5">
 									<span>
 										Rooms: {(r.data as PlanAnalyseData)?.rooms?.length ?? "0"} · Wall length: {(() => {
 											const wl = (r.data as PlanAnalyseData)?.wall_length_m;
@@ -198,7 +197,7 @@ export default function BatchPage() {
 									</span>
 								</div>
 							)}
-							{r.error && <p className="mt-1 text-xs text-red-400">{r.error}</p>}
+							{r.error && <p className="mt-1 text-sm text-red-400">{r.error}</p>}
 						</div>
 					))}
 				</div>

@@ -1,6 +1,6 @@
 import { BarChart3, DoorOpen, Loader2, Ruler, Upload } from "lucide-react";
 import { useState } from "react";
-import { API_BASE } from "../lib/api";
+import { API_BASE, toolCallBody } from "../lib/api";
 
 interface RoomResult {
 	layer: string;
@@ -46,10 +46,7 @@ export default function AnalysePage() {
 			const conv = await fetch(API_BASE + "/api/v1/control/tool", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					tool: "plan_analyse",
-					arguments: { file_name: file.name },
-				}),
+				body: JSON.stringify(toolCallBody("plan_analyse", { file_name: file.name })),
 			});
 			const cj = await conv.json();
 			if (cj.success) {
@@ -76,7 +73,7 @@ export default function AnalysePage() {
 			<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 space-y-4">
 				<label className="block border-2 border-dashed border-white/10 rounded-xl p-6 text-center cursor-pointer hover:border-amber-500/40 transition-all">
 					<Upload className="mx-auto mb-2 text-slate-300" size={28} />
-					<p className="text-slate-400 text-sm">{file ? file.name : "Drop a DXF floor plan here"}</p>
+					<p className="text-slate-300 text-sm">{file ? file.name : "Drop a DXF floor plan here"}</p>
 					<input
 						type="file"
 						accept=".dxf,.dwg"
@@ -123,7 +120,7 @@ export default function AnalysePage() {
 
 					{result.rooms && result.rooms.length > 0 && (
 						<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-2">
-							<h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Detected Rooms</h3>
+							<h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Detected Rooms</h3>
 							<div className="overflow-x-auto">
 								<table className="w-full text-sm">
 									<thead>
@@ -161,7 +158,7 @@ export default function AnalysePage() {
 
 					{result.doors_windows && result.doors_windows.length > 0 && (
 						<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-2">
-							<h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Doors & Windows</h3>
+							<h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Doors & Windows</h3>
 							<div className="flex flex-wrap gap-2">
 								{result.doors_windows.map((item: DoorWindowResult) => (
 									<div
@@ -170,7 +167,7 @@ export default function AnalysePage() {
 									>
 										<DoorOpen size={12} className="text-amber-400" />
 										<span className="text-slate-300">{item.block}</span>
-										<span className="text-slate-400">on {item.layer}</span>
+										<span className="text-slate-300">on {item.layer}</span>
 										<span className="text-slate-300 text-sm">
 											({item.position.x.toFixed(0)}, {item.position.y.toFixed(0)})
 										</span>
