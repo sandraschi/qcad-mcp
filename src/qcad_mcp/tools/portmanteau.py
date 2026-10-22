@@ -12,6 +12,8 @@ Op names are the old tool names minus the ``plan_``/``qcad_`` prefix
 (e.g. ``plan_info`` -> ``plan(op="info", ...)``).
 """
 
+import functools
+import inspect
 from typing import Annotated, Any, Literal
 
 from fastmcp import Context
@@ -30,6 +32,42 @@ from qcad_mcp.tools import script_tools as _sc
 _M = {}  # mutating-or-mixed tool annotation
 _R = {"readonly": True}
 
+# Shared output schema for the dialogic {success, message, ...} envelope.
+_DIALOGIC_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "success": {"type": "boolean"},
+        "message": {"type": "string"},
+        "output": {"type": "string"},
+        "data": {},
+        "error": {"type": "string"},
+    },
+}
+
+
+def _dialogic(fn):
+    """Ensure every portmanteau result carries a natural-language `message`.
+
+    Applied in register() with the original __signature__ preserved so the
+    MCP parameter schema is untouched.
+    """
+
+    @functools.wraps(fn)
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        op = str(kwargs.get("op", args[0] if args else "?"))
+        res = await fn(*args, **kwargs)
+        if isinstance(res, dict) and "message" not in res:
+            if res.get("success"):
+                detail = res.get("output") or ""
+                res["message"] = f"{fn.__name__} op '{op}' succeeded" + (f": {detail}" if detail else "")
+            else:
+                res["message"] = str(res.get("error", f"{fn.__name__} op '{op}' failed"))
+        return res
+
+    wrapper.__signature__ = inspect.signature(fn)  # type: ignore[attr-defined]
+    return wrapper
+
+
 CoreOp = Literal["info", "to_svg", "extrude", "stack", "obj", "glb", "drawings", "export", "analyse", "create", "depot"]
 EditOp = Literal["convert", "modify"]
 AnnotateOp = Literal["dimension", "measure", "text", "hatch", "block_insert", "array", "wall_data", "beam_analysis"]
@@ -44,7 +82,8 @@ def _need(**kwargs: Any) -> dict | None:
     """Return an error dict when any named required param is empty, else None."""
     missing = [k for k, v in kwargs.items() if v is None or v == "" or v == [] or v == {}]
     if missing:
-        return {"success": False, "error": f"Missing required parameters for this op: {', '.join(missing)}"}
+        err = f"Missing required parameters for this op: {', '.join(missing)}"
+        return {"success": False, "error": err, "message": err}
     return None
 
 
@@ -515,12 +554,12 @@ async def qcad(
 
 
 def register(mcp) -> None:
-    """Register the 8 portmanteau tools (v0.4.0 surface)."""
-    mcp.tool(annotations=_M, version="0.5.0")(plan)
-    mcp.tool(annotations=_M, version="0.5.0")(plan_edit)
-    mcp.tool(annotations=_M, version="0.5.0")(plan_annotate)
-    mcp.tool(annotations=_M, version="0.5.0")(plan_pro)
-    mcp.tool(annotations=_M, version="0.5.0")(plan_library)
-    mcp.tool(annotations=_M, version="0.5.0")(plan_ai)
-    mcp.tool(annotations=_M, version="0.5.0")(plan_bim)
-    mcp.tool(annotations=_R, version="0.5.0")(qcad)
+    """Register the 8 portmanteau tools (v0.5.0 surface)."""
+    mcp.tool(annotations=_M, version="0.5.0", output_schema=_DIALOGIC_SCHEMA)(_dialogic(plan))
+    mcp.tool(annotations=_M, version="0.5.0", output_schema=_DIALOGIC_SCHEMA)(_dialogic(plan_edit))
+    mcp.tool(annotations=_M, version="0.5.0", output_schema=_DIALOGIC_SCHEMA)(_dialogic(plan_annotate))
+    mcp.tool(annotations=_M, version="0.5.0", output_schema=_DIALOGIC_SCHEMA)(_dialogic(plan_pro))
+    mcp.tool(annotations=_M, version="0.5.0", output_schema=_DIALOGIC_SCHEMA)(_dialogic(plan_library))
+    mcp.tool(annotations=_M, version="0.5.0", output_schema=_DIALOGIC_SCHEMA)(_dialogic(plan_ai))
+    mcp.tool(annotations=_M, version="0.5.0", output_schema=_DIALOGIC_SCHEMA)(_dialogic(plan_bim))
+    mcp.tool(annotations=_R, version="0.5.0", output_schema=_DIALOGIC_SCHEMA)(_dialogic(qcad))
