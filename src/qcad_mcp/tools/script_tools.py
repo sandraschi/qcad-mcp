@@ -134,8 +134,10 @@ async def _search_script_gallery(query: str, category: str, limit: int) -> list[
 async def _search_script_gist(query: str, category: str, limit: int) -> list[dict]:
     """Search GitHub Gist for QCAD ECMAScript scripts."""
     try:
+        from urllib.parse import quote
+
         q = query or "qcad script"
-        url = f"https://gist.github.com/search?q={httpx.QueryParam(q)}&ref=simplesearch"
+        url = f"https://gist.github.com/search?q={quote(q)}&ref=simplesearch"
         async with httpx.AsyncClient(timeout=15.0) as client:
             r = await client.get(url, headers={"Accept": "text/html"})
             soup = BeautifulSoup(r.text, "html.parser")
@@ -146,7 +148,7 @@ async def _search_script_gist(query: str, category: str, limit: int) -> list[dic
                 link_el = item.select_one("a[href*='/']")
                 title = title_el.get_text(strip=True) if title_el else "QCAD Script"
                 desc = desc_el.get_text(strip=True) if desc_el else ""
-                link = "https://gist.github.com" + link_el["href"] if link_el and link_el.get("href") else ""
+                link = "https://gist.github.com" + str(link_el["href"]) if link_el and link_el.get("href") else ""
                 results.append(
                     {
                         "title": title,
@@ -670,5 +672,5 @@ async def plan_scripts_download(
 
 
 def register(mcp):
-    mcp.tool(annotations=_README_ONLY, version="0.3.0")(plan_scripts_search)
-    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_scripts_download)
+    mcp.tool(annotations=_README_ONLY, version="0.5.0")(plan_scripts_search)
+    mcp.tool(annotations=_MUTATING, version="0.5.0")(plan_scripts_download)

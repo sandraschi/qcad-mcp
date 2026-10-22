@@ -102,6 +102,7 @@ async def plan_modify(
         layer_filter = op.get("layer_filter", "")
 
         # Resolve entities to act on
+        targets: list = []
         if op_type in ("delete", "offset"):
             targets = list(msp)
             if type_filter:
@@ -118,9 +119,10 @@ async def plan_modify(
             elif op_type == "offset":
                 dist = op.get("distance", 0)
                 for e in targets:
-                    if hasattr(e, "offset_curve"):
+                    offset_fn = getattr(e, "offset_curve", None)
+                    if callable(offset_fn):
                         try:
-                            e.offset_curve(dist)
+                            offset_fn(dist)
                         except Exception as ex:
                             logger.debug("offset_curve failed for entity: %s", ex)
                 summary.append(f"Offset {len(targets)} entities by {dist}")
@@ -149,7 +151,7 @@ async def plan_modify(
                     if not layer_filter or layer.dxf.name == layer_filter:
                         try:
                             if hasattr(layer, "is_frozen"):
-                                layer.is_frozen = freeze
+                                setattr(layer, "is_frozen", freeze)
                         except Exception as ex:
                             logger.debug("layer freeze/thaw failed for %s: %s", layer_filter, ex)
                 summary.append(f"{'Froze' if freeze else 'Thawed'} layer '{layer_filter or 'all'}'")
@@ -160,7 +162,7 @@ async def plan_modify(
                     if not layer_filter or layer.dxf.name == layer_filter:
                         try:
                             if hasattr(layer, "is_locked"):
-                                layer.is_locked = lock
+                                setattr(layer, "is_locked", lock)
                         except Exception as ex:
                             logger.debug("layer lock/unlock failed for %s: %s", layer_filter, ex)
                 summary.append(f"{'Locked' if lock else 'Unlocked'} layer '{layer_filter or 'all'}'")
@@ -195,5 +197,5 @@ async def plan_modify(
 
 
 def register(mcp):
-    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_convert)
-    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_modify)
+    mcp.tool(annotations=_MUTATING, version="0.5.0")(plan_convert)
+    mcp.tool(annotations=_MUTATING, version="0.5.0")(plan_modify)

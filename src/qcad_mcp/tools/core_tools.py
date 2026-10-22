@@ -5,7 +5,7 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any, cast
 
 from pydantic import Field
 
@@ -70,9 +70,10 @@ async def plan_to_svg(
     ## Examples
     await plan_to_svg(file_name="floorplan.dxf")
     """
-    from ezdxf.addons.drawing import Frontend, RenderContext
     from ezdxf.addons.drawing.config import ColorPolicy, Configuration
     from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
+
+    from qcad_mcp.ezdxf_compat import Frontend, RenderContext
 
     doc, err = _load_dxf(file_name)
     if doc is None:
@@ -319,7 +320,7 @@ async def plan_extrude(
             slab_info = {"thickness_m": slab_thickness, "base_elevation_m": base_elevation}
         if not meshes:
             return {"success": False, "error": "Nothing to extrude (all segments degenerate)."}
-        combined = Mesh(np.concatenate([m.data for m in meshes]))
+        combined: Any = Mesh(np.concatenate([m.data for m in meshes]))
         combined.save(stl_path)
 
         return {
@@ -558,7 +559,7 @@ async def plan_stack(
             levels_out.append({"file": fname, "base_elevation_m": base_mm / 1000.0, "walls": len(segments)})
         if not all_meshes:
             return {"success": False, "error": "Nothing to stack."}
-        combined = Mesh(np.concatenate([m.data for m in all_meshes]))
+        combined: Any = Mesh(np.concatenate([m.data for m in all_meshes]))
         combined.save(stl_path)
         return {
             "success": True,
@@ -1174,8 +1175,9 @@ async def plan_export(
                     os.unlink(bmp_path)
 
     # Fallback to ezdxf+matplotlib
-    from ezdxf.addons.drawing import Frontend, RenderContext
     from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
+
+    from qcad_mcp.ezdxf_compat import Frontend, RenderContext
 
     doc, err = _load_dxf(file_name)
     if doc is None:
@@ -1231,6 +1233,7 @@ async def plan_analyse(
         total_wall_length = 0.0
 
         for e in msp:
+            e = cast(Any, e)
             dtype = e.dxftype()
             layer = e.get_dxf_attrib("layer", "").lower()
 
@@ -1345,8 +1348,9 @@ async def plan_create(
         description="Simple 100x80 room"
     )
     """
-    import ezdxf
     from ezdxf.math import Vec2
+
+    from qcad_mcp.ezdxf_compat import new as ezdxf_new
 
     if not filename.lower().endswith(".dxf"):
         filename += ".dxf"
@@ -1359,7 +1363,7 @@ async def plan_create(
         }
 
     try:
-        doc = ezdxf.new("R2010")
+        doc = ezdxf_new("R2010")
         msp = doc.modelspace()
 
         # Create layers
@@ -1502,14 +1506,14 @@ async def plan_depot() -> dict:
 
 
 def register(mcp):
-    mcp.tool(annotations=_README_ONLY, version="0.3.0")(plan_info)
-    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_to_svg)
-    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_extrude)
-    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_stack)
-    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_obj)
-    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_glb)
-    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_drawings)
-    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_export)
-    mcp.tool(annotations=_README_ONLY, version="0.3.0")(plan_analyse)
-    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_create)
-    mcp.tool(annotations=_README_ONLY, version="0.3.0")(plan_depot)
+    mcp.tool(annotations=_README_ONLY, version="0.5.0")(plan_info)
+    mcp.tool(annotations=_MUTATING, version="0.5.0")(plan_to_svg)
+    mcp.tool(annotations=_MUTATING, version="0.5.0")(plan_extrude)
+    mcp.tool(annotations=_MUTATING, version="0.5.0")(plan_stack)
+    mcp.tool(annotations=_MUTATING, version="0.5.0")(plan_obj)
+    mcp.tool(annotations=_MUTATING, version="0.5.0")(plan_glb)
+    mcp.tool(annotations=_MUTATING, version="0.5.0")(plan_drawings)
+    mcp.tool(annotations=_MUTATING, version="0.5.0")(plan_export)
+    mcp.tool(annotations=_README_ONLY, version="0.5.0")(plan_analyse)
+    mcp.tool(annotations=_MUTATING, version="0.5.0")(plan_create)
+    mcp.tool(annotations=_README_ONLY, version="0.5.0")(plan_depot)

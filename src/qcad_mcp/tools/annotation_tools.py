@@ -9,7 +9,7 @@ import asyncio
 import logging
 import os
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 from pydantic import Field
 
@@ -497,9 +497,7 @@ async def plan_block_insert(
 
 async def _block_insert_free(file_name: str, inserts: list[dict], output_name: str = "") -> dict:
     """ezdxf block import + INSERT (no QCAD Pro needed)."""
-    import ezdxf
-    from ezdxf.addons import Importer
-
+    from qcad_mcp.ezdxf_compat import Importer, readfile
     from qcad_mcp.helpers import _load_dxf
 
     doc, err = _load_dxf(file_name)
@@ -508,7 +506,7 @@ async def _block_insert_free(file_name: str, inserts: list[dict], output_name: s
 
     repo_root = Path(__file__).resolve().parents[3]
     lib_dirs = [repo_root / "libraries", Path(DEPOT_DIR)]
-    importers: dict[str, Importer] = {}
+    importers: dict[str, Any] = {}
 
     def _ensure_block(name: str) -> bool:
         if name in doc.blocks:
@@ -518,7 +516,7 @@ async def _block_insert_free(file_name: str, inserts: list[dict], output_name: s
                 continue
             for cand in sorted(d.glob("*.dxf")):
                 try:
-                    src = ezdxf.readfile(str(cand))
+                    src = readfile(str(cand))
                 except Exception as e:
                     logger.debug("Skipping unreadable block lib %s: %s", cand, e)
                     continue
@@ -534,10 +532,6 @@ async def _block_insert_free(file_name: str, inserts: list[dict], output_name: s
                     except Exception as e:
                         logger.debug("Block import %r failed: %s", name, e)
                         continue
-                    try:
-                        src.close()
-                    except Exception as e:
-                        logger.debug("Block lib close failed: %s", e)
                     if name in doc.blocks:
                         return True
         return False
@@ -610,7 +604,7 @@ async def _block_insert_pro(file_name: str, inserts: list[dict], output_name: st
     new RBlockReferenceEntity(document,
         new RBlockReferenceData(blockId, pos, scaleVec, angleRad)).
     """
-    import ezdxf
+    from qcad_mcp.ezdxf_compat import readfile
 
     in_path = os.path.join(DEPOT_DIR, file_name)
     if not os.path.isfile(in_path):
@@ -620,7 +614,7 @@ async def _block_insert_pro(file_name: str, inserts: list[dict], output_name: st
     out_path = os.path.join(OUTPUT_DIR, out_name)
 
     try:
-        have = set(b.name for b in ezdxf.readfile(in_path).blocks)
+        have = set(b.name for b in readfile(in_path).blocks)
     except Exception:
         have = set()
 
@@ -636,7 +630,7 @@ async def _block_insert_pro(file_name: str, inserts: list[dict], output_name: st
             continue
         for cand in lib_files:
             try:
-                if name in ezdxf.readfile(cand).blocks:
+                if name in readfile(cand).blocks:
                     block_src[name] = cand.replace("\\", "/")
                     break
             except Exception as e:
@@ -918,7 +912,7 @@ print(JSON.stringify({{
     result = await asyncio.to_thread(qcad_pro.exec_in_live, code, file_name=in_path, timeout=60)
     if result.get("success"):
         stdout = result.get("stdout", "")
-        wall_data = qcad_pro._parse_marker(stdout, "__QCAD_MCP_MEASURE__")
+        wall_data = parse_marker(stdout, "__QCAD_MCP_MEASURE__")
         if wall_data:
             return {"success": True, "data": wall_data}
         return {"success": True, "data": result.get("data", {}), "warning": "Wall data marker not found"}
@@ -1245,7 +1239,7 @@ async def plan_beam_analysis(
                 "max_moment_kNm": round(M_max / 1e6, 2),
                 "max_shear_kN": round(V_max / 1000, 2),
                 "axial_force_kN": round(axial / 1000, 2),
-                "max_deflection_mm": round(max_defl, 2),
+                "max_deflection_mm": round(float(max_defl), 2),
                 "max_stress_mpa": round(stress_moment, 2),
                 "material_mpa": E_val,
                 "section_mm": f"{w}x{h}",
@@ -1280,11 +1274,11 @@ async def plan_beam_analysis(
 
 
 def register(mcp):
-    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_dimension)
-    mcp.tool(annotations=_README_ONLY, version="0.3.0")(plan_measure)
-    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_text)
-    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_hatch)
-    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_block_insert)
-    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_array)
-    mcp.tool(annotations=_README_ONLY, version="0.4.0")(plan_wall_data)
-    mcp.tool(annotations=_README_ONLY, version="0.4.0")(plan_beam_analysis)
+    mcp.tool(annotations=_MUTATING, version="0.5.0")(plan_dimension)
+    mcp.tool(annotations=_README_ONLY, version="0.5.0")(plan_measure)
+    mcp.tool(annotations=_MUTATING, version="0.5.0")(plan_text)
+    mcp.tool(annotations=_MUTATING, version="0.5.0")(plan_hatch)
+    mcp.tool(annotations=_MUTATING, version="0.5.0")(plan_block_insert)
+    mcp.tool(annotations=_MUTATING, version="0.5.0")(plan_array)
+    mcp.tool(annotations=_README_ONLY, version="0.5.0")(plan_wall_data)
+    mcp.tool(annotations=_README_ONLY, version="0.5.0")(plan_beam_analysis)

@@ -8,7 +8,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any, cast
 
 from pydantic import Field
 
@@ -55,7 +55,7 @@ async def plan_auto_dimension(
             pts.append((entity.dxf.end.x, entity.dxf.end.y))
         elif dxftype in ("LWPOLYLINE", "POLYLINE"):
             try:
-                for p in entity.get_points():
+                for p in cast(Any, entity).get_points():
                     pts.append((p[0], p[1]))
             except Exception as e:
                 logger.debug("Polyline point read failed: %s", e)
@@ -278,6 +278,6 @@ async def plan_to_ifc_data(
 
 
 def register(mcp):
-    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_auto_dimension)
-    mcp.tool(annotations=_READ_ONLY, version="0.3.0")(plan_building_meta)
-    mcp.tool(annotations=_READ_ONLY, version="0.3.0")(plan_to_ifc_data)
+    mcp.tool(annotations=_MUTATING, version="0.5.0")(plan_auto_dimension)
+    mcp.tool(annotations=_READ_ONLY, version="0.5.0")(plan_building_meta)
+    mcp.tool(annotations=_READ_ONLY, version="0.5.0")(plan_to_ifc_data)
