@@ -92,8 +92,8 @@ export default function BlocksPage() {
 	};
 
 	return (
-		<div className="max-w-6xl space-y-6">
-			<h1 className="text-2xl font-bold text-white flex items-center gap-3">
+		<div className="max-w-6xl space-y-6" data-testid="blocks-page">
+			<h1 className="text-2xl font-bold text-white flex items-center gap-3" data-testid="blocks-title">
 				<Grid3X3 className="text-amber-400" /> CAD Blocks
 			</h1>
 
@@ -117,6 +117,7 @@ export default function BlocksPage() {
 						<input
 							type="text"
 							value={query}
+							data-testid="blocks-search"
 							onChange={(e) => setQuery(e.target.value)}
 							onKeyDown={(e) => e.key === "Enter" && search()}
 							placeholder="Search CAD blocks..."

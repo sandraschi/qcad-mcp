@@ -1932,7 +1932,7 @@ export default function DemoPage() {
 	};
 
 	return (
-		<div className="max-w-7xl space-y-6">
+		<div className="max-w-7xl space-y-6" data-testid="demo-page">
 			{/* Hero */}
 			<div className="relative overflow-hidden rounded-3xl border border-amber-500/20 bg-gradient-to-br from-[#2a1e08] via-[#1e1e26] to-[#1e1e26] p-8">
 				<div className="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-amber-500/10 blur-3xl" />
@@ -1941,7 +1941,7 @@ export default function DemoPage() {
 						<Sparkles size={24} className="text-white" />
 					</div>
 					<div className="flex-1 min-w-[220px]">
-						<h1 className="text-3xl font-black text-white tracking-tight">
+						<h1 className="text-3xl font-black text-white tracking-tight" data-testid="demo-title">
 							Describe it. <span className="text-amber-400">Get the building.</span>
 						</h1>
 						<p className="text-sm text-slate-200 mt-1">
@@ -1976,6 +1976,7 @@ export default function DemoPage() {
 						<button
 							type="button"
 							onClick={execute}
+							data-testid="demo-generate"
 							disabled={!goal.trim() || running}
 							className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-sm font-bold"
 						>

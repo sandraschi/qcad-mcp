@@ -372,16 +372,17 @@ export default function DepotPage() {
 	};
 
 	return (
-		<div className="space-y-4 max-w-7xl mx-auto">
+		<div className="space-y-4 max-w-7xl mx-auto" data-testid="depot-page">
 			{/* Header */}
 			<div className="flex items-center justify-between flex-wrap gap-3">
-				<h1 className="text-2xl font-bold text-white flex items-center gap-3">
+				<h1 className="text-2xl font-bold text-white flex items-center gap-3" data-testid="depot-title">
 					<FileText className="text-amber-400" /> CAD Depot
 				</h1>
 				<div className="flex items-center gap-2">
 					<button
 						type="button"
 						onClick={loadFiles}
+						data-testid="depot-refresh"
 						className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/10 text-sm text-slate-300 hover:text-white hover:bg-white/10"
 					>
 						<RefreshCw size={14} /> Refresh

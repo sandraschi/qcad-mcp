@@ -100,8 +100,8 @@ export default function BatchPage() {
 	};
 
 	return (
-		<div className="max-w-4xl space-y-6">
-			<h1 className="text-2xl font-bold text-white flex items-center gap-3">
+		<div className="max-w-4xl space-y-6" data-testid="batch-page">
+			<h1 className="text-2xl font-bold text-white flex items-center gap-3" data-testid="batch-title">
 				<Play className="text-amber-400" /> Batch Pipeline
 			</h1>
 
@@ -110,6 +110,7 @@ export default function BatchPage() {
 					<span className="text-sm text-slate-300">Tool:</span>
 					<select
 						value={tool}
+						data-testid="batch-tool-select"
 						onChange={(e) => setTool(e.target.value)}
 						className="bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-amber-500"
 					>

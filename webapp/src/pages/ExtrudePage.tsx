@@ -318,8 +318,8 @@ export default function ExtrudePage() {
 	const canRun = source === "depot" ? depotSelected !== "" : file !== null;
 
 	return (
-		<div className="max-w-3xl space-y-6">
-			<h1 className="text-2xl font-bold text-white flex items-center gap-3">
+		<div className="max-w-3xl space-y-6" data-testid="extrude-page">
+			<h1 className="text-2xl font-bold text-white flex items-center gap-3" data-testid="extrude-title">
 				<Box className="text-amber-400" /> Wall Extrusion
 			</h1>
 			<p className="text-sm text-slate-300">
@@ -327,7 +327,7 @@ export default function ExtrudePage() {
 				send it on to FreeCAD for a solid, or to Blender for rendering.
 			</p>
 
-			<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 space-y-4">
+			<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 space-y-4" data-testid="extrude-params">
 				<div className="flex items-center gap-2 mb-2">
 					<Settings2 size={16} className="text-amber-400" />
 					<h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Parameters</h3>
