@@ -6,7 +6,7 @@ description: QCAD 2D CAD automation over MCP - depot files, DXF metadata, SVG pr
 # qcad-mcp
 
 ## Session Context (qcad-mcp)
-Before starting work: call `plan_depot` to see depot files, `qcad_status`
+Before starting work: call `plan(op="depot")` to see depot files, `qcad(op="status")`
 for QCAD Pro state. DXF lives in `%LOCALAPPDATA%\qcad-mcp\depot`.
 At end of work: run `uv run pytest tests/ -q`, update CHANGELOG.md,
 never commit `dist/`, `mcpb/src/`, or `.env`.

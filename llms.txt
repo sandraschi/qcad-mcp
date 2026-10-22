@@ -1,21 +1,18 @@
 # QCAD MCP
 
-> AI-driven 2D CAD automation — DXF/DWG parsing, SVG preview, STL extrusion, room analysis, DXF creation, persistent file depot with full CRUD. FastMCP 3.2 server on port 11966.
+> AI-driven 2D CAD automation — DXF/DWG parsing, SVG preview, STL extrusion, room analysis, DXF creation, persistent file depot with full CRUD. FastMCP 3.4 server on port 11966.
 
-## Tools
-- `plan_info` — DXF metadata: layers, entity counts, bounding box, blocks
-- `plan_to_svg` — DXF to SVG preview with layer filtering
-- `plan_extrude` — DXF walls to 3D STL mesh (default h=3m, t=0.3m)
-- `plan_export` — DXF to SVG/PNG/PDF
-- `plan_analyse` — Room detection, area calculation, door/window ID
-- `plan_create` — Create DXF from geometric primitives
-- `plan_depot` — List persistent CAD depot files with metadata
-- `plan_modify` — Layer rename/freeze/lock, entity offset/delete
-- `plan_agentic` — Natural language CAD goal → ECMAScript script → execution
-- `plan_transpile` — AutoLISP to QCAD ECMAScript conversion
-- `cad_sampling` — Host LLM reasoning for CAD problems (via MCP sampling)
-- `plan_blocks` — Search CAD block libraries (cadblocksfree, biblocad)
-- `plan_scripts_search` — Search QCAD ECMAScript script libraries
+## Tools (v0.5.0 portmanteau surface — 8 tools + 4 cards)
+
+- `plan(op=...)` — Core ezdxf ops: info, to_svg, extrude, stack, obj, glb, drawings, export, analyse, create, depot
+- `plan_edit(op=...)` — convert (DWG<->DXF), modify (layers/entities)
+- `plan_annotate(op=...)` — dimension, measure, text, hatch, block_insert, array, wall_data, beam_analysis
+- `plan_pro(op=...)` — QCAD Pro: script, render, exec
+- `plan_library(op=...)` — blocks, blocks_download, scripts_search, scripts_download
+- `plan_ai(op=...)` — generate, agentic, transpile, sampling
+- `plan_bim(op=...)` — auto_dimension, building_meta, to_ifc_data
+- `qcad(op=...)` — status, help, shutdown
+- `show_*_card` — Prefab display cards (status, depot, beam, building meta)
 
 ## Prompts
 - `cad_expert` — Get CAD expertise and tool guidance
