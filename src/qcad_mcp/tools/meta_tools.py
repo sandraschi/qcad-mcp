@@ -18,8 +18,8 @@ async def qcad_help(
     """List server capabilities: MCP tools, REST routes, and config.
 
     Start here when you do not know which tool fits. Returns the tool
-    catalog (40 ops across 9 modules), key REST endpoints, ports, and env
-    vars. Filter with `topic` for a focused subset.
+    catalog (8 portmanteau tools + 4 Prefab cards across 2 modules), key REST
+    endpoints, ports, and env vars. Filter with `topic` for a focused subset.
 
     ## Return Format
     {"success": bool, "data": {"tools": [...], "rest": [...], "config": {...}}}
@@ -78,5 +78,5 @@ async def qcad_shutdown(
 
 
 def register(mcp):
-    mcp.tool(annotations=_READ_ONLY, version="0.3.0")(qcad_help)
-    mcp.tool(annotations=_READ_ONLY, version="0.3.0")(qcad_shutdown)
+    mcp.tool(annotations=_READ_ONLY, version="0.5.0")(qcad_help)
+    mcp.tool(annotations=_READ_ONLY, version="0.5.0")(qcad_shutdown)

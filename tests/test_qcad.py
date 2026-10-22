@@ -111,9 +111,9 @@ class TestPlanInfo:
 
     @pytest.mark.asyncio
     async def test_info_simple_floorplan(self, simple_floorplan):
-        from qcad_mcp.server import plan_info
+        from qcad_mcp.tools.portmanteau import plan
 
-        result = await plan_info(file_name=simple_floorplan)
+        result = await plan(op="info", file_name=simple_floorplan)
         assert result.get("success"), f"plan_info failed: {result}"
         data = result.get("data", {})
         assert "layers" in data
@@ -122,9 +122,9 @@ class TestPlanInfo:
 
     @pytest.mark.asyncio
     async def test_info_office(self, office_layout):
-        from qcad_mcp.server import plan_info
+        from qcad_mcp.tools.portmanteau import plan
 
-        result = await plan_info(file_name=office_layout)
+        result = await plan(op="info", file_name=office_layout)
         assert result.get("success")
         data = result["data"]
         layer_names = [layer.get("name", "") for layer in data.get("layers", [])]
@@ -132,9 +132,9 @@ class TestPlanInfo:
 
     @pytest.mark.asyncio
     async def test_info_mechanical(self, mechanical_bracket):
-        from qcad_mcp.server import plan_info
+        from qcad_mcp.tools.portmanteau import plan
 
-        result = await plan_info(file_name=mechanical_bracket)
+        result = await plan(op="info", file_name=mechanical_bracket)
         assert result.get("success")
         layer_names = [layer.get("name", "") for layer in result.get("data", {}).get("layers", [])]
         assert "Holes" in layer_names
@@ -148,16 +148,16 @@ class TestPlanAnalyse:
 
     @pytest.mark.asyncio
     async def test_analyse_floorplan(self, simple_floorplan):
-        from qcad_mcp.server import plan_analyse
+        from qcad_mcp.tools.portmanteau import plan
 
-        result = await plan_analyse(file_name=simple_floorplan)
+        result = await plan(op="analyse", file_name=simple_floorplan)
         assert result.get("success"), f"plan_analyse failed: {result}"
 
     @pytest.mark.asyncio
     async def test_analyse_office(self, office_layout):
-        from qcad_mcp.server import plan_analyse
+        from qcad_mcp.tools.portmanteau import plan
 
-        result = await plan_analyse(file_name=office_layout)
+        result = await plan(op="analyse", file_name=office_layout)
         assert result.get("success")
 
 
@@ -169,17 +169,17 @@ class TestPlanToSvg:
 
     @pytest.mark.asyncio
     async def test_svg_floorplan(self, simple_floorplan):
-        from qcad_mcp.server import plan_to_svg
+        from qcad_mcp.tools.portmanteau import plan
 
-        result = await plan_to_svg(file_name=simple_floorplan)
+        result = await plan(op="to_svg", file_name=simple_floorplan)
         assert result.get("success"), f"plan_to_svg failed: {result}"
         assert result.get("output", "").endswith(".svg")
 
     @pytest.mark.asyncio
     async def test_svg_with_layer_filter(self, simple_floorplan):
-        from qcad_mcp.server import plan_to_svg
+        from qcad_mcp.tools.portmanteau import plan
 
-        result = await plan_to_svg(file_name=simple_floorplan, layers=["Walls"])
+        result = await plan(op="to_svg", file_name=simple_floorplan, svg_layers=["Walls"])
         assert result.get("success")
 
 
@@ -191,18 +191,18 @@ class TestPlanExtrude:
 
     @pytest.mark.asyncio
     async def test_extrude_floorplan(self, simple_floorplan):
-        from qcad_mcp.server import plan_extrude
+        from qcad_mcp.tools.portmanteau import plan
 
-        result = await plan_extrude(file_name=simple_floorplan, wall_height=3.0, wall_thickness=0.3)
+        result = await plan(op="extrude", file_name=simple_floorplan, wall_height=3.0, wall_thickness=0.3)
         if not result.get("success"):
             pytest.skip(f"No walls detected (expected for test file): {result.get('error')}")
         assert result.get("output", "").endswith(".stl")
 
     @pytest.mark.asyncio
     async def test_extrude_office(self, office_layout):
-        from qcad_mcp.server import plan_extrude
+        from qcad_mcp.tools.portmanteau import plan
 
-        result = await plan_extrude(file_name=office_layout, wall_height=3.0, wall_thickness=0.3)
+        result = await plan(op="extrude", file_name=office_layout, wall_height=3.0, wall_thickness=0.3)
         if not result.get("success"):
             pytest.skip(f"No walls detected: {result.get('error')}")
         assert result.get("output", "").endswith(".stl")
@@ -226,9 +226,10 @@ class TestPlanCreate:
 
     @pytest.mark.asyncio
     async def test_create_rect(self):
-        from qcad_mcp.server import plan_create
+        from qcad_mcp.tools.portmanteau import plan
 
-        result = await plan_create(
+        result = await plan(
+            op="create",
             filename="test_create_rect.dxf",
             entities=[{"type": "rect", "layer": "Walls", "x": 0, "y": 0, "w": 1000, "h": 800}],
         )
@@ -242,9 +243,10 @@ class TestPlanCreate:
 
     @pytest.mark.asyncio
     async def test_create_multi_entity(self):
-        from qcad_mcp.server import plan_create
+        from qcad_mcp.tools.portmanteau import plan
 
-        result = await plan_create(
+        result = await plan(
+            op="create",
             filename="test_multi.dxf",
             entities=[
                 {"type": "rect", "layer": "Walls", "x": 0, "y": 0, "w": 1000, "h": 800},
@@ -262,9 +264,10 @@ class TestPlanCreate:
 
     @pytest.mark.asyncio
     async def test_create_line(self):
-        from qcad_mcp.server import plan_create
+        from qcad_mcp.tools.portmanteau import plan
 
-        result = await plan_create(
+        result = await plan(
+            op="create",
             filename="test_line.dxf",
             entities=[{"type": "line", "layer": "Walls", "x1": 0, "y1": 0, "x2": 100, "y2": 100}],
         )
@@ -280,9 +283,9 @@ class TestPlanDepot:
 
     @pytest.mark.asyncio
     async def test_depot_has_created_files(self):
-        from qcad_mcp.server import plan_depot
+        from qcad_mcp.tools.portmanteau import plan
 
-        result = await plan_depot()
+        result = await plan(op="depot")
         assert result.get("success")
         names = [f["name"] for f in result.get("data", {}).get("files", [])]
         assert len(names) >= 1, f"Expected at least 1 file in depot, got {names}"

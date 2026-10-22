@@ -43,38 +43,19 @@ from qcad_mcp.helpers import (
 from qcad_mcp.services import qcad_pro
 from qcad_mcp.services.apps_routes import register_apps_routes
 from qcad_mcp.tools import register_all
-from qcad_mcp.tools.agentic_tools import plan_generate
-from qcad_mcp.tools.annotation_tools import (
-    plan_array,
-    plan_beam_analysis,
-    plan_block_insert,
-    plan_dimension,
-    plan_hatch,
-    plan_measure,
-    plan_text,
-    plan_wall_data,
-)
-from qcad_mcp.tools.bim_tools import (
-    plan_auto_dimension,
-    plan_building_meta,
-    plan_to_ifc_data,
-)
 from qcad_mcp.tools.block_tools import plan_blocks, plan_blocks_download
-from qcad_mcp.tools.core_tools import (
-    plan_analyse,
-    plan_create,
-    plan_depot,
-    plan_drawings,
-    plan_export,
-    plan_extrude,
-    plan_glb,
-    plan_info,
-    plan_obj,
-    plan_stack,
-    plan_to_svg,
+from qcad_mcp.tools.core_tools import plan_create
+from qcad_mcp.tools.modify_tools import plan_modify
+from qcad_mcp.tools.portmanteau import (
+    plan,
+    plan_ai,
+    plan_annotate,
+    plan_bim,
+    plan_edit,
+    plan_library,
+    plan_pro,
+    qcad,
 )
-from qcad_mcp.tools.modify_tools import plan_convert, plan_modify
-from qcad_mcp.tools.qcad_tools import plan_exec, plan_render, plan_script, qcad_status
 from qcad_mcp.tools.script_tools import _SCRIPT_CATEGORIES, plan_scripts_download, plan_scripts_search
 
 logger = logging.getLogger("qcad-mcp")
@@ -455,14 +436,16 @@ async def scripts_download(body: dict):
 async def batch_run(body: dict):
     """Run an MCP tool on all DXF/DWG files in the depot.
 
-    Body: {"tool": "plan_info", "args": {}}  # args are extended per file
+    Body: {"tool": "info", "args": {}}  # args are extended per file; legacy plan_info accepted
     Returns: {"results": [{"file": ..., "success": bool, "data": ...}]}
     """
     tool_name = body.get("tool", "")
     args = body.get("args", {})
     tool_map = {
-        "plan_info": plan_info,
-        "plan_analyse": plan_analyse,
+        "info": lambda file_name, **a: plan(op="info", file_name=file_name, **a),
+        "plan_info": lambda file_name, **a: plan(op="info", file_name=file_name, **a),
+        "analyse": lambda file_name, **a: plan(op="analyse", file_name=file_name, **a),
+        "plan_analyse": lambda file_name, **a: plan(op="analyse", file_name=file_name, **a),
     }
     if tool_name not in tool_map:
         raise HTTPException(400, f"Batch tool must be one of: {list(tool_map.keys())}")
@@ -667,13 +650,43 @@ async def list_files():
     for f in os.listdir(DEPOT_DIR):
         fp = os.path.join(DEPOT_DIR, f)
         if os.path.isfile(fp) and not f.endswith(".meta.json"):
-            uploads.append({"name": f, "size_kb": round(os.path.getsize(fp) / 1024, 1)})
+            uploads.append(
+                {
+                    "name": f,
+                    "size_kb": round(os.path.getsize(fp) / 1024, 1),
+                    "modified": int(os.path.getmtime(fp)),
+                }
+            )
     outputs = [
-        {"name": f, "size_kb": round(os.path.getsize(os.path.join(OUTPUT_DIR, f)) / 1024, 1)}
+        {
+            "name": f,
+            "size_kb": round(os.path.getsize(os.path.join(OUTPUT_DIR, f)) / 1024, 1),
+            "modified": int(os.path.getmtime(os.path.join(OUTPUT_DIR, f))),
+        }
         for f in os.listdir(OUTPUT_DIR)
         if os.path.isfile(os.path.join(OUTPUT_DIR, f))
     ]
     return {"uploads": uploads, "outputs": outputs}
+
+
+@app.get("/api/tools")
+async def api_tools():
+    """Portmanteau tool catalog for the Tools page: name, description, ops, params."""
+    tools = await mcp.list_tools()
+    out = []
+    for t in tools:
+        schema = getattr(t, "parameters", {}) or {}
+        props = schema.get("properties", {}) if isinstance(schema, dict) else {}
+        op_enum = (props.get("op", {}) or {}).get("enum", [])
+        out.append(
+            {
+                "name": getattr(t, "name", "?"),
+                "description": getattr(t, "description", "") or "",
+                "ops": list(op_enum) if isinstance(op_enum, list) else [],
+                "params": sorted(props.keys()),
+            }
+        )
+    return {"tools": sorted(out, key=lambda t: t["name"])}
 
 
 # ── REST Endpoints - Tool Bridge ──────────────────────────────────────────────
@@ -696,167 +709,113 @@ def _extract(args: dict, key: str, default=None):
 
 # ── Register all REST-accessible tools ─────────────────────────────────────
 
-_register_tool("plan_info", plan_info, {"file_name": "file_name"})
+# v0.4.0 portmanteau surface: 8 domain tools (+4 Prefab cards on MCP).
 _register_tool(
-    "plan_to_svg",
-    plan_to_svg,
-    {"file_name": "file_name", "output_name": "output_name", "layers": "layers", "background": "background"},
-)
-_register_tool(
-    "plan_extrude",
-    plan_extrude,
+    "plan",
+    plan,
     {
+        "op": "op",
         "file_name": "file_name",
+        "filename": "filename",
         "output_name": "output_name",
-        "wall_height": "wall_height",
-        "wall_thickness": "wall_thickness",
-        "wall_layers": "wall_layers",
-        "base_elevation": "base_elevation",
-        "slab": "slab",
-        "slab_thickness": "slab_thickness",
-    },
-)
-_register_tool("plan_export", plan_export, {"file_name": "file_name", "format": "format", "output_name": "output_name"})
-_register_tool(
-    "plan_stack",
-    plan_stack,
-    {
+        "entities": "entities",
+        "layers": "layers",
+        "description": "description",
         "files": "files",
-        "output_name": "output_name",
-        "wall_height": "wall_height",
-        "wall_thickness": "wall_thickness",
-        "wall_layers": "wall_layers",
-        "slab": "slab",
-        "slab_thickness": "slab_thickness",
-    },
-)
-_register_tool(
-    "plan_obj",
-    plan_obj,
-    {
-        "file_name": "file_name",
-        "output_name": "output_name",
         "wall_height": "wall_height",
         "wall_thickness": "wall_thickness",
         "wall_layers": "wall_layers",
         "base_elevation": "base_elevation",
-        "textured": "textured",
         "slab": "slab",
         "slab_thickness": "slab_thickness",
+        "textured": "textured",
         "green_roof": "green_roof",
-    },
-)
-_register_tool(
-    "plan_glb",
-    plan_glb,
-    {
-        "file_name": "file_name",
         "obj_name": "obj_name",
-        "output_name": "output_name",
-        "wall_height": "wall_height",
-        "wall_thickness": "wall_thickness",
-        "wall_layers": "wall_layers",
-        "green_roof": "green_roof",
-    },
-)
-_register_tool(
-    "plan_drawings",
-    plan_drawings,
-    {
-        "file_name": "file_name",
-        "output_prefix": "output_prefix",
-        "wall_height": "wall_height",
-        "wall_thickness": "wall_thickness",
-        "wall_layers": "wall_layers",
         "views": "views",
         "background": "background",
+        "svg_layers": "svg_layers",
+        "format": "format",
     },
 )
-_register_tool("plan_analyse", plan_analyse, {"file_name": "file_name"})
 _register_tool(
-    "plan_create",
-    plan_create,
-    {"filename": "filename", "entities": "entities", "layers": "layers", "description": "description"},
-)
-_register_tool("plan_depot", plan_depot, {})
-_register_tool("plan_convert", plan_convert, {"file_name": "file_name", "output_name": "output_name"})
-_register_tool("plan_modify", plan_modify, {"file_name": "file_name", "operations": "operations"})
-_register_tool(
-    "plan_blocks", plan_blocks, {"query": "query", "category": "category", "source": "source", "limit": "limit"}
-)
-_register_tool("plan_blocks_download", plan_blocks_download, {"title": "title", "source": "source", "url": "url"})
-_register_tool("qcad_status", qcad_status, {})
-_register_tool(
-    "plan_scripts_search",
-    plan_scripts_search,
-    {"query": "query", "category": "category", "source": "source", "limit": "limit"},
-)
-_register_tool("plan_scripts_download", plan_scripts_download, {"title": "title", "source": "source", "url": "url"})
-_register_tool("plan_beam_analysis", plan_beam_analysis, {"beams": "beams", "supports": "supports", "loads": "loads"})
-_register_tool("plan_measure", plan_measure, {"file_name": "file_name"})
-_register_tool(
-    "plan_wall_data",
-    plan_wall_data,
-    {"file_name": "file_name", "wall_layers": "wall_layers", "wall_thickness": "wall_thickness"},
+    "plan_edit",
+    plan_edit,
+    {"op": "op", "file_name": "file_name", "output_name": "output_name", "operations": "operations"},
 )
 _register_tool(
-    "plan_dimension",
-    plan_dimension,
-    {"file_name": "file_name", "dimensions": "dimensions", "output_name": "output_name"},
-)
-_register_tool("plan_text", plan_text, {"file_name": "file_name", "texts": "texts", "output_name": "output_name"})
-_register_tool("plan_hatch", plan_hatch, {"file_name": "file_name", "hatches": "hatches", "output_name": "output_name"})
-_register_tool(
-    "plan_block_insert",
-    plan_block_insert,
-    {"file_name": "file_name", "inserts": "inserts", "output_name": "output_name"},
-)
-_register_tool(
-    "plan_array",
-    plan_array,
+    "plan_annotate",
+    plan_annotate,
     {
+        "op": "op",
         "file_name": "file_name",
+        "output_name": "output_name",
+        "dimensions": "dimensions",
+        "texts": "texts",
+        "hatches": "hatches",
+        "inserts": "inserts",
         "pattern": "pattern",
         "count": "count",
         "params": "params",
+        "wall_layers": "wall_layers",
+        "wall_thickness": "wall_thickness",
+        "beams": "beams",
+        "supports": "supports",
+        "loads": "loads",
+    },
+)
+_register_tool(
+    "plan_pro",
+    plan_pro,
+    {"op": "op", "code": "code", "file_name": "file_name", "format": "format", "output_name": "output_name"},
+)
+_register_tool(
+    "plan_library",
+    plan_library,
+    {
+        "op": "op",
+        "query": "query",
+        "category": "category",
+        "source": "source",
+        "limit": "limit",
+        "title": "title",
+        "url": "url",
+    },
+)
+_register_tool(
+    "plan_ai",
+    plan_ai,
+    {
+        "op": "op",
+        "goal": "goal",
+        "filename": "filename",
+        "model": "model",
+        "create_dxf": "create_dxf",
+        "file_name": "file_name",
+        "lisp_code": "lisp_code",
         "output_name": "output_name",
     },
 )
-_register_tool("plan_script", plan_script, {"code": "code", "file_name": "file_name", "output_name": "output_name"})
-_register_tool("plan_render", plan_render, {"file_name": "file_name", "format": "format", "output_name": "output_name"})
-_register_tool("plan_exec", plan_exec, {"code": "code", "file_name": "file_name"})
 _register_tool(
-    "plan_auto_dimension",
-    plan_auto_dimension,
-    {"file_name": "file_name", "wall_layers": "wall_layers", "offset": "offset", "output_name": "output_name"},
-)
-_register_tool(
-    "plan_building_meta",
-    plan_building_meta,
-    {"file_name": "file_name", "level_name": "level_name", "elevation": "elevation"},
-)
-_register_tool(
-    "plan_to_ifc_data",
-    plan_to_ifc_data,
+    "plan_bim",
+    plan_bim,
     {
+        "op": "op",
         "file_name": "file_name",
         "wall_layers": "wall_layers",
+        "offset": "offset",
+        "output_name": "output_name",
+        "level_name": "level_name",
+        "elevation": "elevation",
         "wall_height": "wall_height",
         "wall_thickness": "wall_thickness",
     },
 )
+_register_tool("qcad", qcad, {"op": "op", "topic": "topic", "confirm": "confirm"})
 
 
 class ToolRequest(BaseModel):
     tool: str = Field(description=f"Tool name: {', '.join(sorted(_TOOL_DISPATCH.keys()))}")
-    arguments: dict = Field(default_factory=dict, description="Tool arguments as a dict")
-
-
-_register_tool(
-    "plan_generate",
-    plan_generate,
-    {"goal": "goal", "filename": "filename", "model": "model", "create_dxf": "create_dxf"},
-)
+    arguments: dict = Field(default_factory=dict, description="Tool arguments as a dict, including 'op'")
 
 
 @app.post("/api/v1/control/tool")
@@ -873,10 +832,9 @@ async def execute_tool(req: ToolRequest):
     return await fn(**kwargs)
 
 
-# ── MCP-only tools (need Context) ──────────────────────────────────────────
-# plan_agentic, plan_transpile, cad_sampling use sampling and are only
-# available via MCP protocol, not REST. plan_generate is on REST too: without
-# a sampling client it uses the local Ollama model instead.
+# ── AI ops via REST (no sampling client needed) ────────────────────────────
+# plan_ai ops run over REST with ctx=None: generate falls back to local Ollama,
+# agentic/transpile/sampling degrade to their documented fallbacks.
 
 
 # ── Log Ring Buffer ──────────────────────────────────────────────────────────
@@ -973,6 +931,67 @@ async def llm_chat(req: LlmChatRequest):
             return {"response": content}
     except Exception as e:
         return {"error": str(e)}
+
+
+@app.post("/api/llm/chat/stream")
+async def llm_chat_stream(req: LlmChatRequest):
+    """Streaming backend chat proxy (SSE, OpenAI-style chunks).
+
+    The ONLY path the Chat page uses for live token streaming: keys never leave
+    the server, the browser only sees ``data: {...}`` chunks ending in
+    ``data: [DONE]``. Same send-time guard as ``/api/llm/chat`` (no fallback).
+    """
+    model = req.model or _llm_settings.get("model", "")
+    if not model:
+
+        async def _empty():
+            yield 'data: {"error": "No model selected - pick one in Settings > LLM Provider."}\n\n'
+            yield "data: [DONE]\n\n"
+
+        return StreamingResponse(_empty(), media_type="text/event-stream")
+    ollama_url = _llm_settings.get("ollama_url", _LLM_DEFAULT_URL)
+
+    async def _gen():
+        try:
+            async with httpx.AsyncClient(timeout=180) as client:
+                async with client.stream(
+                    "POST",
+                    f"{ollama_url}/api/chat",
+                    json={
+                        "model": model,
+                        "messages": [
+                            {"role": "system", "content": req.system or "You are a CAD and floor plan expert."},
+                            {"role": "user", "content": req.prompt},
+                        ],
+                        "stream": True,
+                        "options": {"num_ctx": _LLM_NUM_CTX},
+                    },
+                ) as r:
+                    if r.status_code != 200:
+                        body = (await r.aread()).decode("utf-8", "replace")[:300]
+                        yield f'data: {{"error": "Ollama error: {body}"}}\n\n'
+                    else:
+                        async for line in r.aiter_lines():
+                            if not line.strip():
+                                continue
+                            try:
+                                chunk = json.loads(line)
+                            except Exception as e:
+                                logger.debug("Skipping non-JSON stream line: %s", e)
+                                continue
+                            if chunk.get("error"):
+                                yield f'data: {{"error": {json.dumps(str(chunk["error"]))}}}\n\n'
+                                break
+                            text = (chunk.get("message") or {}).get("content", "")
+                            if text:
+                                yield f"data: {json.dumps({'choices': [{'delta': {'content': text}}]})}\n\n"
+                            if chunk.get("done"):
+                                break
+        except Exception as e:
+            yield f'data: {{"error": {json.dumps(str(e))}}}\n\n'
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(_gen(), media_type="text/event-stream")
 
 
 @app.get("/api/llm/models")
@@ -1319,7 +1338,7 @@ async def blender_import(req: BlenderImportRequest):
     detail = ""
     inner = {}
     try:
-        content = (payload.get("result", {}) or {}).get("content", [])
+        content = ((payload or {}).get("result", {}) or {}).get("content", [])
         detail = (content[0] or {}).get("text", "") if content else ""
         inner = json.loads(detail) if detail else {}
     except Exception as e:
@@ -1431,15 +1450,17 @@ async def resonite_import_tower(req: ResoniteImportTowerRequest):
         return {"success": True, "delivery": link_error, "spawned": []}
     assert link_info is not None and world_name is not None
     spawned: list[dict] = []
+    current = req.levels[-1].file_name if req.levels else "?"
     try:
         for lv in req.levels:
+            current = lv.file_name
             glb_name, glb_path = await _ensure_glb(lv.file_name)
             delivery = await _spawn_glb(
                 link_info, world_name, glb_path, Path(glb_name).stem, req.pos_x, lv.y, req.pos_z
             )
             spawned.append({"file": lv.file_name, "glb": glb_name, "y": lv.y, **delivery})
     except HTTPException as e:
-        spawned.append({"file": lv.file_name, "delivered": False, "reason": e.detail})
+        spawned.append({"file": current, "delivered": False, "reason": e.detail})
     ok = spawned and all(s.get("delivered") for s in spawned)
     return {
         "success": True,
@@ -1845,7 +1866,7 @@ def main():
         asyncio.run(_run_stdio())
     else:
         logger.info("Starting QCAD MCP on %s:%s", args.host, args.port)
-        uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+        uvicorn.run(app, host=str(args.host), port=int(args.port), log_level="info")
 
 
 if __name__ == "__main__":

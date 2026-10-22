@@ -1,31 +1,17 @@
-"""QCAD MCP tools - portmanteau registration for FastMCP 3.2.
+"""QCAD MCP tools - portmanteau registration (v0.5.0 surface).
 
-[RATIONALALE] Consolidates 42 tools across 10 modules into a single register_all()
-entry point. Each module's register() function fires @mcp.tool decorators at
-import time for server boot discovery. Without this portmanteau, individual
-tool modules would need manual import by operators.
+[RATIONALE] Single entry point registering 8 domain portmanteaus
+(plan, plan_edit, plan_annotate, plan_pro, plan_library, plan_ai,
+plan_bim, qcad) plus 4 Prefab display cards = 12 tools total.
+Per-op coroutines stay importable in their modules (tests, server
+internals, REST bridge delegate to them); only the MCP surface is
+consolidated so LLM tool-list context stays lean.
 """
 
 
 def register_all(mcp):
-    from qcad_mcp.tools.agentic_tools import register as reg_agentic
-    from qcad_mcp.tools.annotation_tools import register as reg_annot
-    from qcad_mcp.tools.bim_tools import register as reg_bim
-    from qcad_mcp.tools.block_tools import register as reg_blocks
-    from qcad_mcp.tools.core_tools import register as reg_core
-    from qcad_mcp.tools.meta_tools import register as reg_meta
-    from qcad_mcp.tools.modify_tools import register as reg_modify
+    from qcad_mcp.tools.portmanteau import register as reg_portmanteau
     from qcad_mcp.tools.prefab_cards import register as reg_prefab
-    from qcad_mcp.tools.qcad_tools import register as reg_qcad
-    from qcad_mcp.tools.script_tools import register as reg_scripts
 
-    reg_core(mcp)
-    reg_meta(mcp)
-    reg_modify(mcp)
-    reg_blocks(mcp)
-    reg_qcad(mcp)
-    reg_annot(mcp)
-    reg_agentic(mcp)
-    reg_scripts(mcp)
-    reg_bim(mcp)
+    reg_portmanteau(mcp)
     reg_prefab(mcp)
