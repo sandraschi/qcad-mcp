@@ -15,20 +15,20 @@ The webapp includes a chat page (`/chat`) that connects to an Ollama instance fo
 Since QCAD MCP is a FastMCP 3.2 server, any MCP client (Claude Desktop, Cursor, OpenCode) can chain tool calls agentically:
 
 ```
-1. qcad_status()             → check QCAD Pro availability
-2. plan_depot()              → list available DXF files
-3. plan_info("plan.dxf")     → understand the drawing structure
-4. plan_to_svg("plan.dxf")   → preview as SVG
-5. plan_analyse("plan.dxf")  → detect rooms and calculate areas
-6. plan_script(code, ...)    → execute custom ECMAScript
-7. plan_render("plan.dxf")   → export native PDF/SVG
+1. qcad(op="status")                    → check QCAD Pro availability
+2. plan(op="depot")                     → list available DXF files
+3. plan(op="info", ...)                 → understand the drawing structure
+4. plan(op="to_svg", ...)               → preview as SVG
+5. plan(op="analyse", ...)              → detect rooms and calculate areas
+6. plan_pro(op="script", ...)           → execute custom ECMAScript
+7. plan_pro(op="render", ...)           → export native PDF/SVG
 ```
 
 ### ECMAScript Bridge: The LLM Is the Library
 
 Unlike AutoCAD's AutoLISP ecosystem — 40 years of shared forum routines for wall area calculators, beam schedules, and layer management — QCAD Pro has no comparable script library. It doesn't need one.
 
-**The AI is the library.** `plan_script` and `plan_agentic` let an LLM generate ECMAScript on-demand from first principles:
+**The AI is the library.** `plan_pro(op="script")` and `plan_ai(op="agentic")` let an LLM generate ECMAScript on-demand from first principles:
 
 ```
 User: "Label every closed polyline with its area in m²"
@@ -42,7 +42,7 @@ AI generates:
       }
   }
 
-→ plan_script(code=..., file_name="floorplan.dxf") → executed
+→ plan_pro(op="script", code=..., file_name="floorplan.dxf") → executed
 ```
 
 No hunting for a pre-written LISP routine on a 20-year-old forum thread. The AI writes fresh, correct ECMAScript for each task — tailored to the specific drawing and goal.
@@ -60,5 +60,5 @@ The server broadcasts SSDP discovery beacons so fleet orchestrators (meta-mcp) c
 
 ```json
 POST /api/v1/control/tool
-{"tool": "plan_extrude", "arguments": {"file_name": "plan.dxf", "wall_height": 3.0}}
+{"tool": "plan", "arguments": {"op": "extrude", "file_name": "plan.dxf", "wall_height": 3.0}}
 ```

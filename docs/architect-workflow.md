@@ -19,7 +19,7 @@ what our AI floor-plan generator consumes (see Part 2).
 ### 2. Concept sketches and massing
 Rough bubble diagrams (which room touches which), then a first massing:
 footprint on the plot, storeys, roof direction. In CAD this becomes the
-first rough `plan_create`-equivalent: outer rectangle, a few dividing lines.
+first rough `plan(op="create")`-equivalent: outer rectangle, a few dividing lines.
 Nothing is dimensioned yet; walls are single lines, not double-line
 constructions.
 
@@ -38,7 +38,7 @@ Each floor plan is drawn at 1:50 (planning) or 1:100 (overview) with:
 - **Dimensions**: overall outer dimensions plus chain dimensions between
   openings. Drawn last, on their own layer, never as loose text.
 - **Room labels + areas**: room name and m² in each space — the equivalent
-  of our `plan_wall_data` / `plan_building_meta` room analysis.
+  of our `plan_annotate(op="wall_data")` / `plan_bim(op="building_meta")` room analysis.
 
 ### 4. Elevations — front, rear, left, right
 Flat, scaled exterior views: facade composition, window rhythms, floor
@@ -63,7 +63,7 @@ Wall/foundation/roof build-ups, window installation details, door schedule
 Plans → structural engineer, MEP, energy calculations → permit set →
 construction drawings with revision clouds. The CAD file is a living
 document through all of it, which is why **modify-in-place**
-(`plan_modify`) matters more than generate-once.
+(`plan_edit(op="modify")`) matters more than generate-once.
 
 The pattern to notice: the architect draws the **floor plan once**, then
 derives everything else from it, and reuses library objects everywhere.
@@ -73,15 +73,15 @@ That is precisely the automation shape in Part 2.
 
 | Architect step | Repo capability | Where | Status |
 |---|---|---|---|
-| Room program → first plan | Natural-language floor plan generator (rooms, sizes, presets: office, studio, villa, church…) | Demo page, `plan_agentic` + `plan_create` | Working |
-| Layer setup | Automatic `Walls`/`Text`/… layers on every generated plan | `plan_create` | Working |
-| Room labels + areas | Room detection, areas, dimensions report | `plan_wall_data`, `plan_building_meta`, Analyse page | Working |
-| Dimensioning | Automatic exterior + opening dimensions | `plan_auto_dimension`, `plan_dimension` | Working (QCAD Pro for some paths) |
-| Modify / revise | Move/resize/delete entities, merge layers | `plan_modify`, Depot page | Working |
-| 2D preview | SVG preview with layer filter + dark/light background | `plan_to_svg`, Viewer/Depot pages | Working |
-| 3D massing from plan | Wall extrusion to STL (Three.js in-browser preview) | `plan_extrude`, Extrusion page, Models page | Working |
+| Room program → first plan | Natural-language floor plan generator (rooms, sizes, presets: office, studio, villa, church…) | Demo page, `plan_ai(op="agentic")` + `plan(op="create")` | Working |
+| Layer setup | Automatic `Walls`/`Text`/… layers on every generated plan | `plan(op="create")` | Working |
+| Room labels + areas | Room detection, areas, dimensions report | `plan_annotate(op="wall_data")`, `plan_bim(op="building_meta")`, Analyse page | Working |
+| Dimensioning | Automatic exterior + opening dimensions | `plan_bim(op="auto_dimension")`, `plan_annotate(op="dimension")` | Working (QCAD Pro for some paths) |
+| Modify / revise | Move/resize/delete entities, merge layers | `plan_edit(op="modify")`, Depot page | Working |
+| 2D preview | SVG preview with layer filter + dark/light background | `plan(op="to_svg")`, Viewer/Depot pages | Working |
+| 3D massing from plan | Wall extrusion to STL (Three.js in-browser preview) | `plan(op="extrude")`, Extrusion page, Models page | Working |
 | Solid 3D object | STL → B-Rep solid via FreeCAD (`/api/v1/freecad/solid`) | Extrusion page → freecad-mcp `mesh_to_solid` | Working (FreeCAD + backend required) |
-| BIM data | Wall/opening schema JSON for IFC pipelines | `plan_to_ifc_data` | Working |
+| BIM data | Wall/opening schema JSON for IFC pipelines | `plan_bim(op="to_ifc_data")` | Working |
 | Elevations / sections / iso | Projected views from the 3D model (TechDraw) | Planned via freecad-mcp | Roadmap |
 | Schedules | Door/window/finish tables from block + layer data | Roadmap | Roadmap |
 
@@ -96,20 +96,20 @@ Architects work from libraries, and so does this repo. Three library
 systems, all landing in the local **depot** (`%LOCALAPPDATA%\qcad-mcp\depot`):
 
 ### CAD blocks — doors, windows, furniture, fixtures
-- `plan_blocks` — search by keyword + category (furniture, doors-windows,
+- `plan_library(op="blocks")` — search by keyword + category (furniture, doors-windows,
   kitchens, bathrooms, floor-plans). Live source: **cadblocksfree.com**,
   with curated built-in results as fallback when offline.
-- `plan_blocks_download` — downloads a block straight into the depot
+- `plan_library(op="blocks_download")` — downloads a block straight into the depot
   (Blocks page, one click).
-- Insert blocks into plans with `plan_block_insert`; query what's inside
-  with `plan_blocks` on the depot side.
+- Insert blocks into plans with `plan_annotate(op="block_insert")`; query what's inside
+  with `plan_library(op="blocks")` on the depot side.
 
 ### QCAD automation scripts
-- `plan_scripts_search` / `plan_scripts_download` — sources: built-in
+- `plan_library(op="scripts_search")` / `plan_library(op="scripts_download")` — sources: built-in
   **gallery** (door swings, dimension helpers, layer tools, room areas…),
   QCAD **examples**, and GitHub **gists**. Scripts page in the webapp.
-- Run them headlessly with `plan_script` (QCAD Pro present) or
-  `plan_exec`.
+- Run them headlessly with `plan_pro(op="script")` (QCAD Pro present) or
+  `plan_pro(op="exec")`.
 
 ### Reference floor plans
 `docs/floorplan-sources.md` catalogs free/paid/historic plan sources
@@ -122,10 +122,10 @@ modify it.
 ### Practical library workflow
 1. Generate the shell: Demo page → room program → DXF in depot.
 2. Furnish it: Blocks page → search "bed"/"sofa"/"WC" → download →
-   `plan_block_insert` at the right coordinates.
-3. Dimension it: `plan_auto_dimension` → check on Viewer page.
+   `plan_annotate(op="block_insert")` at the right coordinates.
+3. Dimension it: `plan_bim(op="auto_dimension")` → check on Viewer page.
 4. Go 3D: Extrusion page → STL → Three.js check → FreeCAD solid.
-5. Export: `plan_export` → PDF for the client, DXF/DWG for the engineer.
+5. Export: `plan(op="export")` → PDF for the client, DXF/DWG for the engineer.
 
 ## The goal: architect-in-a-repo
 
@@ -147,7 +147,7 @@ not guessed):
 | qcad → blender, print massing | `blender_import` / `import_stl` | Geometry only, no color |
 | qcad → blender, 2D plan | `import_scene.dxf` direct | Plan arrives as curves for drafting over |
 | qcad → blender, future | glTF/GLB (`import_scene.gltf`) | Native PBR; needs a `plan_gltf` exporter on our side |
-| blender → qcad | STEP via its Mayo/FreeCAD CAD converters, then our `plan_convert` | Round-trip for engineered parts |
+| blender → qcad | STEP via its Mayo/FreeCAD CAD converters, then our `plan_edit(op="convert")` | Round-trip for engineered parts |
 
 Status 2026-09-18: blender backend was DOWN, so no live import has run yet
 and no `/api/v1/blender/import` shuttle exists on our side (unlike the

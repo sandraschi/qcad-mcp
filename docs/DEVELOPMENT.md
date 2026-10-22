@@ -2,13 +2,13 @@
 
 ## Prereqs
 
-Python 3.12+, `uv` (`C:\Users\sandr\.local\bin\uv.exe`), Node 22+
-(`npm --prefix webapp ci`), QCAD Pro 3.x optional.
+Python 3.12+, `uv` (`C:\Users\sandr\.local\bin\uv.exe`), bun 1.3+
+(`bun install` in `webapp/`), QCAD Pro 3.x optional.
 
 ## Loop
 
 ```powershell
-just bootstrap   # uv sync --all-extras + npm install + pre-commit hook
+just bootstrap   # uv sync --all-extras + bun install + pre-commit hook
 just serve       # backend dual mode on :11966
 start.ps1        # backend + frontend + browser (fleet engine)
 just lint        # ruff check + biome + tsc

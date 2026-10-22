@@ -1,58 +1,98 @@
-# Tools — qcad-mcp (40 MCP tools)
+# Tools — qcad-mcp (v0.5.0: 8 portmanteaus + 4 cards)
 
-Registered via `register(mcp)` in `src/qcad_mcp/tools/*.py`. Full signatures
-in `llms-full.txt`. `qcad_help` prints this catalog live.
+Registered via `register(mcp)` in `src/qcad_mcp/tools/portmanteau.py` (+
+`prefab_cards.py`). Each portmanteau takes an `op` Literal discriminator plus
+the op's parameters; unneeded params are ignored. Full signatures in
+`llms-full.txt`. `qcad(op="help")` prints this catalog live.
 
-## Core — ezdxf, no QCAD Pro (13)
+## Core — ezdxf, no QCAD Pro: `plan`
 
-| Tool | Purpose |
+| Op | Purpose |
 |---|---|
-| `plan_info` | DXF metadata: layers, entity counts, bbox, blocks |
-| `plan_to_svg` | DXF → SVG preview, layer filter, background |
-| `plan_extrude` | Wall LINE/LWPOLYLINE → 3D STL (h=3.0 m, t=0.3 m defaults) |
-| `plan_stack` | Multi-storey extrusion |
-| `plan_obj` / `plan_glb` | STL → OBJ / GLB shuttle (Resonite path) |
-| `plan_drawings` | Drawing set helpers |
-| `plan_export` | DXF → SVG/PDF/PNG (Pro first, ezdxf fallback) |
-| `plan_analyse` | Rooms, areas, doors/windows |
-| `plan_create` | DXF from primitives (line/rect/circle/text/polyline) |
-| `plan_depot` | Depot listing with sidecar metadata |
-| `plan_convert` | DWG↔DXF via QCAD Pro CLI |
-| `plan_modify` | Delete/offset/colour/rename/freeze/lock/merge layers |
+| `info` | DXF metadata: layers, entity counts, bbox, blocks |
+| `to_svg` | DXF → SVG preview, `svg_layers` filter, background |
+| `extrude` | Wall LINE/LWPOLYLINE → 3D STL (h=3.0 m, t=0.3 m defaults) |
+| `stack` | Multi-storey extrusion |
+| `obj` / `glb` | STL → OBJ / GLB shuttle (Resonite path) |
+| `drawings` | Drawing set helpers (elevations, section, iso, roof) |
+| `export` | DXF → SVG/PDF/PNG (Pro first, ezdxf fallback) |
+| `analyse` | Rooms, areas, doors/windows |
+| `create` | DXF from primitives (line/rect/circle/text/polyline) |
+| `depot` | Depot listing with sidecar metadata |
 
-## BIM / analysis (5)
+## Edits: `plan_edit`
 
-`plan_auto_dimension`, `plan_building_meta`, `plan_to_ifc_data`,
-`plan_wall_data` (BIM JSON for freecad-mcp), `plan_beam_analysis`
-(numpy FEM: moments, shear, deflection).
+| Op | Purpose |
+|---|---|
+| `convert` | DWG↔DXF via QCAD Pro CLI |
+| `modify` | Delete/offset/colour/rename/freeze/lock/merge layers |
 
-## QCAD Pro 3.x (10)
+## Annotations + BIM data: `plan_annotate`
 
-`qcad_status`, `plan_script` (arbitrary ECMAScript, 120 s),
-`plan_render` (SVG/PDF/BMP), `plan_exec` (snippet, no output file),
-`plan_dimension`, `plan_measure`, `plan_text`, `plan_hatch`,
-`plan_block_insert`, `plan_array`.
+| Op | Purpose |
+|---|---|
+| `dimension` | Aligned/rotated/radial/diametric/angular dimensions |
+| `measure` | Per-entity distance/angle/area (read-only) |
+| `text` | Text annotations with height/alignment/rotation |
+| `hatch` | Hatch/fill patterns (ANSI31-38, AR-CONC, SOLID, …) |
+| `block_insert` | Insert blocks from library or drawing |
+| `array` | Rectangular/polar copies |
+| `wall_data` | Wall segments as BIM JSON for freecad-mcp (read-only) |
+| `beam_analysis` | numpy FEM: moments, shear, deflection (read-only) |
 
-## Libraries (4)
+## BIM handoff: `plan_bim`
 
-`plan_blocks`, `plan_blocks_download` (4800+ blocks),
-`plan_scripts_search`, `plan_scripts_download` (gallery/Gist/bundled).
+| Op | Purpose |
+|---|---|
+| `auto_dimension` | Auto-dimension wall geometry |
+| `building_meta` | Storey/level metadata |
+| `to_ifc_data` | Wall data as IFC-shaped JSON |
 
-## Agentic (4)
+## QCAD Pro: `plan_pro`
 
-`plan_generate`, `plan_agentic` (NL → ECMAScript via sampling),
-`plan_transpile` (AutoLISP → ECMAScript), `cad_sampling`.
+| Op | Purpose |
+|---|---|
+| `script` | Arbitrary ECMAScript (120 s), optional DXF in/out |
+| `render` | Hi-fi SVG/PDF/BMP render |
+| `exec` | Quick snippet, no file I/O |
 
-## Meta / cards (4)
+## Libraries: `plan_library`
 
-`qcad_help` (this catalog), `qcad_shutdown` (orderly exit),
+| Op | Purpose |
+|---|---|
+| `blocks` | Search 4800+ CAD blocks |
+| `blocks_download` | Download a block DXF to the depot |
+| `scripts_search` | Search gallery/Gist/bundled ECMAScript |
+| `scripts_download` | Download a script to the depot |
+
+## AI: `plan_ai`
+
+| Op | Purpose |
+|---|---|
+| `generate` | NL brief → floor-plan DXF (local LLM fallback) |
+| `agentic` | NL goal → ECMAScript → executed (sampling) |
+| `transpile` | AutoLISP → QCAD ECMAScript |
+| `sampling` | Host-LLM reasoning about a CAD question |
+
+## Server: `qcad`
+
+| Op | Purpose |
+|---|---|
+| `status` | QCAD Pro install/running/version (read-only) |
+| `help` | This catalog, live (read-only) |
+| `shutdown` | Orderly exit, `confirm=true` |
+
+## Prefab cards (read-only display)
+
 `show_qcad_status_card`, `show_depot_card`, `show_beam_analysis_card`,
-`show_building_meta_card` (Prefab UI).
+`show_building_meta_card`.
 
 ## REST equivalents (selection)
 
 Depot CRUD `/api/v1/depot*`, `/api/v1/upload`, `/api/v1/download/{f}`,
-tool bridge `/api/v1/control/tool`, chat `/api/v1/chat` + `/api/llm/chat`,
+tool bridge `/api/v1/control/tool` (tool + `op` in arguments),
+chat `/api/v1/chat` + `/api/llm/chat` + `/api/llm/chat/stream`,
 LLM `/api/llm/providers|models|gpus|loaded|discover|onboarding`,
-skills `/api/skills`, diagnostics `/api/v1/diagnostics`,
-health `/api/v1/health|/status`, shutdown `POST /api/shutdown`.
+skills `/api/skills`, tools `/api/tools`,
+diagnostics `/api/v1/diagnostics`, health `/api/v1/health|/status`,
+shutdown `POST /api/shutdown`.

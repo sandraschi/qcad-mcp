@@ -54,14 +54,14 @@ This MCP server uses **ezdxf** (by Manfred Moitzi) rather than QCAD itself. ezdx
 | **2D Drafting** | Full | Full |
 | **3D** | No | Yes |
 | **Scripting** | ECMAScript (LLM-friendly, headless) | AutoLISP (1986 Lisp dialect), .NET, VBA |
-| **AI Automation** | `plan_script` / `plan_agentic` — LLM writes scripts on-demand | No native MCP integration |
+| **AI Automation** | `plan_pro(op="script")` / `plan_ai(op="agentic")` — LLM writes scripts on-demand | No native MCP integration |
 | **Headless CLI** | Yes (`-no-gui -autostart`) | No |
 
 ## QCAD Scripting
 
 QCAD Pro uses **ECMAScript** (QtScript, similar to JavaScript) for scripting and automation. Unlike AutoCAD's AutoLISP — a 40-year-old Lisp dialect with a massive library ecosystem built over decades — QCAD's ECMAScript is a modern, LLM-friendly language that AI models generate reliably from first principles.
 
-**The key insight**: you don't need a library ecosystem when the AI is the library. `plan_script` and `plan_agentic` let an LLM write CAD scripts on-demand — room labelers, wall calculators, dimensioning macros, batch exporters — generated fresh for each task instead of hunting for a pre-written LISP routine on a 20-year-old forum thread.
+**The key insight**: you don't need a library ecosystem when the AI is the library. `plan_pro(op="script")` and `plan_ai(op="agentic")` let an LLM write CAD scripts on-demand — room labelers, wall calculators, dimensioning macros, batch exporters — generated fresh for each task instead of hunting for a pre-written LISP routine on a 20-year-old forum thread.
 
 Scripts can:
 - Create and modify entities (lines, circles, polylines, text, hatches, dimensions)
@@ -77,7 +77,7 @@ For pure Python programmatic access without QCAD Pro, **ezdxf** handles parsing,
 This MCP server turns QCAD/ezdxf into an AI-accessible service. The typical pipeline:
 
 ```
-Floor plan (DXF) → plan_extrude → STL → freecad-mcp (optimise) → 3D print or game engine
+Floor plan (DXF) → plan(op="extrude") → STL → freecad-mcp (optimise) → 3D print or game engine
 ```
 
 Other fleet integrations:
