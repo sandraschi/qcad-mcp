@@ -165,15 +165,15 @@ export function AppsPage() {
 					<div className="space-y-2">
 						<h1 className="text-2xl font-bold tracking-tight">Fleet apps — start or switch</h1>
 						<p className="text-sm text-muted-foreground leading-relaxed max-w-[70ch]">
-							All installed <span className="font-mono text-xs">sandraschi</span> repos with a webapp (from{" "}
-							<span className="font-mono text-xs">fleet-registry.json</span> +{" "}
-							<span className="font-mono text-xs">WEBAPP_PORTS.md</span>). Click a card to check{" "}
-							<span className="font-mono text-xs">:{`{port}`}/health</span> first. If it is up, we open it; if a Tauri
+							All installed <span className="font-mono text-sm">sandraschi</span> repos with a webapp (from{" "}
+							<span className="font-mono text-sm">fleet-registry.json</span> +{" "}
+							<span className="font-mono text-sm">WEBAPP_PORTS.md</span>). Click a card to check{" "}
+							<span className="font-mono text-sm">:{`{port}`}/health</span> first. If it is up, we open it; if a Tauri
 							winapp is already running we bring it to the foreground; otherwise we start it via{" "}
-							<span className="font-mono text-xs">mcd starts\{`{id}`}-start.bat</span> →{" "}
-							<span className="font-mono text-xs">repo\start.ps1</span> → Tauri exe and then open.
+							<span className="font-mono text-sm">mcd starts\{`{id}`}-start.bat</span> →{" "}
+							<span className="font-mono text-sm">repo\start.ps1</span> → Tauri exe and then open.
 						</p>
-						<div className="flex flex-wrap gap-2 text-xs font-mono">
+						<div className="flex flex-wrap gap-2 text-sm font-mono">
 							<span className="px-2 py-1 rounded bg-white/5 border border-white/10">{fleetTotal} repos total</span>
 							<span className="px-2 py-1 rounded bg-gh-green/10 border border-gh-green/20 text-gh-green">
 								{apps.length} with ports
@@ -295,7 +295,7 @@ export function AppsPage() {
 										</a>
 									</div>
 								</div>
-								<p className="text-xs text-muted-foreground mt-2 line-clamp-3 flex-1">{app.description}</p>
+								<p className="text-sm text-muted-foreground mt-2 line-clamp-3 flex-1">{app.description}</p>
 								{app.last_commit && (
 									<p className="text-[10px] font-mono text-muted-foreground/60 mt-1">
 										last commit {new Date(app.last_commit).toLocaleDateString()}
@@ -353,11 +353,11 @@ export function AppsPage() {
 											<span className="text-sm font-medium truncate">{app.name}</span>
 											{app.has_tauri && <Star className="w-3 h-3 text-amber-400" />}
 										</div>
-										<p className="text-xs text-muted-foreground truncate hidden sm:block">{app.description}</p>
+										<p className="text-sm text-muted-foreground truncate hidden sm:block">{app.description}</p>
 									</div>
-									<span className="text-xs font-mono text-gh-green">:{app.port}</span>
-									<span className="text-xs font-mono">{app.category}</span>
-									<span className="text-xs font-mono text-muted-foreground">
+									<span className="text-sm font-mono text-gh-green">:{app.port}</span>
+									<span className="text-sm font-mono">{app.category}</span>
+									<span className="text-sm font-mono text-muted-foreground">
 										{app.last_commit ? new Date(app.last_commit).toLocaleDateString() : "—"}
 									</span>
 									<div className="flex items-center justify-end gap-2">
@@ -368,7 +368,7 @@ export function AppsPage() {
 											type="button"
 											onClick={() => openApp(app)}
 											disabled={isStarting}
-											className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${alive ? "bg-white text-black" : "bg-amber-500 text-black"} disabled:opacity-60`}
+											className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${alive ? "bg-white text-black" : "bg-amber-500 text-black"} disabled:opacity-60`}
 										>
 											{isStarting ? "..." : alive ? "Open" : "Start"}
 										</button>
@@ -384,7 +384,7 @@ export function AppsPage() {
 
 			<div className="rounded-lg border border-dashed border-border bg-black/20 p-4 flex items-start gap-3">
 				<Rocket className="w-4 h-4 text-muted-foreground mt-0.5" />
-				<div className="text-xs text-muted-foreground leading-relaxed">
+				<div className="text-sm text-muted-foreground leading-relaxed">
 					<span className="font-semibold text-foreground">Fleet standard:</span> every{" "}
 					<span className="font-mono">Apps</span> page checks <span className="font-mono">:{`{port}`}/health</span>{" "}
 					first; if a Tauri winapp is already running we bring it to front, otherwise we launch{" "}

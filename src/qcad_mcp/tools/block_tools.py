@@ -89,5 +89,5 @@ async def plan_blocks_download(
 
 
 def register(mcp):
-    mcp.tool(annotations=_README_ONLY, version="0.3.0")(plan_blocks)
-    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_blocks_download)
+    mcp.tool(annotations=_README_ONLY, version="0.5.0")(plan_blocks)
+    mcp.tool(annotations=_MUTATING, version="0.5.0")(plan_blocks_download)

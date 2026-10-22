@@ -95,7 +95,7 @@ export default function ScriptsPage() {
 		if (s === "gallery") return "text-emerald-400";
 		if (s === "gist") return "text-blue-400";
 		if (s === "examples") return "text-purple-400";
-		return "text-slate-400";
+		return "text-slate-300";
 	};
 
 	return (
@@ -115,7 +115,7 @@ export default function ScriptsPage() {
 							type="button"
 							key={s.key}
 							onClick={() => setSource(s.key)}
-							className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${source === s.key ? `${s.color} text-white shadow-lg` : "bg-white/10 text-slate-400 hover:bg-white/10"}`}
+							className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${source === s.key ? `${s.color} text-white shadow-lg` : "bg-white/10 text-slate-300 hover:bg-white/10"}`}
 						>
 							{s.label}
 						</button>
@@ -175,14 +175,14 @@ export default function ScriptsPage() {
 								<Code2 size={16} className={`mt-0.5 shrink-0 ${sourceColor(item.source)}`} />
 								<div className="min-w-0">
 									<h3 className="text-sm font-bold text-white leading-tight">{item.title}</h3>
-									<p className="text-xs text-slate-400 mt-1 line-clamp-2">{item.description}</p>
+									<p className="text-sm text-slate-300 mt-1 line-clamp-2">{item.description}</p>
 								</div>
 							</div>
-							<div className="flex items-center gap-2 text-xs">
+							<div className="flex items-center gap-2 text-sm">
 								<span className={`px-2 py-0.5 rounded uppercase font-bold ${sourceColor(item.source)} bg-white/5`}>
 									{item.source}
 								</span>
-								{item.category && <span className="text-slate-500">{item.category}</span>}
+								{item.category && <span className="text-slate-300">{item.category}</span>}
 							</div>
 							<div className="flex items-center gap-2 pt-1">
 								<button
@@ -204,7 +204,7 @@ export default function ScriptsPage() {
 										href={item.url}
 										target="_blank"
 										rel="noopener noreferrer"
-										className="text-slate-400 hover:text-slate-400"
+										className="text-slate-300 hover:text-slate-300"
 									>
 										<ExternalLink size={14} />
 									</a>
@@ -216,7 +216,7 @@ export default function ScriptsPage() {
 			</div>
 
 			{!loading && results.length === 0 && !error && (
-				<div className="text-center py-12 text-slate-400">
+				<div className="text-center py-12 text-slate-300">
 					<FileCode size={48} className="mx-auto mb-4 opacity-30" />
 					<p>
 						Search for QCAD ECMAScript scripts. The curated gallery has ready-to-use drawing, dimension, and utility
@@ -227,7 +227,7 @@ export default function ScriptsPage() {
 
 			{recent.length > 0 && (
 				<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-2">
-					<h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+					<h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
 						<CheckCircle size={12} className="text-emerald-400" /> Added to Depot
 					</h3>
 					{recent.map((f) => (

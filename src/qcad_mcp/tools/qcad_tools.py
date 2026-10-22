@@ -184,7 +184,7 @@ async def plan_exec(
 
 
 def register(mcp):
-    mcp.tool(annotations=_README_ONLY, version="0.3.0")(qcad_status)
-    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_script)
-    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_render)
-    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_exec)
+    mcp.tool(annotations=_README_ONLY, version="0.5.0")(qcad_status)
+    mcp.tool(annotations=_MUTATING, version="0.5.0")(plan_script)
+    mcp.tool(annotations=_MUTATING, version="0.5.0")(plan_render)
+    mcp.tool(annotations=_MUTATING, version="0.5.0")(plan_exec)
