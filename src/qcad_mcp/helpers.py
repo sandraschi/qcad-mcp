@@ -10,6 +10,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from qcad_mcp.config import DEPOT_DIR, EXT_DXF, OUTPUT_DIR
+from qcad_mcp.ezdxf_compat import ezdxf_version, readfile
 from qcad_mcp.services import qcad_pro
 
 logger = logging.getLogger("qcad-mcp")
@@ -18,9 +19,7 @@ logger = logging.getLogger("qcad-mcp")
 def _get_ezdxf_version() -> str:
     """Return the installed ezdxf version string."""
     try:
-        import ezdxf
-
-        return ezdxf.__version__
+        return ezdxf_version()
     except Exception:
         return "unknown"
 
@@ -94,8 +93,6 @@ def _load_dxf(file_name: str):
 
     Returns (doc, error) tuple.
     """
-    import ezdxf
-
     if os.path.isfile(file_name):
         path = file_name
     else:
@@ -120,7 +117,7 @@ def _load_dxf(file_name: str):
         path = dxf_path
 
     try:
-        doc = ezdxf.readfile(path)
+        doc = readfile(path)
         return doc, None
     except Exception as e:
         return None, f"Failed to read DXF: {e}"
@@ -232,7 +229,7 @@ _BLOCK_CATEGORIES = [
     {"id": "detailing", "label": "Construction Detailing"},
 ]
 
-_BLOCK_HEADERS = {"User-Agent": "qcad-mcp/0.3.0 (MCP server; +https://github.com/sandraschi/qcad-mcp)"}
+_BLOCK_HEADERS = {"User-Agent": "qcad-mcp/0.5.0 (MCP server; +https://github.com/sandraschi/qcad-mcp)"}
 
 
 async def _search_cadblocksfree(query: str, category: str, limit: int) -> list[dict]:
@@ -252,9 +249,9 @@ async def _search_cadblocksfree(query: str, category: str, limit: int) -> list[d
                 if not title_el:
                     continue
                 title = title_el.get_text(strip=True)
-                href = title_el.get("href", "")
+                href = str(title_el.get("href", ""))
                 img_el = article.select_one("img")
-                img = img_el.get("src", "") if img_el else ""
+                img = str(img_el.get("src", "")) if img_el else ""
                 cat_el = article.select_one(".category, .cat, .term")
                 cat = cat_el.get_text(strip=True) if cat_el else category or "General"
                 results.append(
@@ -287,9 +284,9 @@ async def _search_biblocad(query: str, category: str, limit: int) -> list[dict]:
                 if not title_el:
                     continue
                 title = title_el.get_text(strip=True)
-                href = title_el.get("href", "")
+                href = str(title_el.get("href", ""))
                 img_el = item.select_one("img")
-                img = img_el.get("src", "") if img_el else ""
+                img = str(img_el.get("src", "")) if img_el else ""
                 results.append(
                     {
                         "title": title[:100],

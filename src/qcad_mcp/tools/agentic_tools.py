@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Annotated
 
 from fastmcp import Context
+from mcp.types import SamplingMessage, TextContent
 from pydantic import Field
 
 from qcad_mcp.config import DEPOT_DIR, OUTPUT_DIR
@@ -159,7 +160,7 @@ async def plan_agentic(
     file_name: Annotated[
         str, Field(default="", description="Optional depot file to work on. Empty = create new document.")
     ] = "",
-    ctx: Context = None,
+    ctx: Context | None = None,
 ) -> dict:
     """Multi-step CAD workflow: plans and executes ECMAScript operations from a natural-language goal.
 
@@ -254,7 +255,7 @@ async def plan_transpile(
     output_name: Annotated[
         str, Field(default="transpiled_output.dxf", description="Output filename for the executed result.")
     ] = "",
-    ctx: Context = None,
+    ctx: Context | None = None,
 ) -> dict:
     """Translate AutoLISP to QCAD ECMAScript and execute the result.
 
@@ -371,7 +372,7 @@ Rules:
 
 async def cad_sampling(
     goal: Annotated[str, Field(description="The CAD operation or question to reason about.")],
-    ctx: Context = None,
+    ctx: Context | None = None,
 ) -> dict:
     """
     Use the host LLM (via MCP sampling) to reason about a CAD problem or plan a multi-step operation.
@@ -390,7 +391,7 @@ async def cad_sampling(
         try:
             result = await ctx.sample(
                 system_prompt="You are a CAD and architecture expert assistant. Answer concisely and technically.",
-                messages=[{"role": "user", "content": goal}],
+                messages=[SamplingMessage(role="user", content=TextContent(type="text", text=goal))],
                 max_tokens=1000,
             )
             return {"success": True, "response": result, "sampling_used": True}
@@ -451,7 +452,7 @@ async def plan_generate(
     create_dxf: Annotated[
         bool, Field(default=True, description="Create depot DXF file(s). False = return the entity spec only.")
     ] = True,
-    ctx: Context = None,
+    ctx: Context | None = None,
 ) -> dict:
     """Design a floor plan from natural language: LLM geometry -> validated entities -> DXF.
 
@@ -567,10 +568,10 @@ async def plan_generate(
 
 
 def register(mcp):
-    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_generate)
-    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_agentic)
-    mcp.tool(annotations=_MUTATING, version="0.3.0")(plan_transpile)
-    mcp.tool(annotations=_README_ONLY, version="0.3.0")(cad_sampling)
+    mcp.tool(annotations=_MUTATING, version="0.5.0")(plan_generate)
+    mcp.tool(annotations=_MUTATING, version="0.5.0")(plan_agentic)
+    mcp.tool(annotations=_MUTATING, version="0.5.0")(plan_transpile)
+    mcp.tool(annotations=_README_ONLY, version="0.5.0")(cad_sampling)
 
     @mcp.prompt()
     async def cad_expert(topic: str = "") -> str:

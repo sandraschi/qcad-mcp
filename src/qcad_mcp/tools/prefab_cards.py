@@ -2,16 +2,30 @@
 
 import asyncio
 import logging
+from typing import Any
 
-from fastmcp.server.server import ToolResult
+from fastmcp.tools.base import ToolResult
 from prefab_ui import PrefabApp
-from prefab_ui.components import Heading, Row
+from prefab_ui.components import Column, Component, Heading, Row, Text
 
 from qcad_mcp.config import DEPOT_DIR
 from qcad_mcp.helpers import _depot_list
 from qcad_mcp.services import qcad_pro
 
 logger = logging.getLogger("qcad-mcp")
+
+
+def _kv(label: str, value: str) -> Component:
+    """Single label/value line for card bodies."""
+    return Row(children=[Text(content=f"{label}: {value}")])
+
+
+def _card(title: str, heading: str, rows: list[str]) -> PrefabApp:
+    """Compose a simple heading + key/value-line card."""
+    return PrefabApp(
+        title=title,
+        view=Column(children=[Heading(heading), *(Text(content=r) for r in rows)]),
+    )
 
 
 async def show_qcad_status_card() -> ToolResult:
@@ -29,12 +43,16 @@ async def show_qcad_status_card() -> ToolResult:
     install_dir = str(qcad_pro._qcad_base_dir())
     text = f"QCAD Pro: {'installed' if installed else 'not installed'} ({version}), running={running}"
     try:
-        app = PrefabApp(title="QCAD Pro Status")
-        app.add(Heading("QCAD Pro Status"))
-        app.add(Row(label="Installed", value=str(installed)))
-        app.add(Row(label="Running", value=str(running)))
-        app.add(Row(label="Version", value=version))
-        app.add(Row(label="Install Dir", value=install_dir))
+        app = _card(
+            "QCAD Pro Status",
+            "QCAD Pro Status",
+            [
+                f"Installed: {installed}",
+                f"Running: {running}",
+                f"Version: {version}",
+                f"Install Dir: {install_dir}",
+            ],
+        )
         return ToolResult(content=text, structured_content=app)
     except Exception as e:
         logger.warning("PrefabApp failed: %s", e)
@@ -50,15 +68,11 @@ async def show_depot_card() -> ToolResult:
     ## Examples
     await show_depot_card()
     """
-    files = _depot_list()
+    files: list[dict[str, Any]] = _depot_list()
     text = f"Depot: {len(files)} files in {DEPOT_DIR}" if files else "Depot is empty"
     try:
-        app = PrefabApp(title="CAD File Depot")
-        app.add(Heading(f"File Depot ({len(files)} files)"))
-        for f in files:
-            name = f.get("name", "?")
-            size = f.get("size_kb", 0)
-            app.add(Row(label=name, value=f"{size:.1f} KB"))
+        rows = [f"{f.get('name', '?')}: {float(f.get('size_kb', 0)):.1f} KB" for f in files]
+        app = _card("CAD File Depot", f"File Depot ({len(files)} files)", rows)
         return ToolResult(content=text, structured_content=app)
     except Exception as e:
         logger.warning("PrefabApp failed: %s", e)
@@ -74,14 +88,18 @@ async def show_beam_analysis_card(file_name: str = "simple_floorplan.dxf") -> To
         supports=[{"node": 0, "type": "pinned"}, {"node": 1, "type": "roller"}],
         loads=[{"node": 1, "type": "point", "value": -10000.0}],
     )
+    data: dict[str, Any] = res.get("data", {})
     text = f"Beam FEA Analysis: success={res.get('success')}"
     try:
-        app = PrefabApp(title="Beam Structural Analysis")
-        app.add(Heading(f"FEA Beam Analysis — {file_name}"))
-        data = res.get("data", {})
-        app.add(Row(label="Max Displacement", value=f"{data.get('max_displacement', 0):.4f} m"))
-        app.add(Row(label="Max Shear", value=f"{data.get('max_shear', 0):.2f} N"))
-        app.add(Row(label="Max Moment", value=f"{data.get('max_moment', 0):.2f} N*m"))
+        app = _card(
+            "Beam Structural Analysis",
+            f"FEA Beam Analysis — {file_name}",
+            [
+                f"Max Displacement: {float(data.get('max_displacement', 0)):.4f} m",
+                f"Max Shear: {float(data.get('max_shear', 0)):.2f} N",
+                f"Max Moment: {float(data.get('max_moment', 0)):.2f} N*m",
+            ],
+        )
         return ToolResult(content=text, structured_content=app)
     except Exception as e:
         logger.warning("PrefabApp failed: %s", e)
@@ -93,17 +111,14 @@ async def show_building_meta_card(file_name: str = "simple_floorplan.dxf") -> To
     from qcad_mcp.tools.bim_tools import plan_building_meta
 
     res = await plan_building_meta(file_name=file_name)
-    text = f"Building Storeys: total={res.get('data', {}).get('total_storeys', 0)}"
+    payload: dict[str, Any] = res.get("data", {})
+    text = f"Building Storeys: total={payload.get('total_storeys', 0)}"
     try:
-        app = PrefabApp(title="Building Storey Metadata")
-        app.add(Heading(f"Building Levels — {file_name}"))
-        storeys = res.get("data", {}).get("storeys", [])
-        for s in storeys:
-            app.add(
-                Row(
-                    label=s.get("name", "Storey"), value=f"Elev: {s.get('elevation')}mm ({s.get('layer_count')} layers)"
-                )
-            )
+        storeys: list[dict[str, Any]] = payload.get("storeys", [])
+        rows = [
+            f"{s.get('name', 'Storey')}: Elev {s.get('elevation')}mm ({s.get('layer_count')} layers)" for s in storeys
+        ]
+        app = _card("Building Storey Metadata", f"Building Levels — {file_name}", rows)
         return ToolResult(content=text, structured_content=app)
     except Exception as e:
         logger.warning("PrefabApp failed: %s", e)
@@ -111,7 +126,7 @@ async def show_building_meta_card(file_name: str = "simple_floorplan.dxf") -> To
 
 
 def register(mcp):
-    mcp.tool(annotations={"readonly": True}, version="0.3.0")(show_qcad_status_card)
-    mcp.tool(annotations={"readonly": True}, version="0.3.0")(show_depot_card)
-    mcp.tool(annotations={"readonly": True}, version="0.3.0")(show_beam_analysis_card)
-    mcp.tool(annotations={"readonly": True}, version="0.3.0")(show_building_meta_card)
+    mcp.tool(annotations={"readonly": True}, version="0.5.0")(show_qcad_status_card)
+    mcp.tool(annotations={"readonly": True}, version="0.5.0")(show_depot_card)
+    mcp.tool(annotations={"readonly": True}, version="0.5.0")(show_beam_analysis_card)
+    mcp.tool(annotations={"readonly": True}, version="0.5.0")(show_building_meta_card)

@@ -21,6 +21,10 @@ FILLET, etc.). Those fall through to the honest "UNRECOGNIZED" marker.
 
 import math
 import re
+from typing import Any
+
+# Compile-time values: numbers, string literals/symbols, or folded (list ...) tuples.
+Value = int | float | str | tuple[Any, ...]
 
 # ---------------------------------------------------------------------------
 # Tokenizer + reader: turn AutoLISP source into nested Python lists
@@ -133,7 +137,7 @@ class Unresolved(Exception):
     """Raised when an expression can't be constant-folded at compile time."""
 
 
-def ceval(expr, env):
+def ceval(expr: Any, env: dict[str, Value]) -> Value:
     """Evaluate an expression at compile time if possible; else raise Unresolved."""
     if isinstance(expr, (int, float)):
         return expr
@@ -154,36 +158,56 @@ def ceval(expr, env):
                 return tuple(ceval(a, env) for a in expr[1:])
             if op in ("+", "-", "*", "/"):
                 args = [ceval(a, env) for a in expr[1:]]
+                nums = [_as_number(a) for a in args]
                 if op == "+":
-                    r = args[0]
-                    for a in args[1:]:
+                    r = nums[0]
+                    for a in nums[1:]:
                         r += a
                     return r
                 if op == "-":
-                    if len(args) == 1:
-                        return -args[0]
-                    r = args[0]
-                    for a in args[1:]:
+                    if len(nums) == 1:
+                        return -nums[0]
+                    r = nums[0]
+                    for a in nums[1:]:
                         r -= a
                     return r
                 if op == "*":
-                    r = args[0]
-                    for a in args[1:]:
+                    r = nums[0]
+                    for a in nums[1:]:
                         r *= a
                     return r
                 if op == "/":
-                    r = args[0]
-                    for a in args[1:]:
+                    r = nums[0]
+                    for a in nums[1:]:
                         r /= a
                     return r
         raise Unresolved(f"non-foldable form: {expr}")
     raise Unresolved(f"unknown expr: {expr!r}")
 
 
-def fmt_num(n):
+def fmt_num(n: Value) -> str:
+    if isinstance(n, tuple):
+        raise Unresolved(f"expected scalar, got {n!r}")
     if isinstance(n, float) and n.is_integer():
         return str(int(n))
     return str(n)
+
+
+def _as_number(v: Value) -> float:
+    """Narrow a folded value to a float; Unresolved when it is not numeric."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        raise Unresolved(f"expected number, got {v!r}")
+    return float(v)
+
+
+def _as_pair(v: Value) -> tuple[float, float]:
+    """Narrow a folded value to an (x, y) float pair; Unresolved otherwise."""
+    if isinstance(v, (list, tuple)) and len(v) == 2:
+        try:
+            return (float(v[0]), float(v[1]))
+        except (TypeError, ValueError):
+            pass
+    raise Unresolved(f"expected (x y) point, got {v!r}")
 
 
 # ---------------------------------------------------------------------------
@@ -191,7 +215,9 @@ def fmt_num(n):
 # ---------------------------------------------------------------------------
 
 
-def circle_through_3_points(p1, p2, p3):
+def circle_through_3_points(
+    p1: tuple[float, float], p2: tuple[float, float], p3: tuple[float, float]
+) -> tuple[tuple[float, float], float, float, float, bool]:
     """Given 3 (x,y) points, return (center, radius, angle1, angle2, reversed)
     describing the arc from p1 to p3 passing through p2, matching AutoCAD's
     3-point ARC convention."""
@@ -268,7 +294,8 @@ class Codegen:
             if cmd == "LINE":
                 pts = [ceval(a, env) for a in args if not (isinstance(a, str) and not isinstance(a, Sym) and a == "")]
                 for i in range(len(pts) - 1):
-                    (x1, y1), (x2, y2) = pts[i], pts[i + 1]
+                    x1, y1 = _as_pair(pts[i])
+                    x2, y2 = _as_pair(pts[i + 1])
                     self.emit_entity(
                         f"op.addObject(new RLineEntity(document, new RLineData("
                         f"new RVector({fmt_num(x1)},{fmt_num(y1)}), new RVector({fmt_num(x2)},{fmt_num(y2)}))));"
@@ -277,7 +304,7 @@ class Codegen:
             if cmd == "CIRCLE":
                 cen = ceval(args[0], env)
                 rad = ceval(args[1], env)
-                cx, cy = cen
+                cx, cy = _as_pair(cen)
                 self.emit_entity(
                     f"op.addObject(new RCircleEntity(document, new RCircleData("
                     f"new RVector({fmt_num(cx)},{fmt_num(cy)}), {fmt_num(rad)})));"
@@ -287,7 +314,7 @@ class Codegen:
                 p1 = ceval(args[0], env)
                 p2 = ceval(args[1], env)
                 p3 = ceval(args[2], env)
-                (cx, cy), r, a1, a2, rev = circle_through_3_points(p1, p2, p3)
+                (cx, cy), r, a1, a2, rev = circle_through_3_points(_as_pair(p1), _as_pair(p2), _as_pair(p3))
                 self.emit_entity(
                     f"op.addObject(new RArcEntity(document, new RArcData("
                     f"new RVector({cx:.3f},{cy:.3f}), {r:.3f}, {a1:.6f}, {a2:.6f}, {str(rev).lower()})));"
@@ -296,8 +323,8 @@ class Codegen:
             if cmd == "RECTANG":
                 p1 = ceval(args[0], env)
                 p2 = ceval(args[1], env)
-                x1, y1 = p1
-                x2, y2 = p2
+                x1, y1 = _as_pair(p1)
+                x2, y2 = _as_pair(p2)
                 self.emit_entity(
                     f"op.addObject(new RLineEntity(document, new RLineData(new RVector({fmt_num(x1)},{fmt_num(y1)}), new RVector({fmt_num(x2)},{fmt_num(y1)}))));"
                 )
@@ -316,7 +343,7 @@ class Codegen:
                 hgt = ceval(args[1], env)
                 rot = ceval(args[2], env)
                 txt = ceval(args[3], env)
-                x, y = pt
+                x, y = _as_pair(pt)
                 self.emit_entity(
                     f"op.addObject(new RTextEntity(document, new RTextData(new RVector({fmt_num(x)},{fmt_num(y)}), "
                     f"{fmt_num(hgt)}, 0, '{txt}', 'Standard', RS.HAlignLeft, RS.VAlignBase, RS.UnknownUnit, 0, 0, 0, "
@@ -327,9 +354,9 @@ class Codegen:
                 p1 = ceval(args[0], env)
                 p2 = ceval(args[1], env)
                 p3 = ceval(args[2], env)
-                x1, y1 = p1
-                x2, y2 = p2
-                x3, y3 = p3
+                x1, y1 = _as_pair(p1)
+                x2, y2 = _as_pair(p2)
+                x3, y3 = _as_pair(p3)
                 self.emit_entity(
                     f"op.addObject(new RDimAlignedEntity(document, new RDimAlignedData("
                     f"new RVector({fmt_num(x1)},{fmt_num(y1)}), new RVector({fmt_num(x2)},{fmt_num(y2)}), "
@@ -430,7 +457,7 @@ class Codegen:
                 self.warn(form)
                 return
             body = form[2:]
-            for _ in range(int(count)):
+            for _ in range(int(_as_number(count))):
                 self.exec_forms(body, env)
             return
 
