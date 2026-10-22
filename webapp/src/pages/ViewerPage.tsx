@@ -1,6 +1,6 @@
 import { Download, Eye, EyeOff, Loader2, Maximize2, RotateCw, Ruler, Upload, ZoomIn, ZoomOut } from "lucide-react";
 import { useState } from "react";
-import { API_BASE } from "../lib/api";
+import { API_BASE, toolCallBody } from "../lib/api";
 
 interface PlanViewerInfo {
 	entity_total: number;
@@ -43,10 +43,7 @@ export default function ViewerPage() {
 			const infoR = await fetch(API_BASE + "/api/v1/control/tool", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					tool: "plan_info",
-					arguments: { file_name: file.name },
-				}),
+				body: JSON.stringify(toolCallBody("plan_info", { file_name: file.name })),
 			});
 			const infoJ = await infoR.json();
 			if (infoJ.success && infoJ.data?.layers) {
@@ -60,14 +57,13 @@ export default function ViewerPage() {
 			const svgR = await fetch(API_BASE + "/api/v1/control/tool", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					tool: "plan_to_svg",
-					arguments: {
+				body: JSON.stringify(
+					toolCallBody("plan_to_svg", {
 						file_name: file.name,
 						output_name: `${file.name}.svg`,
 						background: "#0a0a0c",
-					},
-				}),
+					}),
+				),
 			});
 			const svgJ = await svgR.json();
 			if (svgJ.success) {
@@ -90,10 +86,7 @@ export default function ViewerPage() {
 			const res = await fetch(API_BASE + "/api/v1/control/tool", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					tool: "plan_auto_dimension",
-					arguments: { file_name: file.name, offset: 400.0 },
-				}),
+				body: JSON.stringify(toolCallBody("plan_auto_dimension", { file_name: file.name, offset: 400.0 })),
 			});
 			const j = await res.json();
 			if (j.success) {
@@ -103,14 +96,13 @@ export default function ViewerPage() {
 				const svgR = await fetch(API_BASE + "/api/v1/control/tool", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						tool: "plan_to_svg",
-						arguments: {
+					body: JSON.stringify(
+						toolCallBody("plan_to_svg", {
 							file_name: outName,
 							output_name: `${outName}.svg`,
 							background: "#0a0a0c",
-						},
-					}),
+						}),
+					),
 				});
 				const svgJ = await svgR.json();
 				if (svgJ.success) {
@@ -141,15 +133,14 @@ export default function ViewerPage() {
 			const svgR = await fetch(API_BASE + "/api/v1/control/tool", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					tool: "plan_to_svg",
-					arguments: {
+				body: JSON.stringify(
+					toolCallBody("plan_to_svg", {
 						file_name: file.name,
 						output_name: `${file.name}.svg`,
 						layers: selLayers.length === layers.length ? undefined : selLayers,
 						background: "#0a0a0c",
-					},
-				}),
+					}),
+				),
 			});
 			const svgJ = await svgR.json();
 			if (svgJ.success) {
@@ -182,7 +173,7 @@ export default function ViewerPage() {
 			<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 space-y-4">
 				<label className="block border-2 border-dashed border-white/10 rounded-xl p-8 text-center cursor-pointer hover:border-amber-500/40 transition-all">
 					<Upload className="mx-auto mb-2 text-slate-300" size={32} />
-					<p className="text-slate-400">{file ? file.name : "Drop a DXF file here or click to browse"}</p>
+					<p className="text-slate-300">{file ? file.name : "Drop a DXF file here or click to browse"}</p>
 					<input
 						type="file"
 						accept=".dxf,.dwg"
@@ -207,11 +198,11 @@ export default function ViewerPage() {
 			{layers.length > 0 && (
 				<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4">
 					<div className="flex items-center gap-2 mb-3">
-						<h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Layers</h3>
+						<h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Layers</h3>
 						<button
 							type="button"
 							onClick={refreshSvg}
-							className="ml-auto flex items-center gap-1 px-3 py-1 rounded-lg bg-white/10 text-sm text-slate-400 hover:text-white"
+							className="ml-auto flex items-center gap-1 px-3 py-1 rounded-lg bg-white/10 text-sm text-slate-300 hover:text-white"
 						>
 							<RotateCw size={12} /> Refresh Layer Overlay
 						</button>
@@ -268,7 +259,7 @@ export default function ViewerPage() {
 							<a
 								href={svgUrl}
 								download={`${file?.name || "plan"}.svg`}
-								className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-bold text-slate-200"
+								className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-bold text-slate-200"
 							>
 								<Download size={12} /> SVG
 							</a>
@@ -276,7 +267,7 @@ export default function ViewerPage() {
 								<a
 									href={`${API_BASE}/api/v1/depot/${file.name}`}
 									download
-									className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-bold text-slate-200"
+									className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-bold text-slate-200"
 								>
 									<Download size={12} /> DXF
 								</a>
@@ -302,7 +293,7 @@ export default function ViewerPage() {
 
 			{info && (
 				<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-2">
-					<h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Plan Metadata</h3>
+					<h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Plan Metadata</h3>
 					<div className="grid grid-cols-3 gap-2 text-sm">
 						<div className="text-slate-300">
 							Entities: <span className="text-slate-100 font-semibold">{info.entity_total}</span>

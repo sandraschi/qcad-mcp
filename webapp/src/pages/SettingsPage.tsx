@@ -1,53 +1,7 @@
 import { Box, CheckCircle, Cpu, Loader2, Settings, XCircle } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { API_BASE } from "../lib/api";
-
-interface ProviderInfo {
-	name: string;
-	port: number;
-	base: string;
-}
-
-const PROVIDERS: ProviderInfo[] = [
-	{ name: "Ollama", port: 11434, base: "http://127.0.0.1" },
-	{ name: "LM Studio", port: 1234, base: "http://127.0.0.1" },
-	{ name: "vLLM", port: 8000, base: "http://127.0.0.1" },
-];
-
-async function probeProvider(p: ProviderInfo): Promise<"detected" | "not_found"> {
-	try {
-		const probe =
-			p.name === "Ollama"
-				? await fetch(`${p.base}:${p.port}/api/tags`, {
-						signal: AbortSignal.timeout(3000),
-					})
-				: await fetch(`${p.base}:${p.port}/v1/models`, {
-						signal: AbortSignal.timeout(3000),
-					});
-		return probe.ok ? "detected" : "not_found";
-	} catch {
-		return "not_found";
-	}
-}
-
-async function fetchModels(p: ProviderInfo): Promise<string[]> {
-	try {
-		if (p.name === "Ollama") {
-			const r = await fetch(`${p.base}:${p.port}/api/tags`, {
-				signal: AbortSignal.timeout(5000),
-			});
-			const j = await r.json();
-			return (j.models || []).map((m: { name: string }) => m.name);
-		}
-		const r = await fetch(`${p.base}:${p.port}/v1/models`, {
-			signal: AbortSignal.timeout(5000),
-		});
-		const j = await r.json();
-		return (j.data || []).map((m: { id: string }) => m.id);
-	} catch {
-		return [];
-	}
-}
+import { llmAvailable, useLlm } from "../store/llm";
 
 export default function SettingsPage() {
 	const [ollamaUrl, setOllamaUrl] = useState("http://127.0.0.1:11434");
@@ -57,107 +11,32 @@ export default function SettingsPage() {
 	const [wallThickness, setWallThickness] = useState(0.3);
 	const [status, setStatus] = useState("");
 
-	// LLM provider detection
-	const [providerStatus, setProviderStatus] = useState<Record<string, "probing" | "detected" | "not_found">>({});
-	const [selectedProvider, setSelectedProvider] = useState(() => localStorage.getItem("llm_provider") || "");
-	const [availableModels, setAvailableModels] = useState<string[]>([]);
-	const [selectedModel, setSelectedModel] = useState(() => localStorage.getItem("llm_model") || "");
-	const [probing, setProbing] = useState(true);
-	// Refs mirror mount-time selections so mount-once effects stay
-	// dependency-clean without re-probing on every selection change.
-	const selectedProviderRef = useRef(selectedProvider);
-	selectedProviderRef.current = selectedProvider;
-	const selectedModelRef = useRef(selectedModel);
-	selectedModelRef.current = selectedModel;
-
-	// VRAM residents + telemetry (fleet SETTINGS_LLM rules 4-5)
-	interface LoadedEntry {
-		name: string;
-		size_vram_mb: number;
-		expires_at: string;
-	}
-	interface GpuEntry {
-		index: number;
-		name: string;
-		total_mb: number;
-		used_mb: number;
-		free_mb: number;
-	}
-	const [loaded, setLoaded] = useState<LoadedEntry[]>([]);
-	const [gpus, setGpus] = useState<GpuEntry[]>([]);
+	// Global LLM state (Zustand) — single source of truth fleet-wide.
+	const providers = useLlm((s) => s.providers);
+	const selectedProvider = useLlm((s) => s.selectedProvider);
+	const selectedModel = useLlm((s) => s.selectedModel);
+	const loaded = useLlm((s) => s.loaded);
+	const gpus = useLlm((s) => s.gpus);
+	const probing = useLlm((s) => s.probing);
+	const probed = useLlm((s) => s.probed);
+	const probeAll = useLlm((s) => s.probeAll);
+	const refreshTelemetry = useLlm((s) => s.refreshTelemetry);
+	const selectProvider = useLlm((s) => s.selectProvider);
+	const selectModel = useLlm((s) => s.selectModel);
 	const [unloading, setUnloading] = useState(false);
 
-	const selectedEndpoint = (() => {
-		const p = PROVIDERS.find((pr) => pr.name === selectedProvider);
-		return p ? `${p.base}:${p.port}` : "";
-	})();
+	const selectedEndpoint = providers.find((p) => p.name === selectedProvider)?.endpoint ?? "";
+	const availableModels = providers.find((p) => p.name === selectedProvider)?.models ?? [];
+	const providerDetected = providers.some((p) => p.name === selectedProvider && p.status === "detected");
 
-	const refreshLlmState = useCallback(async () => {
-		if (!selectedEndpoint) return;
-		try {
-			const r = await fetch(
-				API_BASE + `/api/llm/loaded?provider=ollama&endpoint=${encodeURIComponent(selectedEndpoint)}`,
-			);
-			const j = await r.json();
-			setLoaded(j.models || []);
-		} catch {}
-		try {
-			const r = await fetch(API_BASE + "/api/llm/gpus");
-			const j = await r.json();
-			setGpus(j.gpus || []);
-		} catch {}
-	}, [selectedEndpoint]);
-
-	// Probe all providers on mount
 	useEffect(() => {
-		const results: Record<string, "probing" | "detected" | "not_found"> = {};
-		PROVIDERS.forEach((p) => {
-			results[p.name] = "probing";
-		});
-		setProviderStatus({ ...results });
+		void probeAll();
+	}, [probeAll]);
 
-		Promise.all(
-			PROVIDERS.map(async (p) => {
-				const r = await probeProvider(p);
-				results[p.name] = r;
-				setProviderStatus({ ...results });
-			}),
-		).then(() => {
-			setProbing(false);
-			if (!selectedProviderRef.current) {
-				const first = PROVIDERS.find((p) => results[p.name] === "detected");
-				if (first) setSelectedProvider(first.name);
-			}
-		});
-	}, []);
-
-	// Fetch models when provider changes
+	// biome-ignore lint/correctness/useExhaustiveDependencies: intentional re-run on provider change; refreshTelemetry reads the selection via get().
 	useEffect(() => {
-		if (!selectedProvider) return;
-		const p = PROVIDERS.find((pr) => pr.name === selectedProvider);
-		if (!p || providerStatus[p.name] !== "detected") return;
-		fetchModels(p).then((models) => {
-			setAvailableModels(models);
-			// Never auto-pick: empty selection loads nothing (fleet BUG-030).
-			if (selectedModelRef.current && !models.includes(selectedModelRef.current)) {
-				setSelectedModel("");
-				localStorage.removeItem("llm_model");
-			}
-		});
-	}, [selectedProvider, providerStatus]);
-
-	const handleProviderChange = useCallback((name: string) => {
-		setSelectedProvider(name);
-		setSelectedModel("");
-		setAvailableModels([]);
-		localStorage.setItem("llm_provider", name);
-		localStorage.removeItem("llm_model");
-	}, []);
-
-	const handleModelChange = useCallback((m: string) => {
-		setSelectedModel(m);
-		localStorage.setItem("llm_model", m);
-	}, []);
+		void refreshTelemetry();
+	}, [refreshTelemetry, selectedProvider]);
 
 	const save = async () => {
 		setStatus("Saving...");
@@ -183,7 +62,7 @@ export default function SettingsPage() {
 			} else {
 				setStatus("Saved.");
 			}
-			refreshLlmState();
+			void refreshTelemetry();
 		} catch {
 			setStatus("Error saving.");
 		}
@@ -202,7 +81,7 @@ export default function SettingsPage() {
 				}),
 			});
 			setStatus("Unloaded all resident models.");
-			refreshLlmState();
+			void refreshTelemetry();
 		} catch {
 			setStatus("Unload failed.");
 		} finally {
@@ -210,14 +89,10 @@ export default function SettingsPage() {
 		}
 	};
 
-	useEffect(() => {
-		refreshLlmState();
-	}, [refreshLlmState]);
-
-	const detectedProviders = PROVIDERS.filter((p) => providerStatus[p.name] === "detected");
+	const detectedProviders = providers.filter((p) => p.status === "detected");
 
 	return (
-		<div className="max-w-2xl space-y-6">
+		<div className="max-w-2xl space-y-6" data-testid="settings-page">
 			<h1 className="text-2xl font-bold text-white flex items-center gap-3">
 				<Settings className="text-amber-400" /> Settings
 			</h1>
@@ -226,54 +101,66 @@ export default function SettingsPage() {
 			<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 space-y-4">
 				<div className="flex items-center gap-2 mb-2">
 					<Cpu size={16} className="text-amber-400" />
-					<h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">LLM Provider</h3>
+					<h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">LLM Provider</h3>
 				</div>
 
 				{/* Provider detection */}
-				<div className="space-y-2">
-					<p className="text-xs text-slate-500 uppercase tracking-wider">Detection</p>
-					{PROVIDERS.map((p) => (
+				<div className="space-y-2" data-testid="llm-provider-cards">
+					<p className="text-sm text-slate-300 uppercase tracking-wider">Detection</p>
+					{providers.map((p) => (
 						<div key={p.name} className="flex items-center gap-3 text-sm">
-							{providerStatus[p.name] === "probing" && <Loader2 size={14} className="animate-spin text-slate-400" />}
-							{providerStatus[p.name] === "detected" && <CheckCircle size={14} className="text-emerald-400" />}
-							{providerStatus[p.name] === "not_found" && <XCircle size={14} className="text-slate-600" />}
-							<span className="text-slate-300">{p.name}</span>
-							<span className="text-slate-500">:{p.port}</span>
+							{p.status === "probing" && <Loader2 size={14} className="animate-spin text-slate-300" />}
+							{p.status === "detected" && (
+								<CheckCircle size={14} className="text-emerald-400" data-testid={`llm-provider-ok-${p.name}`} />
+							)}
+							{p.status === "not_found" && <XCircle size={14} className="text-slate-600" />}
+							<span className="text-slate-200">{p.name}</span>
+							<span className="text-slate-300">{p.endpoint}</span>
 							<span
-								className={`text-xs ${providerStatus[p.name] === "detected" ? "text-emerald-400" : providerStatus[p.name] === "probing" ? "text-amber-400" : "text-slate-600"}`}
+								className={`text-sm ${p.status === "detected" ? "text-emerald-400" : p.status === "probing" ? "text-amber-400" : "text-slate-300"}`}
 							>
-								{providerStatus[p.name] === "probing"
-									? "Probing..."
-									: providerStatus[p.name] === "detected"
-										? "Detected"
-										: "Not found"}
+								{p.status === "probing" ? "Probing..." : p.status === "detected" ? "Detected" : "Not found"}
 							</span>
 						</div>
 					))}
 				</div>
 
+				{/* GPU opportunity prompt: GPU present but no local LLM running */}
+				{probed && !llmAvailable({ providers }) && gpus.length > 0 && (
+					<div
+						className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-slate-200"
+						data-testid="llm-onboarding"
+					>
+						GPU detected ({gpus.map((g) => g.name).join(", ")}) but no local LLM is running. Install{" "}
+						<a href="https://ollama.com" target="_blank" rel="noreferrer" className="text-amber-400 underline">
+							Ollama
+						</a>{" "}
+						and pull a model (e.g. <code className="font-mono">ollama pull qwen3:8b</code>) to enable the AI Demo, Chat,
+						and plan generation.
+					</div>
+				)}
+
 				{/* Provider selector */}
 				<div>
-					<label htmlFor="llm-provider" className="block text-sm text-slate-300 mb-1">
+					<label htmlFor="llm-provider" className="block text-sm text-slate-200 mb-1">
 						Active Provider
 					</label>
 					{detectedProviders.length > 0 ? (
 						<select
 							id="llm-provider"
 							value={selectedProvider}
-							onChange={(e) => handleProviderChange(e.target.value)}
+							onChange={(e) => selectProvider(e.target.value)}
 							data-testid="llm-provider-select"
 							className="w-full bg-[#18181c] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500"
 						>
 							{detectedProviders.map((p) => (
 								<option key={p.name} value={p.name}>
-									{p.name} (:
-									{(PROVIDERS.find((pr) => pr.name === p.name) || p).port})
+									{p.name} ({p.endpoint})
 								</option>
 							))}
 						</select>
 					) : (
-						<div className="text-sm text-slate-500 italic bg-[#18181c] rounded-xl px-4 py-2.5 border border-white/10">
+						<div className="text-sm text-slate-300 italic bg-[#18181c] rounded-xl px-4 py-2.5 border border-white/10">
 							{probing
 								? "Probing for local LLM providers..."
 								: "No local LLM detected. Install Ollama or LM Studio to enable AI features."}
@@ -282,16 +169,16 @@ export default function SettingsPage() {
 				</div>
 
 				{/* Model selector */}
-				{selectedProvider && providerStatus[selectedProvider] === "detected" && (
+				{selectedProvider && providerDetected && (
 					<div>
-						<label htmlFor="llm-model" className="block text-sm text-slate-300 mb-1">
+						<label htmlFor="llm-model" className="block text-sm text-slate-200 mb-1">
 							Model
 						</label>
 						{availableModels.length > 0 ? (
 							<select
 								id="llm-model"
 								value={selectedModel}
-								onChange={(e) => handleModelChange(e.target.value)}
+								onChange={(e) => selectModel(e.target.value)}
 								data-testid="llm-model-select"
 								className="w-full bg-[#18181c] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500"
 							>
@@ -303,7 +190,7 @@ export default function SettingsPage() {
 								))}
 							</select>
 						) : (
-							<div className="text-sm text-slate-500 italic bg-[#18181c] rounded-xl px-4 py-2.5 border border-white/10">
+							<div className="text-sm text-slate-300 italic bg-[#18181c] rounded-xl px-4 py-2.5 border border-white/10">
 								Fetching models...
 							</div>
 						)}
@@ -313,7 +200,7 @@ export default function SettingsPage() {
 				{/* Legacy fallback inputs (only shown when no provider detected) */}
 				{detectedProviders.length === 0 && !probing && (
 					<>
-						<label className="block text-sm text-slate-400">
+						<label className="block text-sm text-slate-300">
 							Ollama / LMStudio URL
 							<input
 								value={ollamaUrl}
@@ -321,7 +208,7 @@ export default function SettingsPage() {
 								className="mt-1 w-full bg-[#18181c] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500"
 							/>
 						</label>
-						<label className="block text-sm text-slate-400">
+						<label className="block text-sm text-slate-300">
 							Model
 							<input
 								value={model}
@@ -336,30 +223,30 @@ export default function SettingsPage() {
 			{/* VRAM residents + telemetry */}
 			<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 space-y-3">
 				<div className="flex items-center justify-between">
-					<h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Resident Models / VRAM</h3>
+					<h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Resident Models / VRAM</h3>
 					<button
 						type="button"
 						onClick={unloadAll}
 						disabled={unloading || loaded.length === 0}
-						className="px-3 py-1.5 rounded-xl bg-red-600/20 hover:bg-red-600/40 disabled:opacity-40 text-red-400 text-xs font-bold"
+						className="px-3 py-1.5 rounded-xl bg-red-600/20 hover:bg-red-600/40 disabled:opacity-40 text-red-400 text-sm font-bold"
 					>
 						{unloading ? "Unloading..." : "Unload all"}
 					</button>
 				</div>
 				{loaded.length > 0 ? (
-					<ul className="space-y-1 text-sm text-slate-300">
+					<ul className="space-y-1 text-sm text-slate-200">
 						{loaded.map((m) => (
 							<li key={m.name} className="flex justify-between">
 								<span>{m.name}</span>
-								<span className="text-slate-500">{m.size_vram_mb} MB VRAM</span>
+								<span className="text-slate-300">{m.size_vram_mb} MB VRAM</span>
 							</li>
 						))}
 					</ul>
 				) : (
-					<p className="text-sm text-slate-500 italic">Nothing resident — VRAM is free.</p>
+					<p className="text-sm text-slate-300 italic">Nothing resident — VRAM is free.</p>
 				)}
 				{gpus.length > 0 && (
-					<ul className="space-y-1 text-xs text-slate-500">
+					<ul className="space-y-1 text-sm text-slate-300">
 						{gpus.map((g) => (
 							<li key={g.index}>
 								GPU{g.index} {g.name}: {g.used_mb}/{g.total_mb} MB used
@@ -373,10 +260,10 @@ export default function SettingsPage() {
 			<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 space-y-4">
 				<div className="flex items-center gap-2 mb-2">
 					<Box size={16} className="text-amber-400" />
-					<h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Extrusion Defaults</h3>
+					<h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Extrusion Defaults</h3>
 				</div>
 				<div className="grid grid-cols-2 gap-4">
-					<label className="block text-sm text-slate-400">
+					<label className="block text-sm text-slate-300">
 						Default Wall Height (m)
 						<input
 							type="number"
@@ -387,7 +274,7 @@ export default function SettingsPage() {
 							className="mt-1 w-full bg-[#18181c] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500"
 						/>
 					</label>
-					<label className="block text-sm text-slate-400">
+					<label className="block text-sm text-slate-300">
 						Default Wall Thickness (m)
 						<input
 							type="number"
@@ -405,9 +292,9 @@ export default function SettingsPage() {
 			<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 space-y-4">
 				<div className="flex items-center gap-2 mb-2">
 					<Settings size={16} className="text-amber-400" />
-					<h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">QCAD Pro (Optional)</h3>
+					<h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">QCAD Pro (Optional)</h3>
 				</div>
-				<label className="block text-sm text-slate-400">
+				<label className="block text-sm text-slate-300">
 					Path to qcad.exe
 					<input
 						value={qcadProPath}
@@ -416,7 +303,7 @@ export default function SettingsPage() {
 						className="mt-1 w-full bg-[#18181c] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-amber-500"
 					/>
 				</label>
-				<p className="text-sm text-slate-400">
+				<p className="text-sm text-slate-300">
 					QCAD Pro (Swiss-made, ~€50) enables dwg2pdf and dwg2svg with perfect hatches, text, and dimension rendering.
 				</p>
 			</div>
@@ -428,7 +315,7 @@ export default function SettingsPage() {
 			>
 				Save Settings
 			</button>
-			{status && <p className="text-sm text-slate-400">{status}</p>}
+			{status && <p className="text-sm text-slate-300">{status}</p>}
 		</div>
 	);
 }

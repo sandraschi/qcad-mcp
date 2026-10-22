@@ -46,7 +46,7 @@ export default function HelpPage() {
 					</button>
 				))}
 			</div>
-			<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 text-sm text-slate-400 leading-relaxed space-y-4">
+			<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 text-sm text-slate-300 leading-relaxed space-y-4">
 				{tab === "intro" && (
 					<>
 						<p>
@@ -132,12 +132,12 @@ export default function HelpPage() {
 								doc = ezdxf.readfile(
 								<span className="text-green-400">"floorplan.dxf"</span>)
 							</div>
-							<div className="text-slate-400"># List all layers</div>
+							<div className="text-slate-300"># List all layers</div>
 							<div>
 								<span className="text-slate-300">for</span> layer <span className="text-slate-300">in</span> doc.layers:
 							</div>
 							<div className="ml-4">print(layer.dxf.name, layer.dxf.color)</div>
-							<div className="text-slate-400"># Get all LINE entities on "Walls" layer</div>
+							<div className="text-slate-300"># Get all LINE entities on "Walls" layer</div>
 							<div>
 								walls = doc.modelspace().query(
 								<span className="text-green-400">'LINE[layer=="Walls"]'</span>)
@@ -171,7 +171,7 @@ export default function HelpPage() {
 										<th className="text-left py-2 px-3">AutoCAD</th>
 									</tr>
 								</thead>
-								<tbody className="text-slate-400">
+								<tbody className="text-slate-300">
 									{[
 										["License", "GPLv2 / €50.40", "$2,000+/year"],
 										["File Format", "DXF (native), DWG (Pro)", "DWG (native)"],
@@ -206,21 +206,21 @@ export default function HelpPage() {
 							<strong className="text-slate-200">7 MCP tools</strong> for 2D CAD operations — all backed by a persistent
 							file depot with full CRUD.
 						</p>
-						<p className="text-slate-500">
+						<p className="text-slate-300">
 							All files live in <code className="text-amber-400">%LOCALAPPDATA%\qcad-mcp\depot</code> — survives
 							restarts. Upload via the Depot page, create DXF from primitives, or import via the REST API.
 						</p>
 
-						<h3 className="text-slate-200 font-bold text-xs uppercase tracking-wider mt-4">Depot Management</h3>
+						<h3 className="text-slate-200 font-bold text-sm uppercase tracking-wider mt-4">Depot Management</h3>
 						<div className="space-y-2">
 							{[
 								{
-									n: "plan_depot",
+									n: 'plan(op="depot")',
 									t: "READ",
 									d: "List all files in the persistent CAD depot with metadata (size, created date, description, tags)",
 								},
 								{
-									n: "plan_create",
+									n: 'plan(op="create")',
 									t: "MUTATE",
 									d: "Create a new DXF from scratch using geometric primitives — line, rect, circle, text, polyline with layers and colors",
 								},
@@ -239,16 +239,16 @@ export default function HelpPage() {
 							))}
 						</div>
 
-						<h3 className="text-slate-200 font-bold text-xs uppercase tracking-wider mt-4">Analysis & Inspection</h3>
+						<h3 className="text-slate-200 font-bold text-sm uppercase tracking-wider mt-4">Analysis & Inspection</h3>
 						<div className="space-y-2">
 							{[
 								{
-									n: "plan_info",
+									n: 'plan(op="info")',
 									t: "READ",
 									d: "DXF metadata: layers, entity counts, bounding box, blocks. Call this first on any uploaded file.",
 								},
 								{
-									n: "plan_analyse",
+									n: 'plan(op="analyse")',
 									t: "READ",
 									d: "Room detection from closed polylines, area calculation in m², perimeter measurement, door/window identification by block name",
 								},
@@ -267,21 +267,21 @@ export default function HelpPage() {
 							))}
 						</div>
 
-						<h3 className="text-slate-200 font-bold text-xs uppercase tracking-wider mt-4">Export & 3D</h3>
+						<h3 className="text-slate-200 font-bold text-sm uppercase tracking-wider mt-4">Export & 3D</h3>
 						<div className="space-y-2">
 							{[
 								{
-									n: "plan_to_svg",
+									n: 'plan(op="to_svg")',
 									t: "MUTATE",
 									d: "DXF → SVG preview with per-layer filtering and configurable background colour. Used by the Viewer page for real-time previews.",
 								},
 								{
-									n: "plan_extrude",
+									n: 'plan(op="extrude")',
 									t: "MUTATE",
 									d: "DXF walls → 3D STL mesh. Detects LINE/LWPOLYLINE on wall layers, extrudes vertically with configurable wall height (m) and thickness (m). The killer feature for game engines and 3D printing.",
 								},
 								{
-									n: "plan_export",
+									n: 'plan(op="export")',
 									t: "MUTATE",
 									d: "Export DXF to SVG, PNG, or PDF. Uses ezdxf+matplotlib by default; QCAD Pro gives high-fidelity PDF with correct hatches and fonts.",
 								},
@@ -300,34 +300,34 @@ export default function HelpPage() {
 							))}
 						</div>
 
-						<h3 className="text-slate-200 font-bold text-xs uppercase tracking-wider mt-4">REST API — Depot CRUD</h3>
-						<p className="text-sm text-slate-400">
+						<h3 className="text-slate-200 font-bold text-sm uppercase tracking-wider mt-4">REST API — Depot CRUD</h3>
+						<p className="text-sm text-slate-300">
 							The depot is also accessible directly via REST endpoints for integration with other tools:
 						</p>
-						<div className="bg-black/30 rounded-xl p-3 font-mono text-xs space-y-1">
+						<div className="bg-black/30 rounded-xl p-3 font-mono text-sm space-y-1">
 							<div>
 								<span className="text-emerald-400">GET</span> /api/v1/depot{" "}
-								<span className="text-slate-500">— list all files</span>
+								<span className="text-slate-300">— list all files</span>
 							</div>
 							<div>
 								<span className="text-emerald-400">GET</span> /api/v1/depot/
-								{"{name}"} <span className="text-slate-500">— download DXF</span>
+								{"{name}"} <span className="text-slate-300">— download DXF</span>
 							</div>
 							<div>
 								<span className="text-amber-400">PUT</span> /api/v1/depot/
-								{"{name}"} <span className="text-slate-500">— rename/update tags</span>
+								{"{name}"} <span className="text-slate-300">— rename/update tags</span>
 							</div>
 							<div>
 								<span className="text-red-400">DELETE</span> /api/v1/depot/
-								{"{name}"} <span className="text-slate-500">— delete file + metadata</span>
+								{"{name}"} <span className="text-slate-300">— delete file + metadata</span>
 							</div>
 							<div>
 								<span className="text-amber-400">POST</span> /api/v1/depot/create{" "}
-								<span className="text-slate-500">— create DXF from JSON entities</span>
+								<span className="text-slate-300">— create DXF from JSON entities</span>
 							</div>
 							<div>
 								<span className="text-amber-400">POST</span> /api/v1/depot/upload{" "}
-								<span className="text-slate-500">— upload DXF/DWG directly</span>
+								<span className="text-slate-300">— upload DXF/DWG directly</span>
 							</div>
 						</div>
 					</>
@@ -339,11 +339,11 @@ export default function HelpPage() {
 						<div className="space-y-2 mb-6">
 							{[
 								["1. Upload", "Drop DXF/DWG on Depot or POST /api/v1/upload"],
-								["2. Inspect", "plan_info → layers, entities, bounding box, blocks"],
-								["3. Preview", "plan_to_svg → SVG in Viewer with per-layer toggle"],
-								["4. Analyse", "plan_analyse → room areas, door/window detection"],
-								["5. Modify", "plan_modify → delete, offset, rename, freeze layers"],
-								["6. Export", "plan_export → PDF (QCAD Pro) or SVG/PNG (ezdxf)"],
+								["2. Inspect", 'plan(op="info") → layers, entities, bounding box, blocks'],
+								["3. Preview", 'plan(op="to_svg") → SVG in Viewer with per-layer toggle'],
+								["4. Analyse", 'plan(op="analyse") → room areas, door/window detection'],
+								["5. Modify", 'plan_edit(op="modify") → delete, offset, rename, freeze layers'],
+								["6. Export", 'plan(op="export") → PDF (QCAD Pro) or SVG/PNG (ezdxf)'],
 							].map(([step, desc]) => (
 								<div key={step} className="flex gap-3 bg-white/10 rounded-lg p-2.5">
 									<span className="text-amber-400 font-bold text-sm shrink-0 w-20">{step}</span>
@@ -355,9 +355,9 @@ export default function HelpPage() {
 						<h3 className="text-lg font-bold text-white mb-2">AI CAD Automation</h3>
 						<div className="space-y-2 mb-6">
 							{[
-								["NL → DXF", "plan_agentic creates floor plans from natural language"],
-								["AutoLISP", "plan_transpile converts legacy LISP routines to ECMAScript"],
-								["ECMAScript", "plan_script executes arbitrary QCAD Pro scripts"],
+								["NL → DXF", 'plan_ai(op="agentic") creates floor plans from natural language'],
+								["AutoLISP", 'plan_ai(op="transpile") converts legacy LISP routines to ECMAScript'],
+								["ECMAScript", 'plan_pro(op="script") executes arbitrary QCAD Pro scripts'],
 								["Script Library", "ScriptsPage: 12 curated scripts + GitHub Gist + QCAD examples"],
 							].map(([step, desc]) => (
 								<div key={step} className="flex gap-3 bg-white/10 rounded-lg p-2.5">
@@ -368,7 +368,7 @@ export default function HelpPage() {
 						</div>
 
 						<h3 className="text-lg font-bold text-white mb-2">3D &amp; BIM (Cross-Repo)</h3>
-						<p className="text-sm text-slate-400 mb-3">
+						<p className="text-sm text-slate-300 mb-3">
 							<strong className="text-slate-200">BIM</strong> (Building Information Modeling) is the industry standard
 							for architectural design &mdash; parametric walls, slabs, windows, doors, and roofs with material
 							properties, cost data, and IFC exchange. QCAD handles 2D drafting; chain with{" "}
@@ -376,9 +376,9 @@ export default function HelpPage() {
 						</p>
 						<div className="space-y-2 mb-4">
 							{[
-								["Extrude", "plan_extrude → STL wall mesh (qcad-mcp)"],
+								["Extrude", 'plan(op="extrude") → STL wall mesh (qcad-mcp)'],
 								["Solid", "mesh_to_solid → FCStdB-Rep solid (freecad-mcp)"],
-								["BIM Walls", "plan_wall_data + bim_create_wall per segment"],
+								["BIM Walls", 'plan_annotate(op="wall_data") + bim_create_wall per segment'],
 								["BIM Slab", "bim_create_slab → floor structure"],
 								["Windows", "bim_create_window → auto-cut openings in walls"],
 								["Doors", "bim_create_door → auto-cut openings in walls"],
@@ -404,8 +404,8 @@ export default function HelpPage() {
 					[
 						["DXF (.dxf)", "Drawing eXchange Format — industry standard 2D CAD. ASCII or binary. R12 to R2023."],
 						["DWG (.dwg)", "Native AutoCAD format (proprietary). QCAD Pro adds full support."],
-						["SVG (.svg)", "Web-standard vector graphics. Generated by plan_to_svg / plan_export."],
-						["STL (.stl)", "Triangle mesh for 3D printing and game engines. Generated by plan_extrude."],
+						["SVG (.svg)", 'Web-standard vector graphics. Generated by plan(op="to_svg") / plan(op="export").'],
+						["STL (.stl)", 'Triangle mesh for 3D printing and game engines. Generated by plan(op="extrude").'],
 						["PDF (.pdf)", "Portable document format for printing. QCAD Pro gives best quality."],
 						["PNG (.png)", "Raster image export via matplotlib backend (configurable DPI)."],
 					].map(([fmt, desc]) => (
@@ -429,8 +429,8 @@ export default function HelpPage() {
 								<div key={repo} className="bg-white/10 rounded-xl p-3">
 									<div className="flex items-center gap-2 mb-1">
 										<code className="text-amber-400 font-bold text-sm">{repo}</code>
-										<span className="text-xs text-slate-500">:{port}</span>
-										<span className="text-xs px-2 py-0.5 rounded bg-white/10 text-slate-400">{fmt}</span>
+										<span className="text-sm text-slate-300">:{port}</span>
+										<span className="text-sm px-2 py-0.5 rounded bg-white/10 text-slate-300">{fmt}</span>
 									</div>
 									<p className="text-sm text-slate-300">{desc}</p>
 								</div>
@@ -464,7 +464,7 @@ export default function HelpPage() {
 									<span className="text-amber-400 font-bold text-sm group-hover:text-amber-300">{label}</span>
 									<p className="text-sm text-slate-300">{desc}</p>
 								</div>
-								<ExternalLink size={14} className="text-slate-400 group-hover:text-slate-400" />
+								<ExternalLink size={14} className="text-slate-300 group-hover:text-slate-300" />
 							</a>
 						))}
 					</div>

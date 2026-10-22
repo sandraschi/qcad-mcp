@@ -1,6 +1,6 @@
 import { Box, Download, Loader2, Package, Settings2, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
-import { API_BASE } from "../lib/api";
+import { API_BASE, toolCallBody } from "../lib/api";
 
 interface ExtrudeData {
 	size_kb: number;
@@ -156,16 +156,15 @@ export default function ExtrudePage() {
 			const conv = await fetch(API_BASE + "/api/v1/control/tool", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					tool: "plan_extrude",
-					arguments: {
+				body: JSON.stringify(
+					toolCallBody("plan_extrude", {
 						file_name: fileName,
 						output_name: stlName,
 						wall_height: wallHeight,
 						wall_thickness: wallThickness,
 						wall_layers: wl,
-					},
-				}),
+					}),
+				),
 			});
 			const cj = await conv.json();
 			if (cj.success) {
@@ -274,16 +273,15 @@ export default function ExtrudePage() {
 			const o = await fetch(API_BASE + "/api/v1/control/tool", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					tool: "plan_obj",
-					arguments: {
+				body: JSON.stringify(
+					toolCallBody("plan_obj", {
 						file_name: activeFileName,
 						output_name: objName,
 						wall_height: wallHeight,
 						wall_thickness: wallThickness,
 						wall_layers: wl,
-					},
-				}),
+					}),
+				),
 			});
 			const oj = await o.json();
 			if (!oj.success) throw new Error(oj.error || "OBJ export failed");
@@ -332,7 +330,7 @@ export default function ExtrudePage() {
 			<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-6 space-y-4">
 				<div className="flex items-center gap-2 mb-2">
 					<Settings2 size={16} className="text-amber-400" />
-					<h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Parameters</h3>
+					<h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Parameters</h3>
 				</div>
 
 				<div className="grid grid-cols-2 gap-4">
@@ -405,14 +403,14 @@ export default function ExtrudePage() {
 							))}
 						</select>
 					) : (
-						<p className="text-sm text-slate-500">
+						<p className="text-sm text-slate-300">
 							Depot is empty — create a plan on the Demo page or switch to Upload.
 						</p>
 					)
 				) : (
 					<label className="block border-2 border-dashed border-white/10 rounded-xl p-6 text-center cursor-pointer hover:border-amber-500/40 transition-all">
 						<Upload className="mx-auto mb-2 text-slate-300" size={28} />
-						<p className="text-slate-400 text-sm">{file ? file.name : "Drop a DXF floor plan here"}</p>
+						<p className="text-slate-300 text-sm">{file ? file.name : "Drop a DXF floor plan here"}</p>
 						<input
 							type="file"
 							accept=".dxf,.dwg"
@@ -472,15 +470,14 @@ export default function ExtrudePage() {
 									const r = await fetch(`${API_BASE}/api/v1/control/tool`, {
 										method: "POST",
 										headers: { "Content-Type": "application/json" },
-										body: JSON.stringify({
-											tool: "plan_obj",
-											arguments: {
+										body: JSON.stringify(
+											toolCallBody("plan_obj", {
 												file_name: activeFileName,
 												output_name: result.output.replace(/\.stl$/i, ".obj"),
 												wall_height: wallHeight,
 												wall_thickness: wallThickness,
-											},
-										}),
+											}),
+										),
 									});
 									const j = await r.json();
 									if (j.success && j.output) {
@@ -504,14 +501,13 @@ export default function ExtrudePage() {
 									const r = await fetch(`${API_BASE}/api/v1/control/tool`, {
 										method: "POST",
 										headers: { "Content-Type": "application/json" },
-										body: JSON.stringify({
-											tool: "plan_to_ifc_data",
-											arguments: {
+										body: JSON.stringify(
+											toolCallBody("plan_to_ifc_data", {
 												file_name: activeFileName,
 												wall_height: wallHeight * 1000.0,
 												wall_thickness: wallThickness * 1000.0,
-											},
-										}),
+											}),
+										),
 									});
 									const j = await r.json();
 									if (j.success) {
@@ -551,7 +547,7 @@ export default function ExtrudePage() {
 							/>
 						)}
 					</p>
-					<p className="text-sm text-slate-400">
+					<p className="text-sm text-slate-300">
 						Sends this STL to the freecad-mcp backend, which converts the mesh into a solid 3D object (FCStd). Requires
 						FreeCAD installed and the freecad-mcp backend running.
 					</p>
@@ -609,7 +605,7 @@ export default function ExtrudePage() {
 							/>
 						)}
 					</p>
-					<p className="text-sm text-slate-400">
+					<p className="text-sm text-slate-300">
 						Exports a textured OBJ and imports it into Blender with materials (mm scaled to metres). Requires the
 						blender-mcp backend running.
 					</p>
@@ -656,7 +652,7 @@ export default function ExtrudePage() {
 							/>
 						)}
 					</p>
-					<p className="text-sm text-slate-400">
+					<p className="text-sm text-slate-300">
 						Converts the plan to GLB (the only format Resonite imports) and stages it for inventory delivery. Final hop
 						needs the Resonite game or cloud token.
 					</p>

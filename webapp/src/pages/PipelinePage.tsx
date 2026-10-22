@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { useCallback, useState } from "react";
 import StlViewer from "../components/StlViewer";
-import { API_BASE } from "../lib/api";
+import { API_BASE, toolCallBody } from "../lib/api";
 
 interface WallSegment {
 	x1: number;
@@ -59,14 +59,20 @@ const STEPS = [
 const PRESETS = [
 	{
 		label: "Studio",
+		blurb: "Kitchenette, bath, hallway and balcony.",
+		dims: "6 × 5m",
 		goal: "Create an open-plan studio apartment 6m x 5m with a kitchenette corner, bathroom 2m x 1.5m, entrance hallway, and a balcony 3m x 1.5m on the south wall. Add dimensions and room labels.",
 	},
 	{
 		label: "Office",
+		blurb: "Offices, open workspace, meeting rooms.",
+		dims: "20 × 15m",
 		goal: "Create an office floor plan 20m x 15m with 6 private offices 3m x 3m along the north wall, an open-plan workspace, two meeting rooms 4m x 4m, kitchen, and two bathrooms.",
 	},
 	{
 		label: "Cafe",
+		blurb: "Counter, tables, bar and terrace.",
+		dims: "8 × 10m",
 		goal: "Create a cafe layout 8m x 10m with a serving counter 4m wide, 6 tables for 4 people, 4 tables for 2 people, a bar area with 8 stools, and a small outdoor terrace 3m x 8m.",
 	},
 ];
@@ -95,7 +101,7 @@ export default function PipelinePage() {
 		const r = await fetch(API_BASE + "/api/v1/control/tool", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ tool, arguments: args }),
+			body: JSON.stringify(toolCallBody(tool, args)),
 		});
 		const data = await r.json();
 		setRunningOp(null);
@@ -239,7 +245,7 @@ export default function PipelinePage() {
 				</div>
 				<div>
 					<h1 className="text-2xl font-bold text-white">Pipeline Wizard</h1>
-					<p className="text-sm text-slate-400">NL plan &rarr; DXF &rarr; Analyse &rarr; 3D &rarr; FreeCAD BIM</p>
+					<p className="text-sm text-slate-300">NL plan &rarr; DXF &rarr; Analyse &rarr; 3D &rarr; FreeCAD BIM</p>
 				</div>
 			</div>
 
@@ -258,7 +264,7 @@ export default function PipelinePage() {
 								? "bg-amber-600 text-white shadow-lg shadow-amber-600/20"
 								: step > s.id
 									? "text-emerald-400 hover:bg-white/5"
-									: "text-slate-500 hover:text-slate-300 hover:bg-white/5"
+									: "text-slate-300 hover:text-slate-300 hover:bg-white/5"
 						}`}
 					>
 						<s.icon size={16} />
@@ -284,7 +290,7 @@ export default function PipelinePage() {
 								<MessageSquareText size={18} />
 								<h2 className="text-lg font-bold text-white">Describe Your Plan</h2>
 							</div>
-							<p className="text-sm text-slate-400">
+							<p className="text-sm text-slate-300">
 								Describe a floor plan in natural language. The AI will generate a parametric DXF drawing.
 							</p>
 							<div className="space-y-2">
@@ -316,19 +322,23 @@ export default function PipelinePage() {
 									Generate Plan
 								</button>
 							</div>
-							<div className="flex flex-wrap gap-2">
-								<span className="text-xs text-slate-500 self-center mr-1">Try:</span>
-								{PRESETS.map((p) => (
-									<button
-										type="button"
-										key={p.label}
-										onClick={() => setGoal(p.goal)}
-										disabled={running}
-										className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-slate-300 border border-white/5"
-									>
-										{p.label}
-									</button>
-								))}
+							<div>
+								<p className="text-sm font-bold text-slate-200 uppercase tracking-wider mb-2">Try a preset</p>
+								<div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+									{PRESETS.map((p) => (
+										<button
+											type="button"
+											key={p.label}
+											onClick={() => setGoal(p.goal)}
+											disabled={running}
+											className="group text-left p-3.5 rounded-2xl bg-white/[0.03] hover:bg-amber-500/10 border border-white/10 hover:border-amber-500/40 transition-all disabled:opacity-50"
+										>
+											<span className="text-sm font-bold text-white group-hover:text-amber-300">{p.label}</span>
+											<p className="text-sm text-slate-300 mt-0.5 leading-snug">{p.blurb}</p>
+											<p className="text-sm text-amber-400/90 font-mono mt-1">{p.dims}</p>
+										</button>
+									))}
+								</div>
 							</div>
 						</div>
 					)}
@@ -342,7 +352,7 @@ export default function PipelinePage() {
 										<Eye size={14} className="text-amber-400" />
 										<span className="text-sm font-bold text-slate-300">2D Floor Plan</span>
 										{state.dxf_entities > 0 && (
-											<span className="text-xs text-slate-500">({state.dxf_entities} entities)</span>
+											<span className="text-sm text-slate-300">({state.dxf_entities} entities)</span>
 										)}
 									</div>
 									<div className="flex items-center gap-2">
@@ -373,7 +383,7 @@ export default function PipelinePage() {
 										/>
 									</div>
 								) : (
-									<div className="flex items-center justify-center h-[300px] text-slate-500 text-sm">
+									<div className="flex items-center justify-center h-[300px] text-slate-300 text-sm">
 										<Loader2 size={20} className="animate-spin mr-2 text-amber-400" />
 										Generating preview...
 									</div>
@@ -414,10 +424,10 @@ export default function PipelinePage() {
 									<div className="space-y-6">
 										{state.analyse.rooms.length > 0 && (
 											<div>
-												<h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">Rooms</h3>
+												<h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-2">Rooms</h3>
 												<table className="w-full text-sm">
 													<thead>
-														<tr className="text-slate-500 border-b border-white/10">
+														<tr className="text-slate-300 border-b border-white/10">
 															<th className="text-left py-2 px-2">Room</th>
 															<th className="text-right py-2 px-2">Area (m&sup2;)</th>
 														</tr>
@@ -435,12 +445,12 @@ export default function PipelinePage() {
 										)}
 										{state.analyse.doors_windows.length > 0 && (
 											<div>
-												<h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">
+												<h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-2">
 													Doors &amp; Windows
 												</h3>
 												<table className="w-full text-sm">
 													<thead>
-														<tr className="text-slate-500 border-b border-white/10">
+														<tr className="text-slate-300 border-b border-white/10">
 															<th className="text-left py-2 px-2">Type</th>
 															<th className="text-right py-2 px-2">Width (mm)</th>
 															<th className="text-right py-2 px-2">Height (mm)</th>
@@ -460,7 +470,7 @@ export default function PipelinePage() {
 										)}
 									</div>
 								) : (
-									<div className="flex items-center justify-center h-[200px] text-slate-500 text-sm">
+									<div className="flex items-center justify-center h-[200px] text-slate-300 text-sm">
 										{running ? (
 											<>
 												<Loader2 size={20} className="animate-spin mr-2 text-amber-400" />
@@ -553,7 +563,7 @@ export default function PipelinePage() {
 										<div className="flex items-center gap-2">
 											<Box size={14} className="text-amber-400" />
 											<span className="text-sm font-bold text-slate-300">3D Preview</span>
-											<span className="text-xs text-slate-500">({state.stl_vertices} vertices)</span>
+											<span className="text-sm text-slate-300">({state.stl_vertices} vertices)</span>
 										</div>
 										<a
 											href={`/api/v1/download/${state.stl}`}
@@ -596,30 +606,30 @@ export default function PipelinePage() {
 									<GitBranch size={18} />
 									<h2 className="text-lg font-bold text-white">FreeCAD BIM Pipeline</h2>
 								</div>
-								<p className="text-sm text-slate-400">
+								<p className="text-sm text-slate-300">
 									Wall data extracted from the DXF plan is ready for FreeCAD BIM tools. Use the call sequence below to
 									reconstruct the building in FreeCAD.
 								</p>
 								{state.wall_data.length > 0 && (
 									<div className="bg-black/40 border border-white/10 rounded-xl p-4 space-y-2">
 										<div className="flex items-center justify-between">
-											<span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+											<span className="text-sm font-bold text-slate-300 uppercase tracking-wider">
 												Wall Segments ({state.wall_data.length})
 											</span>
 											{state.wall_data_json && (
 												<a
 													href={`data:text/json;charset=utf-8,${encodeURIComponent(state.wall_data_json)}`}
 													download="wall_data.json"
-													className="flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300"
+													className="flex items-center gap-1 text-sm text-amber-400 hover:text-amber-300"
 												>
 													<FileText size={12} /> Download JSON
 												</a>
 											)}
 										</div>
 										<div className="max-h-[240px] overflow-y-auto">
-											<table className="w-full text-xs">
+											<table className="w-full text-sm">
 												<thead>
-													<tr className="text-slate-500 border-b border-white/10">
+													<tr className="text-slate-300 border-b border-white/10">
 														<th className="text-left py-1.5 px-1">#</th>
 														<th className="text-left py-1.5 px-1">From</th>
 														<th className="text-left py-1.5 px-1">To</th>
@@ -634,7 +644,7 @@ export default function PipelinePage() {
 															key={`${w.x1}-${w.y1}-${w.x2}-${w.y2}`}
 															className="border-b border-white/5 hover:bg-white/5"
 														>
-															<td className="py-1.5 px-1 text-slate-500 font-mono">{i}</td>
+															<td className="py-1.5 px-1 text-slate-300 font-mono">{i}</td>
 															<td className="py-1.5 px-1 text-slate-300 font-mono">
 																{w.x1},{w.y1}
 															</td>
@@ -647,7 +657,7 @@ export default function PipelinePage() {
 															<td className="py-1.5 px-1 text-right text-slate-300 font-mono">
 																{w.angle_deg.toFixed(1)}&deg;
 															</td>
-															<td className="py-1.5 px-1 text-slate-400">{w.layer}</td>
+															<td className="py-1.5 px-1 text-slate-300">{w.layer}</td>
 														</tr>
 													))}
 												</tbody>
@@ -663,15 +673,15 @@ export default function PipelinePage() {
 									<Send size={18} />
 									<h2 className="text-lg font-bold text-white">Send to FreeCAD</h2>
 								</div>
-								<p className="text-sm text-slate-400">
+								<p className="text-sm text-slate-300">
 									Extract wall segments as BIM-ready JSON and generate freecad-mcp tool calls:
 								</p>
 								{state.wall_data.length > 0 && (
 									<>
 										<div className="bg-black/40 border border-white/10 rounded-xl p-3 max-h-[200px] overflow-y-auto">
-											<table className="w-full text-xs">
+											<table className="w-full text-sm">
 												<thead>
-													<tr className="text-slate-400 border-b border-white/10">
+													<tr className="text-slate-300 border-b border-white/10">
 														<th className="text-left py-1 pr-2">Layer</th>
 														<th className="text-left py-1 pr-2">Length</th>
 														<th className="text-left py-1 pr-2">Angle</th>
@@ -708,7 +718,7 @@ export default function PipelinePage() {
 												);
 												navigator.clipboard.writeText(calls.join("\n"));
 											}}
-											className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold w-fit"
+											className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold w-fit"
 										>
 											<Code2 size={14} /> Copy FreeCAD tool calls
 										</button>
@@ -778,7 +788,7 @@ export default function PipelinePage() {
 
 			{/* Global running indicator */}
 			{runningOp && (
-				<div className="flex items-center gap-2 text-xs text-amber-400">
+				<div className="flex items-center gap-2 text-sm text-amber-400">
 					<Loader2 size={12} className="animate-spin" />
 					Running: {runningOp}
 				</div>
