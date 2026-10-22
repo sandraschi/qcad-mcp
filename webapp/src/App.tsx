@@ -6,11 +6,13 @@ import AnalysePage from "./pages/AnalysePage";
 import { AppsPage } from "./pages/apps";
 import BatchPage from "./pages/BatchPage";
 import BlocksPage from "./pages/BlocksPage";
+import ChatPage from "./pages/ChatPage";
 import Dashboard from "./pages/Dashboard";
 import DemoPage from "./pages/DemoPage";
 import DepotPage from "./pages/DepotPage";
 import ExtrudePage from "./pages/ExtrudePage";
 import HelpPage from "./pages/HelpPage";
+import InboxPage from "./pages/InboxPage";
 import LayersPage from "./pages/LayersPage";
 import LogsPage from "./pages/LogsPage";
 import ModelsPage from "./pages/ModelsPage";
@@ -18,6 +20,8 @@ import PipelinePage from "./pages/PipelinePage";
 import PlaygroundPage from "./pages/PlaygroundPage";
 import ScriptsPage from "./pages/ScriptsPage";
 import SettingsPage from "./pages/SettingsPage";
+import SkillsPage from "./pages/SkillsPage";
+import ToolsPage from "./pages/ToolsPage";
 import ViewerPage from "./pages/ViewerPage";
 
 export default function App() {
@@ -27,7 +31,11 @@ export default function App() {
 				<Route path="/" element={<Dashboard />} />
 				<Route path="/apps" element={<AppsPage />} />
 				<Route path="/demo" element={<DemoPage />} />
+				<Route path="/chat" element={<ChatPage />} />
 				<Route path="/agentic" element={<AgenticPage />} />
+				<Route path="/inbox" element={<InboxPage />} />
+				<Route path="/tools" element={<ToolsPage />} />
+				<Route path="/skills" element={<SkillsPage />} />
 				<Route path="/depot" element={<DepotPage />} />
 				<Route path="/viewer" element={<ViewerPage />} />
 				<Route path="/extrude" element={<ExtrudePage />} />

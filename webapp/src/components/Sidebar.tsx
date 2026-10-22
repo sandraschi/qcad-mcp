@@ -11,9 +11,11 @@ import {
 	GitBranch,
 	Grid3X3,
 	HelpCircle,
+	Inbox,
 	Layers,
 	LayoutDashboard,
 	Logs,
+	MessageSquare,
 	Play,
 	Rocket,
 	Ruler,
@@ -21,13 +23,18 @@ import {
 	SlidersHorizontal,
 	Sparkles,
 	Terminal,
+	Wrench,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 const navItems = [
 	{ path: "/", label: "Dashboard", icon: LayoutDashboard },
 	{ path: "/demo", label: "Demo", icon: Sparkles },
+	{ path: "/chat", label: "Chat", icon: MessageSquare },
 	{ path: "/agentic", label: "AI Agent", icon: Bot },
+	{ path: "/inbox", label: "Inbox", icon: Inbox },
+	{ path: "/tools", label: "Tools", icon: Wrench },
+	{ path: "/skills", label: "Skills", icon: FileText },
 	{ path: "/depot", label: "Depot", icon: Database },
 	{ path: "/viewer", label: "Viewer", icon: Layers },
 	{ path: "/extrude", label: "Extrude", icon: Box },

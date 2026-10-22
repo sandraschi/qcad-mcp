@@ -35,7 +35,11 @@ function useExperimentalTheme() {
 const PAGE_TITLES: Record<string, string> = {
 	"/": "Dashboard",
 	"/demo": "AI CAD Demo",
+	"/chat": "CAD Chat",
 	"/agentic": "AI Agent",
+	"/inbox": "Inbox",
+	"/tools": "MCP Tools",
+	"/skills": "Agent Skills",
 	"/depot": "CAD Depot",
 	"/viewer": "Floor Plan Viewer",
 	"/extrude": "3D Extrusion",
@@ -144,7 +148,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 							onClick={toggle}
 							title={light ? "Switch to dark (experimental light mode)" : "Switch to light (experimental, ugly)"}
 							aria-label="Toggle light mode (experimental)"
-							className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-all"
+							className="p-1.5 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white transition-all"
 						>
 							{light ? <Moon size={14} /> : <Sun size={14} />}
 						</button>
@@ -152,7 +156,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 							type="button"
 							onClick={() => window.open(window.location.href, "_blank")}
 							title="Pop Out"
-							className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-all"
+							className="p-1.5 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white transition-all"
 						>
 							<ExternalLink size={14} />
 						</button>
@@ -164,7 +168,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 								} catch {}
 							}}
 							title="Companion Mode"
-							className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-all"
+							className="p-1.5 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white transition-all"
 						>
 							<Maximize2 size={14} />
 						</button>
