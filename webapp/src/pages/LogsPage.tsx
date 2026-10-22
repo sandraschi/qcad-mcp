@@ -38,8 +38,8 @@ export default function LogsPage() {
 	}, [lines, filter]);
 
 	return (
-		<div className="space-y-4 max-w-6xl mx-auto">
-			<h1 className="text-2xl font-bold text-white flex items-center gap-3">
+		<div className="space-y-4 max-w-6xl mx-auto" data-testid="logs-page">
+			<h1 className="text-2xl font-bold text-white flex items-center gap-3" data-testid="logs-title">
 				<Activity className="text-emerald-500" /> Server Logs
 			</h1>
 			<div className="flex flex-wrap items-center gap-2">
@@ -49,6 +49,7 @@ export default function LogsPage() {
 						type="text"
 						placeholder="Filter..."
 						value={filter}
+						data-testid="logs-filter"
 						onChange={(e) => setFilter(e.target.value)}
 						className="bg-transparent text-sm text-slate-200 placeholder-slate-600 outline-none w-full"
 					/>

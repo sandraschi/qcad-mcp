@@ -71,8 +71,8 @@ export default function LayersPage() {
 	};
 
 	return (
-		<div className="max-w-4xl space-y-6">
-			<h1 className="text-2xl font-bold text-white flex items-center gap-3">
+		<div className="max-w-4xl space-y-6" data-testid="layers-page">
+			<h1 className="text-2xl font-bold text-white flex items-center gap-3" data-testid="layers-title">
 				<Layers className="text-amber-400" /> Layer Manager
 			</h1>
 
@@ -83,6 +83,7 @@ export default function LayersPage() {
 				<select
 					id="layer-file-select"
 					value={selected}
+					data-testid="layers-file-select"
 					onChange={(e) => e.target.value && loadLayers(e.target.value)}
 					className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-amber-500"
 				>

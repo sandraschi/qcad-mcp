@@ -237,20 +237,25 @@ export default function PipelinePage() {
 	];
 
 	return (
-		<div className="max-w-6xl mx-auto space-y-6 pb-12">
+		<div className="max-w-6xl mx-auto space-y-6 pb-12" data-testid="pipeline-page">
 			{/* Header */}
 			<div className="flex items-center gap-3">
 				<div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
 					<GitBranch size={20} className="text-white" />
 				</div>
 				<div>
-					<h1 className="text-2xl font-bold text-white">Pipeline Wizard</h1>
+					<h1 className="text-2xl font-bold text-white" data-testid="pipeline-title">
+						Pipeline Wizard
+					</h1>
 					<p className="text-sm text-slate-300">NL plan &rarr; DXF &rarr; Analyse &rarr; 3D &rarr; FreeCAD BIM</p>
 				</div>
 			</div>
 
 			{/* Step Tabs */}
-			<div className="flex items-center gap-1 bg-[#1e1e26] border border-white/10 rounded-2xl p-1.5">
+			<div
+				className="flex items-center gap-1 bg-[#1e1e26] border border-white/10 rounded-2xl p-1.5"
+				data-testid="pipeline-steps"
+			>
 				{STEPS.map((s, i) => (
 					<button
 						type="button"

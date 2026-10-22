@@ -38,12 +38,15 @@ export default function ModelsPage() {
 	};
 
 	return (
-		<div className="max-w-4xl space-y-6">
+		<div className="max-w-4xl space-y-6" data-testid="models-page">
 			<div className="flex items-center justify-between">
-				<h1 className="text-2xl font-bold text-white">Models & Outputs</h1>
+				<h1 className="text-2xl font-bold text-white" data-testid="models-title">
+					Models & Outputs
+				</h1>
 				<button
 					type="button"
 					onClick={load}
+					data-testid="models-refresh"
 					className="flex items-center gap-2 text-sm text-slate-300 hover:text-white"
 				>
 					<RefreshCw size={14} /> Refresh

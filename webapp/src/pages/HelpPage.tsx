@@ -29,11 +29,11 @@ const sections = [
 export default function HelpPage() {
 	const [tab, setTab] = useState("intro");
 	return (
-		<div className="max-w-4xl space-y-6">
-			<h1 className="text-2xl font-bold text-white flex items-center gap-3">
+		<div className="max-w-4xl space-y-6" data-testid="help-page">
+			<h1 className="text-2xl font-bold text-white flex items-center gap-3" data-testid="help-title">
 				<HelpCircle className="text-amber-400" /> Help &amp; Reference
 			</h1>
-			<div className="flex flex-wrap gap-1.5 p-1 bg-white/10 rounded-2xl">
+			<div className="flex flex-wrap gap-1.5 p-1 bg-white/10 rounded-2xl" data-testid="help-tabs">
 				{sections.map((s) => (
 					<button
 						type="button"
