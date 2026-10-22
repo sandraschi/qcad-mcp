@@ -1,6 +1,6 @@
 import { ExternalLink, Maximize2, Moon, RefreshCw, Sun } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useZoom } from "../hooks/useZoom";
 import { API_BASE } from "../lib/api";
 import { useConnection } from "../store/connection";
@@ -64,6 +64,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 	const [collapsed, setCollapsed] = useState(false);
 	const { state, lastError } = useConnection();
 	const location = useLocation();
+	const navigate = useNavigate();
 	const pageTitle = PAGE_TITLES[location.pathname] || "QCAD MCP";
 	const attemptRef = useRef(0);
 	const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -93,6 +94,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
 	useEffect(() => {
 		tick();
+		// Fleet keyboard map: Ctrl+L logs, Ctrl+H help, Ctrl+K tool search.
+		// (Ctrl+0 zoom reset lives in useZoom; Ctrl+Scroll zooms.)
+		const keys = (e: KeyboardEvent) => {
+			if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
+			const tag = (e.target as HTMLElement | null)?.tagName ?? "";
+			const typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+			if (typing) return;
+			if (e.key === "l" || e.key === "L") {
+				e.preventDefault();
+				navigate("/logs");
+			} else if (e.key === "h" || e.key === "H") {
+				e.preventDefault();
+				navigate("/help");
+			} else if (e.key === "k" || e.key === "K") {
+				e.preventDefault();
+				navigate("/tools");
+				window.setTimeout(() => document.getElementById("tool-search")?.focus(), 150);
+			}
+		};
+		window.addEventListener("keydown", keys);
 		(async () => {
 			try {
 				const { listen } = await import("@tauri-apps/api/event");
@@ -112,8 +133,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 				return () => clearTimeout(timerRef.current);
 			}
 		})();
-		return () => clearTimeout(timerRef.current);
-	}, [tick]);
+		return () => {
+			window.removeEventListener("keydown", keys);
+			clearTimeout(timerRef.current);
+		};
+	}, [tick, navigate]);
 
 	const statusColor =
 		state === "connected" ? "text-emerald-400" : state === "connecting" ? "text-amber-400" : "text-red-400";

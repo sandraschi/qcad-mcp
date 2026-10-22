@@ -78,8 +78,8 @@ export default function AgenticPage() {
 	};
 
 	return (
-		<div className="max-w-5xl space-y-6">
-			<h1 className="text-2xl font-bold text-white flex items-center gap-3">
+		<div className="max-w-5xl space-y-6" data-testid="agentic-page">
+			<h1 className="text-2xl font-bold text-white flex items-center gap-3" data-testid="agentic-title">
 				<Bot className="text-amber-400" /> AI CAD Agent
 			</h1>
 			<p className="text-sm text-slate-300">
@@ -92,6 +92,7 @@ export default function AgenticPage() {
 				<div className="lg:col-span-2 bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-3">
 					<textarea
 						value={goal}
+						data-testid="agentic-input"
 						onChange={(e) => setGoal(e.target.value)}
 						onKeyDown={(e) => {
 							if (e.key === "Enter" && e.ctrlKey) execute();

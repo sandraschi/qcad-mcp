@@ -52,6 +52,7 @@ export default function ToolsPage() {
 			<div className="relative">
 				<Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
 				<input
+					id="tool-search"
 					value={query}
 					onChange={(e) => setQuery(e.target.value)}
 					placeholder="Search tools or ops…"

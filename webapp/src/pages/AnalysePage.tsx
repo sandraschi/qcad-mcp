@@ -62,8 +62,8 @@ export default function AnalysePage() {
 	};
 
 	return (
-		<div className="max-w-4xl space-y-6">
-			<h1 className="text-2xl font-bold text-white flex items-center gap-3">
+		<div className="max-w-4xl space-y-6" data-testid="analyse-page">
+			<h1 className="text-2xl font-bold text-white flex items-center gap-3" data-testid="analyse-title">
 				<BarChart3 className="text-amber-400" /> Plan Analysis
 			</h1>
 			<p className="text-sm text-slate-300">
@@ -77,6 +77,7 @@ export default function AnalysePage() {
 					<input
 						type="file"
 						accept=".dxf,.dwg"
+						data-testid="analyse-upload"
 						className="hidden"
 						onChange={(e) => setFile(e.target.files?.[0] || null)}
 					/>
