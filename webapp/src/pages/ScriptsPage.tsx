@@ -99,8 +99,8 @@ export default function ScriptsPage() {
 	};
 
 	return (
-		<div className="max-w-6xl space-y-6">
-			<h1 className="text-2xl font-bold text-white flex items-center gap-3">
+		<div className="max-w-6xl space-y-6" data-testid="scripts-page">
+			<h1 className="text-2xl font-bold text-white flex items-center gap-3" data-testid="scripts-title">
 				<FileCode className="text-amber-400" /> ECMAScript Library
 			</h1>
 			<p className="text-sm text-slate-300">
@@ -128,6 +128,7 @@ export default function ScriptsPage() {
 						<input
 							type="text"
 							value={query}
+							data-testid="scripts-search"
 							onChange={(e) => setQuery(e.target.value)}
 							onKeyDown={(e) => e.key === "Enter" && search()}
 							placeholder="Search scripts (e.g. dimension, hatch, room)..."

@@ -154,9 +154,11 @@ export default function ViewerPage() {
 	};
 
 	return (
-		<div className="space-y-6 max-w-6xl">
+		<div className="space-y-6 max-w-6xl" data-testid="viewer-page">
 			<div className="flex items-center justify-between">
-				<h1 className="text-2xl font-bold text-white">DXF Floor Plan Viewer</h1>
+				<h1 className="text-2xl font-bold text-white" data-testid="viewer-title">
+					DXF Floor Plan Viewer
+				</h1>
 				{file && (
 					<button
 						type="button"
@@ -177,6 +179,7 @@ export default function ViewerPage() {
 					<input
 						type="file"
 						accept=".dxf,.dwg"
+						data-testid="viewer-upload"
 						className="hidden"
 						onChange={(e) => setFile(e.target.files?.[0] || null)}
 					/>
