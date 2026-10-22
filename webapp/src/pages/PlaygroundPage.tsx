@@ -1,70 +1,32 @@
 import { AlertTriangle, CheckCircle, Code2, Loader2, Play, Terminal } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { API_BASE } from "../lib/api";
 
-const TOOLS = [
-	"plan_info",
-	"plan_to_svg",
-	"plan_extrude",
-	"plan_export",
-	"plan_analyse",
-	"plan_measure",
-	"plan_create",
-	"plan_depot",
-	"plan_convert",
-	"plan_modify",
-	"plan_dimension",
-	"plan_text",
-	"plan_hatch",
-	"plan_block_insert",
-	"plan_array",
-	"plan_wall_data",
-	"plan_beam_analysis",
-	"plan_blocks",
-	"plan_blocks_download",
-	"plan_scripts_search",
-	"plan_scripts_download",
-	"plan_script",
-	"plan_render",
-	"plan_exec",
-	"qcad_status",
-];
+const TOOLS = ["plan", "plan_edit", "plan_annotate", "plan_pro", "plan_library", "plan_ai", "plan_bim", "qcad"];
 
 const ARG_TEMPLATES: Record<string, string> = {
-	plan_info: JSON.stringify({ file_name: "studio_apt.dxf" }, null, 2),
-	plan_to_svg: JSON.stringify({ file_name: "studio_apt.dxf", output_name: "preview.svg" }, null, 2),
-	plan_extrude: JSON.stringify(
-		{
-			file_name: "studio_apt.dxf",
-			output_name: "extruded.stl",
-			wall_height: 3.0,
-			wall_thickness: 0.15,
-			wall_layers: ["Walls"],
-		},
+	plan: JSON.stringify({ op: "info", file_name: "studio_apt.dxf" }, null, 2),
+	plan_edit: JSON.stringify(
+		{ op: "modify", file_name: "studio_apt.dxf", operations: [{ op: "layer-freeze", layer_filter: "Furniture" }] },
 		null,
 		2,
 	),
-	plan_export: JSON.stringify({ file_name: "studio_apt.dxf", format: "svg", output_name: "export.svg" }, null, 2),
-	plan_analyse: JSON.stringify({ file_name: "studio_apt.dxf" }, null, 2),
-	plan_blocks: JSON.stringify({ query: "door", limit: 5 }, null, 2),
-	plan_depot: "{}",
-	qcad_status: "{}",
-	plan_beam_analysis: JSON.stringify(
-		{
-			beams: [{ x1: 0, y1: 0, x2: 4000, y2: 0, label: "B1" }],
-			supports: [
-				{ x: 0, y: 0, type: "pinned" },
-				{ x: 4000, y: 0, type: "roller" },
-			],
-			loads: [{ x: 2000, y: 0, value: -5000 }],
-		},
-		null,
-		2,
-	),
+	plan_annotate: JSON.stringify({ op: "measure", file_name: "studio_apt.dxf" }, null, 2),
+	plan_pro: JSON.stringify({ op: "exec", code: "print(transientEntityCount());" }, null, 2),
+	plan_library: JSON.stringify({ op: "blocks", query: "door", limit: 5 }, null, 2),
+	plan_ai: JSON.stringify({ op: "sampling", goal: "What wall height suits a residential floor plan?" }, null, 2),
+	plan_bim: JSON.stringify({ op: "building_meta", file_name: "studio_apt.dxf" }, null, 2),
+	qcad: JSON.stringify({ op: "status" }, null, 2),
 };
 
 export default function PlaygroundPage() {
-	const [tool, setTool] = useState("plan_info");
+	const [searchParams] = useSearchParams();
+	const initialTool =
+		searchParams.get("tool") && TOOLS.includes(searchParams.get("tool") as string)
+			? (searchParams.get("tool") as string)
+			: "plan";
+	const [tool, setTool] = useState(initialTool);
 	const [argsText, setArgsText] = useState("");
 	const [result, setResult] = useState<string | null>(null);
 	const [running, setRunning] = useState(false);
@@ -155,13 +117,13 @@ export default function PlaygroundPage() {
 							</label>
 							{depotFiles.length > 0 && (
 								<div className="flex items-center gap-1">
-									<span className="text-xs text-slate-500">Files:</span>
+									<span className="text-sm text-slate-300">Files:</span>
 									<select
 										onChange={(e) => {
 											if (e.target.value) insertFileName(e.target.value);
 											e.target.value = "";
 										}}
-										className="bg-black/40 border border-white/10 rounded text-[10px] px-2 py-1 text-slate-300 max-w-[140px]"
+										className="bg-black/40 border border-white/10 rounded text-sm px-2 py-1 text-slate-300 max-w-[140px]"
 									>
 										<option value="">Insert file name...</option>
 										{depotFiles.map((f) => (
@@ -178,7 +140,7 @@ export default function PlaygroundPage() {
 							value={argsText}
 							onChange={(e) => setArgsText(e.target.value)}
 							rows={12}
-							className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs font-mono text-emerald-300 placeholder-slate-600 focus:outline-none focus:border-amber-500 resize-none"
+							className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm font-mono text-emerald-300 placeholder-slate-600 focus:outline-none focus:border-amber-500 resize-none"
 						/>
 						<button
 							type="button"
@@ -190,7 +152,7 @@ export default function PlaygroundPage() {
 							{running ? "Executing..." : `Execute ${tool}`}
 						</button>
 						{error && (
-							<div className="flex items-start gap-2 text-red-400 text-xs bg-red-950/30 border border-red-500/20 rounded-xl p-3">
+							<div className="flex items-start gap-2 text-red-400 text-sm bg-red-950/30 border border-red-500/20 rounded-xl p-3">
 								<AlertTriangle size={14} className="shrink-0 mt-0.5" />
 								<span>{error}</span>
 							</div>
@@ -200,14 +162,14 @@ export default function PlaygroundPage() {
 				<div className="bg-[#1e1e26] border border-white/10 rounded-2xl overflow-hidden">
 					<div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
 						<Code2 size={14} className="text-amber-400" />
-						<span className="text-sm font-bold text-slate-400 uppercase tracking-wider">Response</span>
-						{result && <span className="text-xs text-slate-500 ml-auto">{result.length} bytes</span>}
+						<span className="text-sm font-bold text-slate-300 uppercase tracking-wider">Response</span>
+						{result && <span className="text-sm text-slate-300 ml-auto">{result.length} bytes</span>}
 					</div>
 					<pre className="p-4 text-xs font-mono text-slate-300 overflow-auto max-h-[600px] whitespace-pre-wrap">
 						{result || <span className="text-slate-600">Execute a tool to see the response here.</span>}
 					</pre>
 					{result && (
-						<div className="px-4 py-2 border-t border-white/10 flex items-center gap-2 text-xs text-slate-500">
+						<div className="px-4 py-2 border-t border-white/10 flex items-center gap-2 text-sm text-slate-300">
 							<CheckCircle size={12} className="text-emerald-400" />
 							<span>Valid JSON response</span>
 							<button
