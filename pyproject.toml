@@ -1,6 +1,6 @@
 [project]
 name = "qcad-mcp"
-version = "0.3.0"
+version = "0.5.0"
 description = "QCAD 2D CAD automation: DXF/DWG floor plans to SVG and STL, via MCP tools and REST"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -17,6 +17,7 @@ dependencies = [
     "beautifulsoup4>=4.14",
     "pillow>=12.2.0",
     "matplotlib>=3.10.9",
+    "psutil>=5.9",
 ]
 
 [project.optional-dependencies]

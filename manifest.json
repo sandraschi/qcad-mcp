@@ -1,7 +1,7 @@
 {
   "manifest_version": "0.2",
   "name": "qcad-mcp",
-  "version": "0.3.0",
+  "version": "0.5.0",
   "description": "QCAD MCP server — DXF/DWG floor plan operations: SVG preview, STL extrusion, room analysis, beam structural analysis, AutoLISP transpilation, ECMAScript scripting. 26 MCP tools via ezdxf (core) + QCAD Pro (advanced rendering).",
   "author": {
     "name": "sandraschi"
