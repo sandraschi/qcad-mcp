@@ -80,7 +80,7 @@ export default function Dashboard() {
 					<p className="text-sm text-slate-300" data-testid="kpi-server-version">
 						{status?.ezdxf_version || "..."}
 					</p>
-					<p className="text-sm text-slate-400" data-testid="kpi-qcad">
+					<p className="text-sm text-slate-300" data-testid="kpi-qcad">
 						{status?.qcad_pro?.running
 							? `QCAD Pro ${status.qcad_pro.version} (running)`
 							: status?.qcad_pro?.installed
@@ -114,24 +114,24 @@ export default function Dashboard() {
 						</span>
 					</div>
 					{status?.qcad_pro?.running && (
-						<p className="text-xs text-slate-500">Install: {status.qcad_pro.install_dir}</p>
+						<p className="text-sm text-slate-300">Install: {status.qcad_pro.install_dir}</p>
 					)}
 					<div className="flex flex-wrap gap-2 pt-1">
 						<a
 							href="/demo"
-							className="px-3 py-1.5 rounded-xl bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 text-xs font-bold transition-all"
+							className="px-3 py-1.5 rounded-xl bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 text-sm font-bold transition-all"
 						>
 							AI Demo
 						</a>
 						<a
 							href="/playground"
-							className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 text-xs font-bold transition-all"
+							className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 text-sm font-bold transition-all"
 						>
 							Playground
 						</a>
 						<a
 							href="/help"
-							className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 text-xs font-bold transition-all"
+							className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 text-sm font-bold transition-all"
 						>
 							Help
 						</a>
@@ -178,7 +178,7 @@ export default function Dashboard() {
 					>
 						<item.icon size={24} className="mx-auto mb-2 text-amber-400" />
 						<p className="text-sm font-bold text-slate-300">{item.label}</p>
-						<p className="text-sm text-slate-400">{item.desc}</p>
+						<p className="text-sm text-slate-300">{item.desc}</p>
 					</a>
 				))}
 			</div>

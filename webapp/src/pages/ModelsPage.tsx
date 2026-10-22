@@ -44,7 +44,7 @@ export default function ModelsPage() {
 				<button
 					type="button"
 					onClick={load}
-					className="flex items-center gap-2 text-sm text-slate-400 hover:text-white"
+					className="flex items-center gap-2 text-sm text-slate-300 hover:text-white"
 				>
 					<RefreshCw size={14} /> Refresh
 				</button>
@@ -52,7 +52,7 @@ export default function ModelsPage() {
 			{selectedStl && (
 				<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-2">
 					<div className="flex items-center justify-between">
-						<h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider">3D Preview</h2>
+						<h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider">3D Preview</h2>
 						<div className="flex items-center gap-2">
 							<a
 								href={`/api/v1/download/${selectedStl}`}
@@ -64,7 +64,7 @@ export default function ModelsPage() {
 							<button
 								type="button"
 								onClick={() => setSelectedStl(null)}
-								className="text-slate-400 hover:text-slate-300 p-1"
+								className="text-slate-300 hover:text-slate-300 p-1"
 							>
 								<X size={14} />
 							</button>
@@ -76,7 +76,7 @@ export default function ModelsPage() {
 			{selectedObj && (
 				<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-2">
 					<div className="flex items-center justify-between">
-						<h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider">3D Preview (textured)</h2>
+						<h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider">3D Preview (textured)</h2>
 						<div className="flex items-center gap-2">
 							<a
 								href={`/api/v1/download/${selectedObj}`}
@@ -88,7 +88,7 @@ export default function ModelsPage() {
 							<button
 								type="button"
 								onClick={() => setSelectedObj(null)}
-								className="text-slate-400 hover:text-slate-300 p-1"
+								className="text-slate-300 hover:text-slate-300 p-1"
 							>
 								<X size={14} />
 							</button>
@@ -99,11 +99,11 @@ export default function ModelsPage() {
 			)}
 			<div className="grid grid-cols-2 gap-6">
 				<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-2">
-					<h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Uploads</h2>
+					<h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Uploads</h2>
 					{loading ? (
 						<Loader2 className="animate-spin" />
 					) : uploads.length === 0 ? (
-						<p className="text-slate-400 text-sm">No DXF files uploaded</p>
+						<p className="text-slate-300 text-sm">No DXF files uploaded</p>
 					) : (
 						uploads.map((f) => (
 							<div key={f.name} className="flex items-center justify-between p-3 rounded-xl bg-white/10 text-sm">
@@ -116,9 +116,9 @@ export default function ModelsPage() {
 					)}
 				</div>
 				<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-2">
-					<h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Outputs</h2>
+					<h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Outputs</h2>
 					{outputs.length === 0 ? (
-						<p className="text-slate-400 text-sm">No outputs yet — upload a DXF and use the tools</p>
+						<p className="text-slate-300 text-sm">No outputs yet — upload a DXF and use the tools</p>
 					) : (
 						outputs.map((f) => {
 							const isStl = /\.stl$/i.test(f.name);

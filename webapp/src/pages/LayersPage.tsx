@@ -77,7 +77,7 @@ export default function LayersPage() {
 			</h1>
 
 			<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-3">
-				<label htmlFor="layer-file-select" className="text-sm text-slate-400">
+				<label htmlFor="layer-file-select" className="text-sm text-slate-300">
 					Select a DXF/DWG file
 				</label>
 				<select
@@ -96,11 +96,11 @@ export default function LayersPage() {
 				{error && <p className="text-red-400 text-sm">{error}</p>}
 			</div>
 
-			{loading && <p className="text-slate-400 text-sm">Loading layers...</p>}
+			{loading && <p className="text-slate-300 text-sm">Loading layers...</p>}
 
 			{layers.length > 0 && (
 				<div className="bg-[#1e1e26] border border-white/10 rounded-2xl overflow-hidden">
-					<div className="grid grid-cols-[1fr_80px_80px_80px_60px] gap-2 p-3 border-b border-white/10 text-xs text-slate-400 uppercase font-bold tracking-wider bg-black/20">
+					<div className="grid grid-cols-[1fr_80px_80px_80px_60px] gap-2 p-3 border-b border-white/10 text-sm text-slate-300 uppercase font-bold tracking-wider bg-black/20">
 						<span>Layer</span>
 						<span>Color</span>
 						<span>Freeze</span>
@@ -124,14 +124,14 @@ export default function LayersPage() {
 										const v = Number.parseInt(e.target.value, 10);
 										if (v !== l.color) setColor(l.name, v);
 									}}
-									className="w-14 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-xs text-white text-center outline-none focus:border-amber-500"
+									className="w-14 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-sm text-white text-center outline-none focus:border-amber-500"
 								/>
 							</div>
 
 							<button
 								type="button"
 								onClick={() => applyOp(l.frozen ? "layer-thaw" : "layer-freeze", l.name)}
-								className={`flex items-center justify-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-all ${l.frozen ? "bg-blue-500/20 text-blue-400" : "bg-white/10 text-slate-400 hover:text-white"}`}
+								className={`flex items-center justify-center gap-1 px-2 py-1 rounded-lg text-sm font-bold transition-all ${l.frozen ? "bg-blue-500/20 text-blue-400" : "bg-white/10 text-slate-300 hover:text-white"}`}
 							>
 								{l.frozen ? <Sun size={12} /> : <Snowflake size={12} />}
 							</button>
@@ -139,7 +139,7 @@ export default function LayersPage() {
 							<button
 								type="button"
 								onClick={() => applyOp(l.locked ? "layer-unlock" : "layer-lock", l.name)}
-								className={`flex items-center justify-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-all ${l.locked ? "bg-red-500/20 text-red-400" : "bg-white/10 text-slate-400 hover:text-white"}`}
+								className={`flex items-center justify-center gap-1 px-2 py-1 rounded-lg text-sm font-bold transition-all ${l.locked ? "bg-red-500/20 text-red-400" : "bg-white/10 text-slate-300 hover:text-white"}`}
 							>
 								{l.locked ? <Unlock size={12} /> : <Lock size={12} />}
 							</button>
@@ -147,7 +147,7 @@ export default function LayersPage() {
 							<button
 								type="button"
 								onClick={() => applyOp("delete", l.name)}
-								className="flex items-center justify-center p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all"
+								className="flex items-center justify-center p-2 rounded-lg text-slate-300 hover:text-red-400 hover:bg-red-500/10 transition-all"
 							>
 								<Trash2 size={14} />
 							</button>

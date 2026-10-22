@@ -104,7 +104,7 @@ export default function BlocksPage() {
 							type="button"
 							key={s.key}
 							onClick={() => setSource(s.key)}
-							className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${source === s.key ? `${s.color} text-white shadow-lg` : "bg-white/10 text-slate-400 hover:bg-white/10"}`}
+							className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${source === s.key ? `${s.color} text-white shadow-lg` : "bg-white/10 text-slate-300 hover:bg-white/10"}`}
 						>
 							{s.label}
 						</button>
@@ -140,7 +140,7 @@ export default function BlocksPage() {
 								type="button"
 								key={c.id}
 								onClick={() => setCategory(c.id === category ? "" : c.id)}
-								className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${category === c.id ? "bg-amber-600 text-white shadow-lg" : c.id === "" ? "bg-white/10 text-slate-400 hover:bg-white/10" : "bg-white/10 text-slate-300 hover:text-slate-300 hover:bg-white/10"}`}
+								className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${category === c.id ? "bg-amber-600 text-white shadow-lg" : c.id === "" ? "bg-white/10 text-slate-300 hover:bg-white/10" : "bg-white/10 text-slate-300 hover:text-slate-300 hover:bg-white/10"}`}
 							>
 								{c.label}
 							</button>
@@ -172,7 +172,7 @@ export default function BlocksPage() {
 								{item.source !== "gallery" && (
 									<span className="px-2 py-0.5 rounded bg-white/10 text-slate-300 uppercase">{item.source}</span>
 								)}
-								{item.category && <span className="text-slate-400">{item.category}</span>}
+								{item.category && <span className="text-slate-300">{item.category}</span>}
 							</div>
 							<div className="flex items-center gap-2 pt-1">
 								<button
@@ -196,7 +196,7 @@ export default function BlocksPage() {
 										href={item.url}
 										target="_blank"
 										rel="noopener noreferrer"
-										className="text-slate-400 hover:text-slate-400"
+										className="text-slate-300 hover:text-slate-300"
 									>
 										<ExternalLink size={14} />
 									</a>
@@ -208,7 +208,7 @@ export default function BlocksPage() {
 			</div>
 
 			{!loading && results.length === 0 && !error && (
-				<div className="text-center py-12 text-slate-400">
+				<div className="text-center py-12 text-slate-300">
 					<Grid3X3 size={48} className="mx-auto mb-4 opacity-30" />
 					<p>Search for architectural blocks, furniture, doors, or sample floor plans.</p>
 				</div>
@@ -216,7 +216,7 @@ export default function BlocksPage() {
 
 			{recent.length > 0 && (
 				<div className="bg-[#1e1e26] border border-white/10 rounded-2xl p-4 space-y-2">
-					<h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+					<h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
 						<CheckCircle size={12} className="text-emerald-400" /> Added to Depot
 					</h3>
 					{recent.map((f) => (

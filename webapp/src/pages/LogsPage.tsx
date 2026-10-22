@@ -95,7 +95,7 @@ export default function LogsPage() {
 				</div>
 				<div className="h-[60vh] overflow-y-auto p-4 font-mono text-sm text-slate-300 whitespace-pre-wrap break-all">
 					{display.length === 0 ? (
-						<span className="text-slate-400 italic">No log lines.</span>
+						<span className="text-slate-300 italic">No log lines.</span>
 					) : (
 						display.map((l, i) => (
 							<div
