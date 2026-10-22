@@ -11,17 +11,21 @@ jobs:
       - uses: astral-sh/setup-uv@v3
       - uses: actions/setup-node@v4
         with: { node-version: "22" }
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: "1.3.14" }
       - run: uv sync --all-extras
       - run: uv run ruff check src/ run_server.py --quiet
       - run: uv run ruff format src/ run_server.py --check --quiet
-      # Non-blocking: 101 pre-existing third-party-stub errors (ezdxf private
-      # imports, prefab_ui API drift) — needs a dedicated typing pass.
-      # New code must be pyright-clean (verified in assfix Phase 3).
+      # Typing gate: pyright-clean since the v0.4.0 stub-drift sprint.
       - run: uv run --with pyright -- pyright src/
-        continue-on-error: true
-      - run: npm --prefix webapp ci && npm --prefix webapp run biome:ci
-      - run: npm --prefix webapp ci && npm --prefix webapp run check
-      - run: npm --prefix webapp ci && npm --prefix webapp run build
+      - run: bun install --frozen-lockfile
+        working-directory: webapp
+      - run: bun run biome:ci
+        working-directory: webapp
+      - run: bun run check
+        working-directory: webapp
+      - run: bun run build
+        working-directory: webapp
 
   test:
     runs-on: windows-latest
